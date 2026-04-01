@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react'
 
-import { cn } from '@/lib/utils'
-
 interface DashboardSectionHeaderProps {
   title: string
   description?: string
@@ -13,17 +11,54 @@ export function DashboardSectionHeader({
   title,
   description,
   actions,
-  className,
 }: DashboardSectionHeaderProps) {
   return (
-    <div className={cn('mb-3 flex items-start justify-between gap-3', className)}>
-      <div className="min-w-0 space-y-0.5">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: 'linear-gradient(to right, #000080, #1084D0)',
+        color: '#FFFFFF',
+        padding: '3px 6px',
+        marginBottom: '6px',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: '11px',
+            fontWeight: 'bold',
+            color: '#FFFFFF',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </h2>
         {description ? (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '10px',
+              color: 'rgba(255,255,255,0.8)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="inline-flex shrink-0 items-center gap-1">{actions}</div> : null}
+      {actions ? (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {actions}
+        </div>
+      ) : null}
     </div>
   )
 }

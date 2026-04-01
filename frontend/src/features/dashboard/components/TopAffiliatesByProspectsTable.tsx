@@ -1,19 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
-import { agentStatusBadgeClass } from '../utils/semanticBadges'
 
 export interface TopAffiliateTableRow {
   rank: number
@@ -50,87 +37,179 @@ interface TopAffiliatesByProspectsTableProps {
   rows: TopAffiliateTableRow[]
 }
 
+const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  active: { bg: '#008000', color: '#FFFFFF' },
+  inactive: { bg: '#808080', color: '#FFFFFF' },
+  pending: { bg: '#808000', color: '#FFFFFF' },
+  suspended: { bg: '#800000', color: '#FFFFFF' },
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '3px 6px',
+  textAlign: 'left',
+  fontSize: '11px',
+  fontWeight: 'bold',
+  background: '#D4D0C8',
+  borderBottom: '2px solid #808080',
+  color: '#000000',
+  whiteSpace: 'nowrap',
+}
+
+const tdStyle: React.CSSProperties = {
+  padding: '2px 6px',
+  fontSize: '11px',
+  color: '#000000',
+  borderBottom: '1px solid #D4D0C8',
+  verticalAlign: 'middle',
+}
+
 export function TopAffiliatesByProspectsTable({ rows }: TopAffiliatesByProspectsTableProps) {
   const headerActions = (
-    <Button asChild variant="ghost" size="sm" className="gap-1.5">
-      <Link to="/agents">
-        Voir tous les affiliés
-        <ArrowRight className="size-4" aria-hidden />
-      </Link>
-    </Button>
+    <Link
+      to="/agents"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '3px',
+        padding: '1px 6px',
+        background: '#D4D0C8',
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        fontSize: '11px',
+        color: '#000000',
+        textDecoration: 'none',
+        fontFamily: 'Tahoma, sans-serif',
+      }}
+    >
+      Voir tout
+      <ArrowRight size={11} />
+    </Link>
   )
 
   return (
-    <>
+    <div
+      style={{
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        background: '#D4D0C8',
+        fontFamily: 'Tahoma, sans-serif',
+        fontSize: '11px',
+      }}
+    >
       <DashboardSectionHeader title="Top affiliés par prospects" actions={headerActions} />
 
-      {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
-          Aucune activité affilié pour le moment.
-        </p>
-      ) : (
-        <div className="rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10 text-center">#</TableHead>
-                <TableHead>Affilié</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
-                <TableHead className="hidden md:table-cell">Statut</TableHead>
-                <TableHead>Adhésion</TableHead>
-                <TableHead className="text-right">Prospects</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.agentId}>
-                  <TableCell className="text-center text-muted-foreground">{row.rank}</TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/agents/${row.agentId}`}
-                      className="group -m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      aria-label={`Voir le profil de ${row.displayName}`}
+      <div style={{ padding: '6px' }}>
+        {rows.length === 0 ? (
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              padding: '16px',
+              textAlign: 'center',
+              color: '#808080',
+              fontSize: '11px',
+            }}
+          >
+            Aucune activité affilié pour le moment.
+          </div>
+        ) : (
+          <div
+            style={{
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              background: '#FFFFFF',
+              overflow: 'auto',
+            }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: '32px', textAlign: 'center' }}>#</th>
+                  <th style={thStyle}>Affilié</th>
+                  <th style={thStyle}>Email</th>
+                  <th style={thStyle}>Statut</th>
+                  <th style={thStyle}>Adhésion</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Prospects</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => {
+                  const statusStyle = STATUS_COLORS[row.status?.toLowerCase() ?? ''] ?? { bg: '#808080', color: '#FFFFFF' }
+                  return (
+                    <tr
+                      key={row.agentId}
+                      style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F0F0F0' }}
                     >
-                      <Avatar className="size-9 shrink-0">
-                        <AvatarFallback className="text-xs font-medium">
-                          {initials(row.displayName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
-                          {row.displayName}
-                        </p>
-                        <p className="truncate font-mono text-[11px] text-muted-foreground">
-                          {formatShortId(row.agentId)}
-                        </p>
-                      </div>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="hidden max-w-[12rem] truncate sm:table-cell">
-                    {row.email ?? '—'}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {row.status ? (
-                      <Badge
-                        variant="outline"
-                        className={`capitalize ${agentStatusBadgeClass(row.status)}`}
-                      >
-                        {row.status.replace(/_/g, ' ')}
-                      </Badge>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatJoined(row.joinedAt)}</TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums text-primary">
-                    {row.prospectCount.toLocaleString('fr-FR')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </>
+                      <td style={{ ...tdStyle, textAlign: 'center', color: '#808080', fontWeight: 'bold' }}>
+                        {row.rank}
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {/* Win2000-style avatar - colored square with initials */}
+                          <div
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              background: '#000080',
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '9px',
+                              fontWeight: 'bold',
+                              flexShrink: 0,
+                              border: '1px solid #808080',
+                            }}
+                          >
+                            {initials(row.displayName)}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <Link
+                              to={`/agents/${row.agentId}`}
+                              style={{ color: '#000080', textDecoration: 'underline', fontSize: '11px', fontWeight: 'bold', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}
+                            >
+                              {row.displayName}
+                            </Link>
+                            <div style={{ fontSize: '10px', color: '#808080', fontFamily: 'Courier New, monospace' }}>
+                              {formatShortId(row.agentId)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, color: '#444444', maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.email ?? '—'}
+                      </td>
+                      <td style={tdStyle}>
+                        {row.status ? (
+                          <span
+                            style={{
+                              background: statusStyle.bg,
+                              color: statusStyle.color,
+                              padding: '1px 5px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {row.status.replace(/_/g, ' ')}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ ...tdStyle, color: '#444444', whiteSpace: 'nowrap' }}>
+                        {formatJoined(row.joinedAt)}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#000080' }}>
+                        {row.prospectCount.toLocaleString('fr-FR')}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

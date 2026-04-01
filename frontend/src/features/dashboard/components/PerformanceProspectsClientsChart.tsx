@@ -1,40 +1,12 @@
 import * as React from 'react'
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
-
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
 import type { ProspectRecord } from '@/types/prospects'
 import type { TransactionRecord } from '@/types/transactions'
 
 const MONTH_LABELS_FR = [
-  'Jan',
-  'Fév',
-  'Mar',
-  'Avr',
-  'Mai',
-  'Juin',
-  'Juil',
-  'Août',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Déc',
+  'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
+  'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
 ] as const
 
 function isConvertedTransaction(t: TransactionRecord) {
@@ -91,26 +63,9 @@ function buildChartRows(
     const prospectsTotal = prospectCounts[index]
     const clients = clientSets[index].size
     const prospectsOpen = Math.max(0, prospectsTotal - clients)
-    return {
-      month,
-      monthIndex: index,
-      prospects: prospectsOpen,
-      clients,
-      prospectsTotal,
-    }
+    return { month, monthIndex: index, prospects: prospectsOpen, clients, prospectsTotal }
   })
 }
-
-const chartConfig = {
-  clients: {
-    label: 'Clients convertis',
-    color: 'var(--chart-1)',
-  },
-  prospects: {
-    label: 'Prospects',
-    color: 'var(--chart-2)',
-  },
-} satisfies ChartConfig
 
 export interface PerformanceProspectsClientsChartProps {
   prospects: ProspectRecord[]
@@ -121,11 +76,7 @@ export function PerformanceProspectsClientsChart({
   prospects,
   transactions,
 }: PerformanceProspectsClientsChartProps) {
-  const years = React.useMemo(
-    () => collectYears(prospects, transactions),
-    [prospects, transactions],
-  )
-
+  const years = React.useMemo(() => collectYears(prospects, transactions), [prospects, transactions])
   const defaultYear = String(new Date().getFullYear())
   const [year, setYear] = React.useState(defaultYear)
 
@@ -142,51 +93,96 @@ export function PerformanceProspectsClientsChart({
   )
 
   const yearSelect = (
-    <Select value={year} onValueChange={setYear}>
-      <SelectTrigger size="sm" className="w-full max-w-48 min-w-[7.5rem]">
-        <SelectValue placeholder="Année" />
-      </SelectTrigger>
-      <SelectContent align="end">
-        <SelectGroup>
-          <SelectLabel>Année</SelectLabel>
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>
-              {y}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+    <select
+      value={year}
+      onChange={(e) => setYear(e.target.value)}
+      style={{
+        height: '18px',
+        padding: '0 2px',
+        fontSize: '11px',
+        background: '#FFFFFF',
+        border: '2px solid',
+        borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+        color: '#000000',
+        cursor: 'pointer',
+        fontFamily: 'Tahoma, sans-serif',
+      }}
+    >
+      {years.map((y) => (
+        <option key={y} value={String(y)}>{y}</option>
+      ))}
+    </select>
   )
 
   return (
-    <>
+    <div
+      style={{
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        background: '#D4D0C8',
+        fontFamily: 'Tahoma, sans-serif',
+        fontSize: '11px',
+      }}
+    >
       <DashboardSectionHeader
         title="Prospects et conversions mensuelles"
-        description="Volume de prospects soumis et de clients convertis, mois par mois, pour l’année choisie."
+        description="Volume de prospects soumis et de clients convertis, mois par mois."
         actions={yearSelect}
       />
-
-      <ChartContainer config={chartConfig} className="aspect-[21/9] w-full max-h-[280px]">
-        <BarChart accessibilityLayer data={chartData} margin={{ left: 4, right: 4 }}>
-          <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="clients"
-            stackId="a"
-            fill="var(--color-clients)"
-            radius={[0, 0, 4, 4]}
-          />
-          <Bar
-            dataKey="prospects"
-            stackId="a"
-            fill="var(--color-prospects)"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ChartContainer>
-    </>
+      <div style={{ padding: '6px', background: '#D4D0C8' }}>
+        {/* Legend */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '6px', fontSize: '10px' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '12px', height: '12px', background: '#000080', display: 'inline-block' }} />
+            Clients convertis
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '12px', height: '12px', background: '#1084D0', display: 'inline-block' }} />
+            Prospects
+          </span>
+        </div>
+        {/* Chart area - sunken */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '2px solid',
+            borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+            padding: '8px 4px 4px',
+          }}
+        >
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ left: 0, right: 0, top: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke="#D4D0C8" strokeDasharray="" />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fontFamily: 'Tahoma', fill: '#000000' }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fontFamily: 'Tahoma', fill: '#000000' }}
+                width={28}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: '#FFFFE1',
+                  border: '2px solid',
+                  borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+                  fontSize: '11px',
+                  fontFamily: 'Tahoma',
+                  padding: '4px 8px',
+                  boxShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                }}
+                cursor={{ fill: 'rgba(0,0,128,0.08)' }}
+              />
+              <Bar dataKey="clients" stackId="a" fill="#000080" radius={0} />
+              <Bar dataKey="prospects" stackId="a" fill="#1084D0" radius={0} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
   )
 }

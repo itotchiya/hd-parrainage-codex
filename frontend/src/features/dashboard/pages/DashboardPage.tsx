@@ -55,11 +55,23 @@ export function DashboardPage() {
     enabled: isBusinessOwner,
   })
 
+  const winPanelStyle: React.CSSProperties = {
+    background: '#D4D0C8',
+    border: '2px solid',
+    borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+    padding: '6px',
+    fontFamily: 'Tahoma, "MS Sans Serif", sans-serif',
+    fontSize: '11px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  }
+
   if (!isBusinessOwner) {
     return (
-      <section className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Dashboard customization is currently focused on the business-owner experience first.
-      </section>
+      <div style={{ ...winPanelStyle, color: '#808080' }}>
+        Dashboard non disponible — réservé aux propriétaires d&apos;entreprise.
+      </div>
     )
   }
 
@@ -72,9 +84,22 @@ export function DashboardPage() {
     agentsQuery.isPending
   ) {
     return (
-      <section className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Loading business dashboard...
-      </section>
+      <div style={winPanelStyle}>
+        {/* Win2000-style progress indicator */}
+        <div
+          style={{
+            width: '16px',
+            height: '16px',
+            border: '2px solid',
+            borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+            background: '#1084D0',
+            animation: 'none',
+          }}
+        />
+        <span style={{ color: '#000080', fontWeight: 'bold' }}>
+          Chargement du tableau de bord...
+        </span>
+      </div>
     )
   }
 
@@ -93,12 +118,62 @@ export function DashboardPage() {
       (transactionsQuery.error as ApiError | undefined)?.message ??
       (pointsLedgerQuery.error as ApiError | undefined)?.message ??
       (agentsQuery.error as ApiError | undefined)?.message ??
-      'Unable to load dashboard data.'
+      'Impossible de charger les données du tableau de bord.'
 
     return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        {message}
-      </section>
+      <div
+        style={{
+          background: '#D4D0C8',
+          border: '2px solid',
+          borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+          padding: '8px',
+          fontFamily: 'Tahoma, sans-serif',
+          fontSize: '11px',
+        }}
+      >
+        {/* Win2000 error dialog style */}
+        <div
+          style={{
+            background: 'linear-gradient(to right, #800000, #C00000)',
+            color: '#FFFFFF',
+            padding: '3px 6px',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}
+        >
+          Erreur — Tableau de bord
+        </div>
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '2px solid',
+            borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+            padding: '8px',
+            color: '#800000',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+          }}
+        >
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              background: '#FF0000',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: '12px',
+              flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+          {message}
+        </div>
+      </div>
     )
   }
 
@@ -107,7 +182,6 @@ export function DashboardPage() {
   const transactions = transactionsQuery.data?.data ?? []
   const pointsLedger = pointsLedgerQuery.data?.data ?? []
   const agents = agentsQuery.data?.data ?? []
-
   const summaryCards = summaryQuery.data?.data.cards ?? []
 
   const sortedPrograms = useMemo(() => {
@@ -140,7 +214,6 @@ export function DashboardPage() {
           existing.totalProspects += 1
           return acc
         }
-
         acc.set(prospect.agent_id, {
           id: prospect.agent_id,
           name: prospect.agent_name ?? 'Unknown affiliate',
@@ -181,8 +254,23 @@ export function DashboardPage() {
   }
 
   return (
-    <section className="space-y-3">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
+    <section
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        fontFamily: 'Tahoma, "MS Sans Serif", sans-serif',
+        fontSize: '11px',
+      }}
+    >
+      {/* KPI cards row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '6px',
+        }}
+      >
         {summaryCards.map((card: DashboardMetricCardRecord) => (
           <KpiCard
             key={card.key}
@@ -196,30 +284,29 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
-        <article className="app-card-padding rounded-lg bg-card xl:col-span-3">
+      {/* Charts row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr',
+          gap: '6px',
+        }}
+      >
+        <div>
           <PerformanceProspectsClientsChart prospects={prospects} transactions={transactions} />
-        </article>
-
-        <article className="app-card-padding rounded-lg bg-card xl:col-span-2">
+        </div>
+        <div>
           <PointsBalancePieChart ledgerEntries={pointsLedger} />
-        </article>
+        </div>
       </div>
 
-      <article className="app-card-padding rounded-lg bg-card">
-        <TopAffiliatesByProspectsTable rows={topAffiliateRows} />
-      </article>
-
-      <article className="app-card-padding rounded-lg bg-card">
-        <RecentActivityTable transactions={recentTransactions} />
-      </article>
-
-      <article className="app-card-padding rounded-lg bg-card">
-        <ProgramsOverviewTable
-          programs={sortedPrograms}
-          defaultBusinessName={user?.primary_business?.display_name ?? undefined}
-        />
-      </article>
+      {/* Tables */}
+      <TopAffiliatesByProspectsTable rows={topAffiliateRows} />
+      <RecentActivityTable transactions={recentTransactions} />
+      <ProgramsOverviewTable
+        programs={sortedPrograms}
+        defaultBusinessName={user?.primary_business?.display_name ?? undefined}
+      />
     </section>
   )
 }

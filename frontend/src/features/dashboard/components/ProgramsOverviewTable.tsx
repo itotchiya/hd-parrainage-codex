@@ -1,18 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
-import { programStatusBadgeClass } from '../utils/semanticBadges'
 import type { ProgramRecord } from '@/types/programs'
 
 function commissionLabel(type: ProgramRecord['commission_type']) {
@@ -32,92 +20,158 @@ const STATUS_LABEL_FR: Record<ProgramRecord['status'], string> = {
   archived: 'Archivé',
 }
 
+const STATUS_COLORS: Record<ProgramRecord['status'], { bg: string; color: string }> = {
+  active: { bg: '#008000', color: '#FFFFFF' },
+  paused: { bg: '#808000', color: '#FFFFFF' },
+  draft: { bg: '#808080', color: '#FFFFFF' },
+  archived: { bg: '#404040', color: '#FFFFFF' },
+}
+
 interface ProgramsOverviewTableProps {
   programs: ProgramRecord[]
   defaultBusinessName?: string
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '3px 6px',
+  textAlign: 'left',
+  fontSize: '11px',
+  fontWeight: 'bold',
+  background: '#D4D0C8',
+  borderBottom: '2px solid #808080',
+  color: '#000000',
+  whiteSpace: 'nowrap',
+}
+
+const tdStyle: React.CSSProperties = {
+  padding: '2px 6px',
+  fontSize: '11px',
+  color: '#000000',
+  borderBottom: '1px solid #D4D0C8',
+  verticalAlign: 'middle',
+}
+
 export function ProgramsOverviewTable({ programs, defaultBusinessName }: ProgramsOverviewTableProps) {
   const headerActions = (
-    <Button asChild variant="ghost" size="sm" className="gap-1.5">
-      <Link to="/programs">
-        Voir tous les programmes
-        <ArrowRight className="size-4" aria-hidden />
-      </Link>
-    </Button>
+    <Link
+      to="/programs"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '3px',
+        padding: '1px 6px',
+        background: '#D4D0C8',
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        fontSize: '11px',
+        color: '#000000',
+        textDecoration: 'none',
+        fontFamily: 'Tahoma, sans-serif',
+      }}
+    >
+      Voir tout
+      <ArrowRight size={11} />
+    </Link>
   )
 
   return (
-    <>
+    <div
+      style={{
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        background: '#D4D0C8',
+        fontFamily: 'Tahoma, sans-serif',
+        fontSize: '11px',
+      }}
+    >
       <DashboardSectionHeader title="Programmes" actions={headerActions} />
 
-      {programs.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
-          Aucun programme pour ce compte.
-        </p>
-      ) : (
-        <div className="rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Programme</TableHead>
-                <TableHead className="hidden md:table-cell">Entreprise</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="hidden lg:table-cell">Rémunération</TableHead>
-                <TableHead className="hidden xl:table-cell">Échange</TableHead>
-                <TableHead className="text-right">Affiliés</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {programs.map((p) => {
-                const business = p.business_name ?? defaultBusinessName ?? '—'
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <Link
-                        to={`/programs/${p.id}`}
-                        className="group block min-w-0 font-medium text-primary underline-offset-2 hover:underline"
-                      >
-                        <span className="line-clamp-2 text-foreground group-hover:text-primary">
+      <div style={{ padding: '6px' }}>
+        {programs.length === 0 ? (
+          <div
+            style={{
+              background: '#FFFFFF',
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              padding: '16px',
+              textAlign: 'center',
+              color: '#808080',
+              fontSize: '11px',
+            }}
+          >
+            Aucun programme pour ce compte.
+          </div>
+        ) : (
+          <div
+            style={{
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              background: '#FFFFFF',
+              overflow: 'auto',
+            }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Programme</th>
+                  <th style={{ ...thStyle, display: 'none' }} className="md:table-cell">Entreprise</th>
+                  <th style={thStyle}>Statut</th>
+                  <th style={{ ...thStyle }}>Rémunération</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Affiliés</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programs.map((p, i) => {
+                  const business = p.business_name ?? defaultBusinessName ?? '—'
+                  const statusColor = STATUS_COLORS[p.status]
+                  return (
+                    <tr
+                      key={p.id}
+                      style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F0F0F0' }}
+                    >
+                      <td style={tdStyle}>
+                        <Link
+                          to={`/programs/${p.id}`}
+                          style={{ color: '#000080', textDecoration: 'underline', fontSize: '11px' }}
+                        >
                           {p.name}
-                        </span>
-                        <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                        </Link>
+                        <div style={{ fontSize: '10px', color: '#808080', fontFamily: 'Courier New, monospace' }}>
                           {p.slug}
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, color: '#444444', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {business}
+                      </td>
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            background: statusColor.bg,
+                            color: statusColor.color,
+                            padding: '1px 5px',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {STATUS_LABEL_FR[p.status]}
                         </span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground md:hidden">
-                          {business}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="hidden max-w-[14rem] truncate text-muted-foreground md:table-cell">
-                      {business}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={programStatusBadgeClass(p.status)}
-                      >
-                        {STATUS_LABEL_FR[p.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground lg:table-cell">
-                      {commissionLabel(p.commission_type)}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground xl:table-cell">
-                      {exchangeModeLabel(p.exchange_mode)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-foreground">
-                      {typeof p.assigned_agents_count === 'number'
-                        ? p.assigned_agents_count.toLocaleString('fr-FR')
-                        : '—'}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </>
+                      </td>
+                      <td style={{ ...tdStyle, color: '#444444' }}>
+                        {commissionLabel(p.commission_type)}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold' }}>
+                        {typeof p.assigned_agents_count === 'number'
+                          ? p.assigned_agents_count.toLocaleString('fr-FR')
+                          : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

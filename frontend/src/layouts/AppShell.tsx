@@ -1,24 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, ChevronDown, LogOut, Monitor, Moon, PanelLeft, Search, Settings, Sun, User } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, PanelLeft, Search, Settings, User } from 'lucide-react'
 import { authenticatedNavigation } from '../app/navigation'
 import { useAuthSession } from '../features/auth/session'
 import { fetchNotifications } from '../features/notifications/api'
 import { AppSidebar } from './AppSidebar'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Breadcrumb,
-  BreadcrumbEllipsis,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,19 +21,6 @@ export function AppShell() {
   const navigate = useNavigate()
   const { hasPermission, logout, logoutPending, user } = useAuthSession()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
-    if (typeof window === 'undefined') {
-      return 'system'
-    }
-
-    const storedTheme = window.localStorage.getItem('hd-parrainage-theme')
-    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
-      return storedTheme
-    }
-
-    return 'system'
-  })
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'header'],
@@ -63,73 +38,19 @@ export function AppShell() {
         location.pathname === route.path ||
         location.pathname.startsWith(`${route.path}/`),
     ) ?? authenticatedNavigation[0]
+
   const isDashboardRoute =
     location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/')
-  const dashboardSurfaceClass = isDashboardRoute
-    ? 'bg-[#f5f5f5] dark:bg-[#0A0A0A]'
-    : 'bg-background'
 
   const unreadCount = notificationsQuery.data?.meta.unread_count ?? 0
-  const recentNotifications = (notificationsQuery.data?.data ?? []).slice(0, 4)
   const userInitial = user?.display_name?.trim().charAt(0).toUpperCase() ?? 'U'
   const displayName = user?.display_name?.trim() ?? 'User'
 
   const pathSegments = location.pathname.split('/').filter(Boolean)
-  const hasDeepPath = pathSegments.length > 2
-  const isIdLike = (value: string) =>
-    /^\d+$/.test(value) ||
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-
-  const shouldShowEllipsis =
-    hasDeepPath || pathSegments.some((segment, index) => index > 0 && isIdLike(segment))
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const root = document.documentElement
-    let transitionCleanupTimer: number | undefined
-    const applyTheme = () => {
-      const nextTheme =
-        theme === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : theme
-
-      root.classList.add('theme-transition')
-      setResolvedTheme(nextTheme)
-      root.dataset.theme = nextTheme
-      root.classList.toggle('dark', nextTheme === 'dark')
-      window.localStorage.setItem('hd-parrainage-theme', theme)
-
-      if (transitionCleanupTimer) {
-        window.clearTimeout(transitionCleanupTimer)
-      }
-      transitionCleanupTimer = window.setTimeout(() => {
-        root.classList.remove('theme-transition')
-      }, 260)
-    }
-
-    const handleSystemChange = () => {
-      if (theme === 'system') {
-        applyTheme()
-      }
-    }
-
-    applyTheme()
-    mediaQuery.addEventListener('change', handleSystemChange)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleSystemChange)
-      if (transitionCleanupTimer) {
-        window.clearTimeout(transitionCleanupTimer)
-      }
-      root.classList.remove('theme-transition')
-    }
-  }, [theme])
 
   return (
     <main
-      className={`min-h-screen text-foreground ${dashboardSurfaceClass}`}
+      style={{ background: '#D4D0C8', minHeight: '100vh', fontFamily: 'Tahoma, "MS Sans Serif", sans-serif', fontSize: '11px' }}
     >
       <AppSidebar
         collapsed={sidebarCollapsed}
@@ -142,216 +63,399 @@ export function AppShell() {
       />
 
       <div
-        className={`min-h-screen transition-all duration-300 ${
-          sidebarCollapsed ? 'ml-16' : 'ml-64'
-        } ${dashboardSurfaceClass}`}
+        style={{
+          marginLeft: sidebarCollapsed ? '42px' : '200px',
+          minHeight: '100vh',
+          transition: 'margin-left 0.15s',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
+        {/* Win2000-style menubar / header */}
         <header
-          className={`sticky top-0 z-30 w-full ${dashboardSurfaceClass}`}
+          style={{
+            background: '#D4D0C8',
+            borderBottom: '2px solid #808080',
+            position: 'sticky',
+            top: 0,
+            zIndex: 30,
+          }}
         >
-          <div className="flex h-14 w-full items-center gap-4 px-4 md:px-6">
-            <div className="flex items-center gap-2">
-              <Button
+          {/* Title bar row */}
+          <div
+            style={{
+              background: 'linear-gradient(to right, #000080, #1084D0)',
+              color: '#FFFFFF',
+              padding: '2px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+            }}
+          >
+            <img src="/Uploads/logo-mark-dark.svg" alt="" style={{ height: '14px', width: '14px', filter: 'brightness(10)' }} />
+            <span>HD Parrainage — {isDashboardRoute ? 'Tableau de bord' : (activeRoute?.title ?? 'Page')}</span>
+
+            {/* Title bar buttons (Win-style close/min/max) */}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '2px' }}>
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarCollapsed((value) => !value)}
-                className="-ml-1"
-                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                style={{
+                  width: '16px',
+                  height: '14px',
+                  background: '#D4D0C8',
+                  border: '1px solid',
+                  borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+                  fontSize: '9px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#000000',
+                  fontWeight: 'bold',
+                }}
+                aria-label="Toggle sidebar"
               >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-              <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+                _
+              </button>
+            </div>
+          </div>
+
+          {/* Toolbar row */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '2px 4px',
+              gap: '4px',
+              background: '#D4D0C8',
+              borderBottom: '1px solid #808080',
+            }}
+          >
+            {/* Win-style toolbar buttons */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: '2px 6px',
+                background: '#D4D0C8',
+                border: '2px solid transparent',
+                fontSize: '11px',
+                cursor: 'pointer',
+                color: '#000000',
+              }}
+              onMouseOver={(e) => {
+                const el = e.currentTarget
+                el.style.borderColor = '#FFFFFF #808080 #808080 #FFFFFF'
+              }}
+              onMouseOut={(e) => {
+                const el = e.currentTarget
+                el.style.borderColor = 'transparent'
+              }}
+              aria-label="Toggle sidebar"
+            >
+              <PanelLeft size={14} />
+            </button>
+
+            {/* Separator */}
+            <div style={{ width: '0', borderLeft: '1px solid #808080', borderRight: '1px solid #FFFFFF', height: '18px', margin: '0 2px' }} />
+
+            {/* Breadcrumb / path */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#000000' }}>
               {isDashboardRoute ? (
-                <p className="text-sm text-muted-foreground">
-                  Hello, <span className="font-semibold text-foreground">{displayName}</span>
-                </p>
+                <span>Bienvenue, <strong>{displayName}</strong></span>
               ) : (
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink to="/dashboard">Dashboard</BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    {shouldShowEllipsis ? (
-                      <>
-                        <BreadcrumbItem className="hidden md:block">
-                          <BreadcrumbEllipsis />
-                        </BreadcrumbItem>
-                        <BreadcrumbSeparator className="hidden md:block" />
-                      </>
-                    ) : null}
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{activeRoute.title}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
+                <>
+                  <span
+                    style={{ color: '#000080', cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    Accueil
+                  </span>
+                  <span style={{ color: '#808080' }}>{'>'}</span>
+                  <span>{activeRoute?.title ?? ''}</span>
+                </>
               )}
             </div>
 
-            <div className="ml-auto flex items-center gap-2 md:flex-1 md:justify-end">
-              <div className="relative hidden lg:block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Right side tools */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* Search box */}
+              <div style={{ position: 'relative', display: 'none' }} className="lg:block">
+                <Search
+                  size={12}
+                  style={{
+                    position: 'absolute',
+                    left: '4px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#808080',
+                  }}
+                />
                 <input
                   type="text"
-                  value=""
+                  placeholder="Rechercher..."
                   readOnly
-                  placeholder="Search documentation..."
-                  className="h-8 w-64 rounded-full border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none"
+                  style={{
+                    height: '20px',
+                    width: '160px',
+                    paddingLeft: '18px',
+                    paddingRight: '4px',
+                    fontSize: '11px',
+                    background: '#FFFFFF',
+                    border: '2px solid',
+                    borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+                    outline: 'none',
+                    color: '#000000',
+                  }}
                   aria-label="Global search"
                 />
               </div>
 
-              <Separator
-                orientation="vertical"
-                className="hidden bg-border/80 data-[orientation=vertical]:h-4 lg:block"
-              />
+              {/* Separator */}
+              <div style={{ width: '0', borderLeft: '1px solid #808080', borderRight: '1px solid #FFFFFF', height: '18px', margin: '0 2px' }} />
 
-              <Button
-                onClick={() =>
-                  setTheme((current) => {
-                    const base = current === 'system' ? resolvedTheme : current
-                    return base === 'dark' ? 'light' : 'dark'
-                  })
-                }
-                variant="ghost"
-                size="icon"
-                className="relative"
-                aria-label={
-                  resolvedTheme === 'dark'
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode'
-                }
+              {/* Notifications */}
+              <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  padding: '2px 6px',
+                  background: '#D4D0C8',
+                  border: '2px solid transparent',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  color: '#000000',
+                  position: 'relative',
+                }}
+                onMouseOver={(e) => {
+                  const el = e.currentTarget
+                  el.style.borderColor = '#FFFFFF #808080 #808080 #FFFFFF'
+                }}
+                onMouseOut={(e) => {
+                  const el = e.currentTarget
+                  el.style.borderColor = 'transparent'
+                }}
+                aria-label="Notifications"
               >
-                {resolvedTheme === 'dark' ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
+                <Bell size={14} />
+                {unreadCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-2px',
+                      right: '-2px',
+                      background: '#FF0000',
+                      color: '#FFFFFF',
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      borderRadius: '50%',
+                      width: '12px',
+                      height: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
-              </Button>
+              </button>
 
-              <Separator orientation="vertical" className="bg-border/80 data-[orientation=vertical]:h-4" />
+              {/* Separator */}
+              <div style={{ width: '0', borderLeft: '1px solid #808080', borderRight: '1px solid #FFFFFF', height: '18px', margin: '0 2px' }} />
 
-              <div className="relative">
-                <Button
-                  onClick={() => navigate('/notifications')}
-                  variant="ghost"
-                  size="icon"
-                  className="relative"
-                  aria-label="Open notifications"
-                >
-                  <Bell className="h-4 w-4" />
-                  {unreadCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#38BDF8] px-1 text-[10px] font-semibold text-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  ) : null}
-                </Button>
-                {recentNotifications.length > 0 ? (
-                  <div className="pointer-events-none absolute right-0 mt-2 hidden w-80 rounded-xl border border-border bg-card p-3 shadow-sm md:group-hover:block" />
-                ) : null}
-              </div>
-
-              <Separator orientation="vertical" className="bg-border/80 data-[orientation=vertical]:h-4" />
-
+              {/* User dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="h-8 gap-2 px-2 text-left"
+                  <button
+                    type="button"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 6px',
+                      background: '#D4D0C8',
+                      border: '2px solid transparent',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      color: '#000000',
+                    }}
+                    onMouseOver={(e) => {
+                      const el = e.currentTarget
+                      el.style.borderColor = '#FFFFFF #808080 #808080 #FFFFFF'
+                    }}
+                    onMouseOut={(e) => {
+                      const el = e.currentTarget
+                      el.style.borderColor = 'transparent'
+                    }}
                   >
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={user?.avatar_url ?? undefined} alt={user?.display_name ?? 'User'} />
-                      <AvatarFallback className="text-xs font-semibold">{userInitial}</AvatarFallback>
+                    <Avatar style={{ width: '16px', height: '16px' }}>
+                      <AvatarImage src={user?.avatar_url ?? undefined} alt={displayName} />
+                      <AvatarFallback style={{ fontSize: '9px', fontWeight: 'bold', background: '#000080', color: '#FFFFFF' }}>
+                        {userInitial}
+                      </AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:block">
-                      <span className="block max-w-[140px] truncate text-xs font-semibold text-foreground">
-                        {user?.display_name ?? 'User'}
-                      </span>
+                    <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {displayName}
                     </span>
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
+                    <ChevronDown size={10} />
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span className="truncate text-sm font-medium">{user?.display_name ?? 'User'}</span>
-                      <span className="truncate text-xs text-muted-foreground">{user?.email ?? ''}</span>
-                    </div>
+                <DropdownMenuContent
+                  align="end"
+                  style={{
+                    background: '#D4D0C8',
+                    border: '2px solid',
+                    borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+                    borderRadius: '0',
+                    minWidth: '180px',
+                    padding: '2px',
+                    fontSize: '11px',
+                    boxShadow: '2px 2px 4px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <DropdownMenuLabel style={{ fontSize: '11px', padding: '4px 8px' }}>
+                    <div style={{ fontWeight: 'bold' }}>{displayName}</div>
+                    <div style={{ color: '#808080', fontSize: '10px' }}>{user?.email ?? ''}</div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator style={{ background: '#808080', margin: '2px 0' }} />
                   <DropdownMenuItem
                     onClick={() => navigate('/settings')}
-                    className="cursor-pointer"
+                    style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '11px', gap: '6px', borderRadius: '0' }}
                   >
-                    <User className="h-4 w-4" />
-                    <span>Personal Profile</span>
+                    <User size={12} />
+                    Profil
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => navigate('/settings')}
-                    className="cursor-pointer"
+                    style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '11px', gap: '6px', borderRadius: '0' }}
                   >
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
+                    <Settings size={12} />
+                    Paramètres
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                      Theme
-                    </p>
-                    <Tabs
-                      value={theme}
-                      onValueChange={(value) =>
-                        setTheme(value as 'light' | 'dark' | 'system')
-                      }
-                    >
-                      <TabsList className="w-full">
-                        <TabsTrigger value="light" className="px-2">
-                          <Sun className="h-4 w-4" />
-                        </TabsTrigger>
-                        <TabsTrigger value="dark" className="px-2">
-                          <Moon className="h-4 w-4" />
-                        </TabsTrigger>
-                        <TabsTrigger value="system" className="px-2">
-                          <Monitor className="h-4 w-4" />
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </div>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator style={{ background: '#808080', margin: '2px 0' }} />
                   <DropdownMenuItem
                     onClick={async () => {
                       await logout()
                       navigate('/login', { replace: true })
                     }}
                     disabled={logoutPending}
-                    variant="destructive"
-                    className="cursor-pointer"
+                    style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '11px', gap: '6px', borderRadius: '0', color: '#800000' }}
                   >
-                    <LogOut className="h-4 w-4 text-destructive" />
-                    <span>{logoutPending ? 'Signing out...' : 'Sign out'}</span>
+                    <LogOut size={12} />
+                    {logoutPending ? 'Déconnexion...' : 'Se déconnecter'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
+
+          {/* Status bar / address bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '1px 6px',
+              background: '#D4D0C8',
+              fontSize: '11px',
+              gap: '8px',
+              borderTop: '1px solid #FFFFFF',
+            }}
+          >
+            <span style={{ color: '#808080' }}>Adresse :</span>
+            <div
+              style={{
+                flex: 1,
+                background: '#FFFFFF',
+                border: '2px solid',
+                borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+                padding: '1px 4px',
+                fontSize: '11px',
+                color: '#000000',
+              }}
+            >
+              {location.pathname}
+            </div>
+          </div>
         </header>
 
+        {/* Main content */}
         <div
-          className={
-            isDashboardRoute
-              ? 'w-full px-4 py-4 md:px-6 md:py-6'
-              : 'mx-auto max-w-[1450px] p-4 md:p-6'
-          }
+          style={{
+            flex: 1,
+            padding: isDashboardRoute ? '8px' : '8px',
+            background: '#D4D0C8',
+          }}
         >
           {isDashboardRoute ? (
             <Outlet />
           ) : (
-            <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div
+              style={{
+                background: '#D4D0C8',
+                border: '2px solid',
+                borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+                padding: '8px',
+              }}
+            >
               <Outlet />
-            </section>
+            </div>
           )}
         </div>
+
+        {/* Windows-style status bar at bottom */}
+        <footer
+          style={{
+            background: '#D4D0C8',
+            borderTop: '2px solid #808080',
+            padding: '2px 6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '11px',
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              padding: '1px 4px',
+              fontSize: '11px',
+            }}
+          >
+            Prêt
+          </div>
+          <div
+            style={{
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              padding: '1px 8px',
+              fontSize: '11px',
+            }}
+          >
+            HD Parrainage v1.0
+          </div>
+          <div
+            style={{
+              border: '2px solid',
+              borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+              padding: '1px 8px',
+              fontSize: '11px',
+            }}
+          >
+            {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </footer>
       </div>
     </main>
   )
