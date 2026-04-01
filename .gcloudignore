@@ -1,0 +1,31 @@
+# Speed up `gcloud builds submit` — without this, Cloud Build uploads huge folders
+# (node_modules, vendor, .git). Docker still uses .dockerignore when building the image.
+
+.gcloudignore
+.git
+.github
+**/.git
+
+**/node_modules/
+frontend/dist
+backend/vendor
+backend/.env
+backend/storage/logs/
+backend/storage/framework/cache/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+
+# Root-level only (leading / so we don't exclude backend/app/ etc.)
+/app/
+/Plan/
+/memory/
+/archived/
+/.agents/
+/.skills/
+/.codex-tmp/
+
+.env
+config.toml
+
+# Optional large local-only trees
+.cursor/

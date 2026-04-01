@@ -1,0 +1,29 @@
+# Smaller / faster Cloud Build context for docker/backend/Dockerfile.cloudrun
+.git
+.github
+**/.git
+
+frontend/node_modules
+frontend/dist
+backend/vendor
+backend/.env
+backend/node_modules
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+
+# Root-level repo dirs only (Docker context paths, not backend/app etc.)
+./app
+./Plan
+./memory
+./archived
+./.agents
+./.skills
+./.codex-tmp
+
+*.md
+!backend/README.md
+
+.env
+config.toml

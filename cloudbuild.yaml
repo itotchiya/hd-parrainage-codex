@@ -1,0 +1,21 @@
+# Build and push API image to Artifact Registry (used by Cloud Run).
+# Run from repo root:
+#   gcloud builds submit . --config=cloudbuild.yaml
+#
+# Requires Cloud Build SA to have roles/artifactregistry.writer on the project.
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - docker/backend/Dockerfile.cloudrun
+      - -t
+      - europe-west1-docker.pkg.dev/$PROJECT_ID/hd-parrainage/api:latest
+      - .
+
+images:
+  - europe-west1-docker.pkg.dev/$PROJECT_ID/hd-parrainage/api:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

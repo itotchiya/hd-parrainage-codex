@@ -1,0 +1,38 @@
+# Build from repository root:
+#   docker build -f docker/backend/Dockerfile.cloudrun -t hd-parrainage-api .
+#
+# Cloud Run sets PORT (default 8080). Use a stable APP_KEY from Secret Manager.
+
+FROM composer:2 AS composer
+
+FROM php:8.5-cli-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip libpq-dev libicu-dev libzip-dev \
+    && docker-php-ext-install intl pcntl pdo_pgsql pgsql zip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# Install deps before copying full tree (better layer cache)
+COPY backend/composer.json backend/composer.lock ./
+RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction
+
+COPY backend/ ./
+# --no-scripts: skip post-autoload-dump (package:discover needs APP_KEY); entrypoint runs discover at boot.
+RUN composer dump-autoload --optimize --no-scripts \
+    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    && mkdir -p bootstrap/cache storage/framework/sessions storage/framework/views storage/framework/cache storage/logs \
+    && chmod -R ug+rwX bootstrap/cache storage
+
+COPY docker/backend/entrypoint-cloudrun.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV APP_ENV=production
+ENV LOG_CHANNEL=stderr
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]

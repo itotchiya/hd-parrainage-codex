@@ -96,7 +96,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Cloud SQL unix socket (/cloudsql/...) does not use TLS the same way; "prefer" can break PDO.
+            'sslmode' => env('DB_SSLMODE', str_starts_with((string) env('DB_HOST', ''), '/cloudsql/') ? 'disable' : 'prefer'),
         ],
 
         'sqlsrv' => [
