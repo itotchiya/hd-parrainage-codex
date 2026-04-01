@@ -58,8 +58,16 @@ function readCookie(name: string) {
   return decodeURIComponent(match[1])
 }
 
+function resolveOrigin(base: string): string {
+  try {
+    return new URL(base).origin
+  } catch {
+    return window.location.origin
+  }
+}
+
 export async function ensureCsrfCookie() {
-  const response = await fetch(`${new URL(env.apiBaseUrl).origin}/sanctum/csrf-cookie`, {
+  const response = await fetch(`${resolveOrigin(env.apiBaseUrl)}/sanctum/csrf-cookie`, {
     credentials: 'include',
     headers: {
       Accept: 'application/json',
