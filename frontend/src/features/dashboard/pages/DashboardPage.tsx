@@ -55,6 +55,90 @@ export function DashboardPage() {
     enabled: isBusinessOwner,
   })
 
+  const programs = programsQuery.data?.data ?? []
+  const prospects = prospectsQuery.data?.data ?? []
+  const transactions = transactionsQuery.data?.data ?? []
+  const pointsLedger = pointsLedgerQuery.data?.data ?? []
+  const agents = agentsQuery.data?.data ?? []
+  const summaryCards = summaryQuery.data?.data.cards ?? []
+
+  const sortedPrograms = useMemo(() => {
+    if (programs.length === 0) return []
+    const order: Record<ProgramRecord['status'], number> = {
+      active: 0,
+      paused: 1,
+      draft: 2,
+      archived: 3,
+    }
+    return [...programs].sort((a, b) => {
+      const diff = order[a.status] - order[b.status]
+      if (diff !== 0) return diff
+      return a.name.localeCompare(b.name, 'fr')
+    })
+  }, [programs])
+
+  const agentsById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])
+
+  const topAffiliatesByProspects = useMemo(() => {
+    if (prospects.length === 0) return []
+    return Array.from(
+      prospects.reduce<Map<string, { id: string; name: string; totalProspects: number }>>(
+        (acc, prospect) => {
+          const existing = acc.get(prospect.agent_id)
+          if (existing) {
+            existing.totalProspects += 1
+            return acc
+          }
+
+          acc.set(prospect.agent_id, {
+            id: prospect.agent_id,
+            name: prospect.agent_name ?? 'Unknown affiliate',
+            totalProspects: 1,
+          })
+          return acc
+        },
+        new Map(),
+      ).values(),
+    )
+      .sort((a, b) => b.totalProspects - a.totalProspects || a.name.localeCompare(b.name))
+      .slice(0, 8)
+  }, [prospects])
+
+  const topAffiliateRows = useMemo(() => {
+    return topAffiliatesByProspects.map((aff, index) => {
+      const agent = agentsById.get(aff.id)
+      const joinedAt = agent?.activated_at ?? agent?.invited_at ?? agent?.created_at ?? null
+      return {
+        rank: index + 1,
+        agentId: aff.id,
+        displayName: agent?.display_name?.trim() || aff.name,
+        email: agent?.email ?? null,
+        status: agent?.status ?? null,
+        joinedAt,
+        prospectCount: aff.totalProspects,
+      }
+    })
+  }, [agentsById, topAffiliatesByProspects])
+
+  const recentTransactions = useMemo(() => {
+    if (transactions.length === 0) return []
+    return [...transactions]
+      .sort((a, b) => {
+        const left = new Date(a.occurred_at ?? a.created_at ?? 0).getTime()
+        const right = new Date(b.occurred_at ?? b.created_at ?? 0).getTime()
+        return right - left
+      })
+      .slice(0, 6)
+  }, [transactions])
+
+  const kpiIcons: Record<DashboardMetricKey, typeof Users> = {
+    prospects_synced: Users,
+    clients_converted: TrendingUp,
+    prospect_to_client_rate: Percent,
+    affiliates_contributors: UserCheck,
+    points_auto_awarded: Wallet,
+  }
+
   if (!isBusinessOwner) {
     return (
       <section className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
@@ -100,84 +184,6 @@ export function DashboardPage() {
         {message}
       </section>
     )
-  }
-
-  const programs = programsQuery.data?.data ?? []
-  const prospects = prospectsQuery.data?.data ?? []
-  const transactions = transactionsQuery.data?.data ?? []
-  const pointsLedger = pointsLedgerQuery.data?.data ?? []
-  const agents = agentsQuery.data?.data ?? []
-
-  const summaryCards = summaryQuery.data?.data.cards ?? []
-
-  const sortedPrograms = useMemo(() => {
-    const order: Record<ProgramRecord['status'], number> = {
-      active: 0,
-      paused: 1,
-      draft: 2,
-      archived: 3,
-    }
-    return [...programs].sort((a, b) => {
-      const diff = order[a.status] - order[b.status]
-      if (diff !== 0) return diff
-      return a.name.localeCompare(b.name, 'fr')
-    })
-  }, [programs])
-
-  const recentTransactions = [...transactions]
-    .sort((a, b) => {
-      const left = new Date(a.occurred_at ?? a.created_at ?? 0).getTime()
-      const right = new Date(b.occurred_at ?? b.created_at ?? 0).getTime()
-      return right - left
-    })
-    .slice(0, 6)
-
-  const topAffiliatesByProspects = Array.from(
-    prospects.reduce<Map<string, { id: string; name: string; totalProspects: number }>>(
-      (acc, prospect) => {
-        const existing = acc.get(prospect.agent_id)
-        if (existing) {
-          existing.totalProspects += 1
-          return acc
-        }
-
-        acc.set(prospect.agent_id, {
-          id: prospect.agent_id,
-          name: prospect.agent_name ?? 'Unknown affiliate',
-          totalProspects: 1,
-        })
-        return acc
-      },
-      new Map(),
-    ).values(),
-  )
-    .sort((a, b) => b.totalProspects - a.totalProspects || a.name.localeCompare(b.name))
-    .slice(0, 8)
-
-  const agentsById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])
-
-  const topAffiliateRows = useMemo(() => {
-    return topAffiliatesByProspects.map((aff, index) => {
-      const agent = agentsById.get(aff.id)
-      const joinedAt = agent?.activated_at ?? agent?.invited_at ?? agent?.created_at ?? null
-      return {
-        rank: index + 1,
-        agentId: aff.id,
-        displayName: agent?.display_name?.trim() || aff.name,
-        email: agent?.email ?? null,
-        status: agent?.status ?? null,
-        joinedAt,
-        prospectCount: aff.totalProspects,
-      }
-    })
-  }, [agentsById, topAffiliatesByProspects])
-
-  const kpiIcons: Record<DashboardMetricKey, typeof Users> = {
-    prospects_synced: Users,
-    clients_converted: TrendingUp,
-    prospect_to_client_rate: Percent,
-    affiliates_contributors: UserCheck,
-    points_auto_awarded: Wallet,
   }
 
   return (
