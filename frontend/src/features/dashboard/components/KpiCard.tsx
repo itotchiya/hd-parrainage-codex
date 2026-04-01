@@ -1,10 +1,5 @@
 import type { ComponentType } from 'react'
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
-
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
-import { IconTile } from '@/components/ui/icon-tile'
-import { cn } from '@/lib/utils'
 import type {
   DashboardMetricBadge,
   DashboardMetricBadgeTone,
@@ -18,45 +13,27 @@ interface KpiCardProps {
   value: string
   description: string
   badge: DashboardMetricBadge
-  icon: ComponentType<{ className?: string }>
+  icon: ComponentType<{ size?: number; className?: string }>
   tone: KpiTone
 }
 
-const toneStyles: Record<
-  KpiTone,
-  {
-    icon: string
-    badge: string
-  }
-> = {
-  primary: {
-    icon: 'bg-blue-50 text-blue-700 dark:bg-blue-500/12 dark:text-blue-300',
-    badge: 'bg-blue-50 text-blue-700 dark:bg-blue-500/12 dark:text-blue-300',
-  },
-  success: {
-    icon: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300',
-    badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300',
-  },
-  warning: {
-    icon: 'bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300',
-    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300',
-  },
-  info: {
-    icon: 'bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-300',
-    badge: 'bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-300',
-  },
+const toneIconColors: Record<KpiTone, string> = {
+  primary: '#000080',
+  success: '#008000',
+  warning: '#808000',
+  info: '#008080',
 }
 
-const badgeStyles: Record<DashboardMetricBadgeTone, string> = {
-  success: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300',
-  danger: 'bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300',
-  neutral: 'bg-muted text-muted-foreground',
-  primary: 'bg-blue-50 text-blue-700 dark:bg-blue-500/12 dark:text-blue-300',
-  warning: 'bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300',
-  info: 'bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-300',
+const badgeBgColors: Record<DashboardMetricBadgeTone, { bg: string; color: string }> = {
+  success: { bg: '#008000', color: '#FFFFFF' },
+  danger: { bg: '#800000', color: '#FFFFFF' },
+  neutral: { bg: '#808080', color: '#FFFFFF' },
+  primary: { bg: '#000080', color: '#FFFFFF' },
+  warning: { bg: '#808000', color: '#FFFFFF' },
+  info: { bg: '#008080', color: '#FFFFFF' },
 }
 
-const trendIcons: Record<DashboardMetricTrendDirection, ComponentType<{ className?: string }>> = {
+const trendIcons: Record<DashboardMetricTrendDirection, ComponentType<{ size?: number }>> = {
   up: ArrowUpRight,
   down: ArrowDownRight,
   neutral: Minus,
@@ -67,33 +44,108 @@ export function KpiCard({
   value,
   description,
   badge,
-  icon,
+  icon: Icon,
   tone,
 }: KpiCardProps) {
-  const styles = toneStyles[tone]
+  const iconColor = toneIconColors[tone]
   const TrendIcon = badge.icon ? trendIcons[badge.icon] : null
   const badgeText = badge.helper_text ? `${badge.label} ${badge.helper_text}` : badge.label
+  const badgeStyle = badgeBgColors[badge.tone]
 
   return (
-    <Card className="flex flex-col gap-3 rounded-lg border-0 bg-card shadow-none app-card-padding">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <IconTile icon={icon} className={styles.icon} />
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</p>
+    <div
+      style={{
+        background: '#D4D0C8',
+        border: '2px solid',
+        borderColor: '#FFFFFF #808080 #808080 #FFFFFF',
+        fontFamily: 'Tahoma, "MS Sans Serif", sans-serif',
+        fontSize: '11px',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Group box title bar */}
+      <div
+        style={{
+          background: 'linear-gradient(to right, #000080, #1084D0)',
+          color: '#FFFFFF',
+          padding: '2px 6px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+        }}
+      >
+        <Icon size={12} />
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1,
+          }}
+        >
+          {title}
+        </span>
       </div>
 
-      <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.04em] text-foreground md:text-[2rem]">
-        {value}
-      </p>
-
-      <Badge
-        variant="secondary"
-        className={cn('w-fit self-start border-0', badgeStyles[badge.tone])}
+      {/* Content area - sunken inset */}
+      <div
+        style={{
+          margin: '6px',
+          background: '#FFFFFF',
+          border: '2px solid',
+          borderColor: '#808080 #FFFFFF #FFFFFF #808080',
+          padding: '6px 8px',
+          flex: 1,
+        }}
       >
-        {TrendIcon ? <TrendIcon className="mr-1 h-3.5 w-3.5" /> : null}
-        {badgeText}
-      </Badge>
+        {/* Big number */}
+        <div
+          style={{
+            fontSize: '22px',
+            fontWeight: 'bold',
+            color: '#000000',
+            lineHeight: '1.2',
+            letterSpacing: '-0.5px',
+            marginBottom: '4px',
+          }}
+        >
+          {value}
+        </div>
 
-      <p className="truncate text-xs text-muted-foreground">{description}</p>
-    </Card>
+        {/* Badge */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '2px',
+            background: badgeStyle.bg,
+            color: badgeStyle.color,
+            padding: '1px 5px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            marginBottom: '4px',
+          }}
+        >
+          {TrendIcon && <TrendIcon size={10} />}
+          {badgeText}
+        </div>
+
+        {/* Description */}
+        <div
+          style={{
+            fontSize: '10px',
+            color: '#444444',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {description}
+        </div>
+      </div>
+    </div>
   )
 }

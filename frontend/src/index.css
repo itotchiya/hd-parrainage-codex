@@ -6,50 +6,292 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* =====================================================
+   Windows 2000 / Classic Microsoft UI Theme
+   ===================================================== */
 :root {
-  --app-font-sans: "Geist Variable", "Segoe UI", sans-serif;
-  --app-font-mono: "Geist Mono Variable", "SFMono-Regular", Consolas, monospace;
+  /* Win2000 system colors */
+  --win-silver: #D4D0C8;
+  --win-silver-light: #FFFFFF;
+  --win-silver-dark: #808080;
+  --win-silver-darker: #404040;
+  --win-title-active-start: #000080;
+  --win-title-active-end: #1084D0;
+  --win-title-inactive: #808080;
+  --win-desktop: #008080;
+  --win-highlight: #000080;
+  --win-highlight-text: #FFFFFF;
+  --win-button-face: #D4D0C8;
+  --win-button-shadow: #808080;
+  --win-button-dark-shadow: #404040;
+  --win-button-light: #FFFFFF;
+  --win-button-highlight: #EFEFEF;
+  --win-window-frame: #000000;
+  --win-gray-text: #808080;
+  --win-info-bg: #FFFFE1;
+  --win-info-text: #000000;
+
+  /* Map to shadcn/tailwind tokens */
+  --app-font-sans: Tahoma, "MS Sans Serif", "Segoe UI", sans-serif;
+  --app-font-mono: "Courier New", "Lucida Console", monospace;
   font-family: var(--app-font-sans);
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
+  font-size: 11px;
+  color: #000000;
+  background: var(--win-silver);
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.965 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.965 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: #05142D;
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --selection-bg: oklch(0.88 0 0);
-  --selection-foreground: oklch(0.145 0 0);
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+
+  --background: 0 0% 83%;          /* #D4D0C8 */
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 240 100% 25%;          /* #000080 navy */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 83%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 93%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 210 100% 43%;           /* #1084D0 */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --border: 0 0% 50%;
+  --input: 0 0% 100%;
+  --ring: 240 100% 25%;
+  --chart-1: #1084D0;
+  --chart-2: #000080;
+  --chart-3: #008080;
+  --chart-4: #800080;
+  --chart-5: #808000;
+  --radius: 0px;
+
+  --sidebar: #D4D0C8;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000080;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #000080;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #808080;
+  --sidebar-ring: #000080;
+  --selection-bg: #000080;
+  --selection-foreground: #FFFFFF;
+}
+
+/* No dark mode for Win2000 - it only had one theme */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  line-height: 1.4;
+  background: var(--win-silver);
+  font-family: Tahoma, "MS Sans Serif", sans-serif;
+  font-size: 11px;
+  color: #000000;
+}
+
+code {
+  font-family: var(--app-font-mono);
+}
+
+::selection {
+  background: var(--win-highlight);
+  color: var(--win-highlight-text);
+}
+
+/* Win2000 3D raised button effect */
+.win-raised {
+  border-top: 2px solid var(--win-button-light);
+  border-left: 2px solid var(--win-button-light);
+  border-right: 2px solid var(--win-button-dark-shadow);
+  border-bottom: 2px solid var(--win-button-dark-shadow);
+  background: var(--win-button-face);
+}
+
+/* Win2000 3D sunken/inset panel */
+.win-sunken {
+  border-top: 2px solid var(--win-button-shadow);
+  border-left: 2px solid var(--win-button-shadow);
+  border-right: 2px solid var(--win-button-light);
+  border-bottom: 2px solid var(--win-button-light);
+  background: var(--win-silver);
+}
+
+/* Win2000 window panel */
+.win-panel {
+  border-top: 2px solid var(--win-button-light);
+  border-left: 2px solid var(--win-button-light);
+  border-right: 2px solid var(--win-button-dark-shadow);
+  border-bottom: 2px solid var(--win-button-dark-shadow);
+  background: var(--win-silver);
+}
+
+/* Win2000 title bar gradient */
+.win-titlebar {
+  background: linear-gradient(to right, var(--win-title-active-start), var(--win-title-active-end));
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  font-family: Tahoma, sans-serif;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+/* Win2000 group box (fieldset style) */
+.win-groupbox {
+  border: 2px solid;
+  border-color: var(--win-button-shadow) var(--win-button-light) var(--win-button-light) var(--win-button-shadow);
+  background: var(--win-silver);
+  padding: 8px;
+}
+
+/* Win2000 inset content area */
+.win-inset {
+  border-top: 2px solid var(--win-button-shadow);
+  border-left: 2px solid var(--win-button-shadow);
+  border-right: 2px solid var(--win-button-light);
+  border-bottom: 2px solid var(--win-button-light);
+  background: #FFFFFF;
+}
+
+/* Win2000 separator */
+.win-separator-h {
+  height: 0;
+  border-top: 1px solid var(--win-button-shadow);
+  border-bottom: 1px solid var(--win-button-light);
+  margin: 4px 0;
+}
+
+@theme inline {
+  --font-heading: var(--app-font-sans);
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
+.theme-transition,
+.theme-transition * {
+  transition: none !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: bold;
+    letter-spacing: 0;
+  }
+}
+
+@layer components {
+  .app-eyebrow {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #000080;
+    letter-spacing: 0;
+  }
+
+  .app-page-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+  }
+
+  .app-dialog-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+  }
+
+  .app-section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #000000;
+  }
+
+  .app-stat-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #000000;
+  }
+
+  .app-copy {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #444444;
+  }
+
+  .app-card-padding {
+    padding: 8px;
+  }
 }
 
 * {
