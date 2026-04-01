@@ -1,0 +1,26 @@
+# --- Local-only workspace (not pushed to public remote) ---
+# Leading `/` = repository root only (so we do NOT ignore frontend/src/app or backend/app).
+/.agents/
+/.codex-tmp/
+/.skills/
+/app/
+/archived/
+/memory/
+/Plan/
+
+/AGENTS.md
+/brain.md
+/IMPLEMENTATION-PLAN.md
+/local-run-commands.md
+/MD-BLUEPRINT.md
+/next-build-todo.md
+/START-HERE.md
+
+# Secrets and machine-local tool config — do not commit
+.env
+config.toml
+
+# Keep `docker/` and `docker-compose.yml` in the repo for local + CI parity.
+# To keep Docker local-only too, uncomment:
+# /docker/
+# /docker-compose.yml

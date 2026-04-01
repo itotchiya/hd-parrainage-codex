@@ -1,0 +1,136 @@
+import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { DashboardSectionHeader } from './DashboardSectionHeader'
+import { agentStatusBadgeClass } from '../utils/semanticBadges'
+
+export interface TopAffiliateTableRow {
+  rank: number
+  agentId: string
+  displayName: string
+  email: string | null
+  status: string | null
+  joinedAt: string | null
+  prospectCount: number
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
+}
+
+function formatShortId(id: string) {
+  if (id.length <= 12) return id
+  return `${id.slice(0, 8)}…`
+}
+
+function formatJoined(value: string | null) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+interface TopAffiliatesByProspectsTableProps {
+  rows: TopAffiliateTableRow[]
+}
+
+export function TopAffiliatesByProspectsTable({ rows }: TopAffiliatesByProspectsTableProps) {
+  const headerActions = (
+    <Button asChild variant="ghost" size="sm" className="gap-1.5">
+      <Link to="/agents">
+        Voir tous les affiliés
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
+    </Button>
+  )
+
+  return (
+    <>
+      <DashboardSectionHeader title="Top affiliés par prospects" actions={headerActions} />
+
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
+          Aucune activité affilié pour le moment.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10 text-center">#</TableHead>
+                <TableHead>Affilié</TableHead>
+                <TableHead className="hidden sm:table-cell">Email</TableHead>
+                <TableHead className="hidden md:table-cell">Statut</TableHead>
+                <TableHead>Adhésion</TableHead>
+                <TableHead className="text-right">Prospects</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.agentId}>
+                  <TableCell className="text-center text-muted-foreground">{row.rank}</TableCell>
+                  <TableCell>
+                    <Link
+                      to={`/agents/${row.agentId}`}
+                      className="group -m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-label={`Voir le profil de ${row.displayName}`}
+                    >
+                      <Avatar className="size-9 shrink-0">
+                        <AvatarFallback className="text-xs font-medium">
+                          {initials(row.displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                          {row.displayName}
+                        </p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground">
+                          {formatShortId(row.agentId)}
+                        </p>
+                      </div>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="hidden max-w-[12rem] truncate sm:table-cell">
+                    {row.email ?? '—'}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {row.status ? (
+                      <Badge
+                        variant="outline"
+                        className={`capitalize ${agentStatusBadgeClass(row.status)}`}
+                      >
+                        {row.status.replace(/_/g, ' ')}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatJoined(row.joinedAt)}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums text-primary">
+                    {row.prospectCount.toLocaleString('fr-FR')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </>
+  )
+}

@@ -1,0 +1,362 @@
+<?php
+
+namespace App\Http\Controllers\Api\Agents;
+
+use App\Mail\AgentInvitationMail;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\Agents\AgentResource;
+use App\Models\Agent;
+use App\Models\AppNotification;
+use App\Models\BusinessUserAssignment;
+use App\Models\InvitationActivationToken;
+use App\Models\Role;
+use App\Models\User;
+use App\Models\UserRole;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Throwable;
+use Illuminate\Validation\ValidationException;
+
+class AgentController extends Controller
+{
+    public function show(Request $request, string $agentId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        $this->assertPermission($user, 'agent.view', $businessId);
+
+        $agent = $this->scopedAgentsQuery($user)
+            ->with('user')
+            ->findOrFail($agentId);
+
+        return response()->json([
+            'data' => AgentResource::make($agent)->resolve($request),
+        ]);
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+
+        $this->assertPermission($user, 'agent.view', $businessId);
+
+        $query = $this->scopedAgentsQuery($user)->with('user');
+
+        if ($request->filled('status')) {
+            $query->where('status', (string) $request->string('status'));
+        }
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->string('search'));
+            $query->where(function (Builder $builder) use ($search): void {
+                $builder
+                    ->where('agent_code', 'ilike', "%{$search}%")
+                    ->orWhereHas('user', function (Builder $userQuery) use ($search): void {
+                        $userQuery
+                            ->where('display_name', 'ilike', "%{$search}%")
+                            ->orWhere('email', 'ilike', "%{$search}%");
+                    });
+            });
+        }
+
+        $records = $query->orderByDesc('created_at')->get();
+
+        return response()->json([
+            'data' => $records->map(fn (Agent $agent) => AgentResource::make($agent)->resolve($request)),
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+
+        $this->assertPermission($user, 'agent.invite', $businessId);
+
+        $payload = $request->validate([
+            'display_name' => ['required', 'string', 'max:160'],
+            'email' => ['required', 'email'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $email = mb_strtolower(trim((string) $payload['email']));
+        $plainToken = Str::upper(Str::random(12));
+
+        [$agent, $createdUser] = DB::transaction(function () use ($payload, $email, $user, $businessId, $plainToken): array {
+            $agentRole = Role::query()->where('slug', 'agent')->firstOrFail();
+
+            $targetUser = User::query()->where('email', $email)->first();
+
+            if ($targetUser === null) {
+                $targetUser = User::query()->create([
+                    'display_name' => trim((string) $payload['display_name']),
+                    'email' => $email,
+                    'password_hash' => Str::random(32),
+                    'status' => 'invited',
+                    'invited_at' => now(),
+                    'created_by_user_id' => $user->id,
+                ]);
+                $createdUser = true;
+            } else {
+                $createdUser = false;
+                $targetUser->forceFill([
+                    'display_name' => trim((string) $payload['display_name']),
+                    'status' => $targetUser->status === 'active' ? 'active' : 'invited',
+                    'invited_at' => $targetUser->invited_at ?? now(),
+                    'updated_by_user_id' => $user->id,
+                ])->save();
+            }
+
+            BusinessUserAssignment::query()->updateOrCreate(
+                [
+                    'business_id' => $businessId,
+                    'user_id' => $targetUser->id,
+                    'assignment_type' => 'agent',
+                ],
+                [
+                    'status' => 'invited',
+                    'is_primary' => false,
+                    'assigned_by_user_id' => $user->id,
+                    'invited_at' => now(),
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $targetUser->id,
+                    'role_id' => $agentRole->id,
+                    'scope_type' => 'business',
+                    'business_id' => $businessId,
+                ],
+                [
+                    'assigned_by_user_id' => $user->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
+            $agent = Agent::query()->updateOrCreate(
+                [
+                    'business_id' => $businessId,
+                    'user_id' => $targetUser->id,
+                ],
+                [
+                    'agent_code' => $this->nextAgentCode($businessId),
+                    'status' => 'invited',
+                    'invited_by_user_id' => $user->id,
+                    'invited_at' => now(),
+                    'notes' => isset($payload['notes']) ? trim((string) $payload['notes']) : null,
+                    'suspended_at' => null,
+                ],
+            );
+
+            InvitationActivationToken::query()
+                ->where('user_id', $targetUser->id)
+                ->whereNull('used_at')
+                ->delete();
+
+            InvitationActivationToken::query()->create([
+                'user_id' => $targetUser->id,
+                'email' => $targetUser->email,
+                'token_digest' => hash('sha256', $plainToken),
+                'expires_at' => now()->addDays(14),
+                'created_by_user_id' => $user->id,
+            ]);
+
+            return [$agent->fresh(['user', 'business']), $createdUser];
+        });
+
+        $activationUrl = $this->buildActivationUrl($agent->user->email, $plainToken);
+
+        AppNotification::query()->create([
+            'recipient_user_id' => $agent->user_id,
+            'business_id' => $businessId,
+            'notification_type' => 'agent',
+            'title' => 'Invitation envoyee',
+            'message' => 'Votre invitation agent est creee. Activez votre compte pour commencer.',
+            'severity' => 'info',
+            'metadata' => [
+                'event' => 'agent_invited',
+                'agent_id' => $agent->id,
+            ],
+            'read_at' => null,
+        ]);
+
+        AppNotification::query()->create([
+            'recipient_user_id' => $user->id,
+            'business_id' => $businessId,
+            'notification_type' => 'business',
+            'title' => 'Agent invite',
+            'message' => sprintf('%s a ete invite en tant qu agent.', $agent->user->display_name ?? $agent->user->email),
+            'severity' => 'info',
+            'metadata' => [
+                'event' => 'agent_invited',
+                'agent_id' => $agent->id,
+                'agent_user_id' => $agent->user_id,
+            ],
+            'read_at' => null,
+        ]);
+
+        $mailDeliveryFailed = false;
+        $mailDeliveryError = null;
+
+        try {
+            Mail::to($agent->user->email)->send(new AgentInvitationMail($agent, $activationUrl));
+        } catch (Throwable $exception) {
+            $mailDeliveryFailed = true;
+            $mailDeliveryError = $exception->getMessage();
+
+            Log::error('Agent invitation email delivery failed.', [
+                'agent_id' => $agent->id,
+                'user_id' => $agent->user_id,
+                'email' => $agent->user->email,
+                'error' => $mailDeliveryError,
+            ]);
+        }
+
+        $response = [
+            'data' => AgentResource::make($agent)->resolve($request),
+            'meta' => [
+                'created_user' => $createdUser,
+                'mail_delivery_failed' => $mailDeliveryFailed,
+            ],
+        ];
+
+        if (app()->environment(['local', 'testing'])) {
+            $response['meta']['invitation_token'] = $plainToken;
+            $response['meta']['activation_url'] = $activationUrl;
+            $response['meta']['mail_delivery_error'] = $mailDeliveryError;
+        }
+
+        return response()->json($response, 201);
+    }
+
+    public function suspend(Request $request, string $agentId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        $this->assertPermission($user, 'agent.suspend', $businessId);
+
+        $agent = Agent::query()
+            ->where('business_id', $businessId)
+            ->with('user')
+            ->findOrFail($agentId);
+
+        if ($agent->status === 'suspended') {
+            throw ValidationException::withMessages([
+                'status' => 'Agent is already suspended.',
+            ]);
+        }
+
+        $agent->forceFill([
+            'status' => 'suspended',
+            'suspended_at' => now(),
+        ])->save();
+
+        $agent->user?->forceFill([
+            'status' => 'suspended',
+            'suspended_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'data' => AgentResource::make($agent->fresh('user'))->resolve($request),
+        ]);
+    }
+
+    public function reactivate(Request $request, string $agentId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        $this->assertPermission($user, 'agent.reactivate', $businessId);
+
+        $agent = Agent::query()
+            ->where('business_id', $businessId)
+            ->with('user')
+            ->findOrFail($agentId);
+
+        if ($agent->status !== 'suspended') {
+            throw ValidationException::withMessages([
+                'status' => 'Only suspended agents can be reactivated.',
+            ]);
+        }
+
+        $agent->forceFill([
+            'status' => 'active',
+            'activated_at' => $agent->activated_at ?? now(),
+            'suspended_at' => null,
+        ])->save();
+
+        $agent->user?->forceFill([
+            'status' => 'active',
+            'activated_at' => $agent->user->activated_at ?? now(),
+            'suspended_at' => null,
+        ])->save();
+
+        return response()->json([
+            'data' => AgentResource::make($agent->fresh('user'))->resolve($request),
+        ]);
+    }
+
+    private function nextAgentCode(string $businessId): string
+    {
+        $count = Agent::query()->where('business_id', $businessId)->count() + 1;
+        return 'AGT-'.str_pad((string) $count, 3, '0', STR_PAD_LEFT);
+    }
+
+    private function buildActivationUrl(string $email, string $token): string
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5175'), '/');
+
+        return $frontendUrl.'/activate-invitation?email='.urlencode($email).'&token='.urlencode($token);
+    }
+
+    private function scopedAgentsQuery(User $user): Builder
+    {
+        $businessId = $this->currentBusinessId($user);
+        $query = Agent::query();
+
+        if ($businessId !== null && $user->activeRoleSlugs($businessId)->contains('business-owner')) {
+            return $query->where('business_id', $businessId);
+        }
+
+        return $query;
+    }
+
+    private function resolveApiUser(Request $request): User
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        return $user->loadMissing([
+            'userRoles.role.permissions',
+            'businessAssignments.business',
+            'primaryBusinessAssignment.business',
+            'agentProfile.business',
+            'userPermissionOverrides.permission',
+        ]);
+    }
+
+    private function assertPermission(User $user, string $permissionId, ?string $businessId = null): void
+    {
+        abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
+    }
+
+    private function currentBusinessId(User $user): ?string
+    {
+        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+    }
+
+    private function ownerBusinessId(User $user): string
+    {
+        $businessId = $user->primaryBusinessAssignment?->business_id;
+        abort_if($businessId === null, 403, 'No business scope is available for this action.');
+        return $businessId;
+    }
+}
