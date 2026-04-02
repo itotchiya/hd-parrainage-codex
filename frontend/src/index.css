@@ -228,4 +228,32 @@ code {
   .app-card-padding {
     @apply p-4 md:p-6;
   }
+
+  .app-panel {
+    @apply p-4 md:p-6 rounded-lg bg-card;
+  }
+
+  .app-panel-muted {
+    @apply p-4 md:p-6 rounded-lg bg-muted/30;
+  }
+
+  .app-input {
+    @apply w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30;
+  }
+
+  .app-select {
+    @apply rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30;
+  }
+
+  .app-section {
+    @apply space-y-3;
+  }
+
+  .app-grid {
+    @apply grid gap-3;
+  }
+
+  .app-grid-tight {
+    @apply grid gap-2.5;
+  }
 }

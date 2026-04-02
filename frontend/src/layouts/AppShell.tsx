@@ -65,9 +65,7 @@ export function AppShell() {
     ) ?? authenticatedNavigation[0]
   const isDashboardRoute =
     location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/')
-  const dashboardSurfaceClass = isDashboardRoute
-    ? 'bg-[#f5f5f5] dark:bg-[#0A0A0A]'
-    : 'bg-background'
+  const dashboardSurfaceClass = 'bg-background'
 
   const unreadCount = notificationsQuery.data?.meta.unread_count ?? 0
   const recentNotifications = (notificationsQuery.data?.data ?? []).slice(0, 4)
@@ -129,7 +127,7 @@ export function AppShell() {
 
   return (
     <main
-      className={`min-h-screen text-foreground ${dashboardSurfaceClass}`}
+      className={`min-h-screen text-foreground ${dashboardSurfaceClass} flex`}
     >
       <AppSidebar
         collapsed={sidebarCollapsed}
@@ -142,9 +140,7 @@ export function AppShell() {
       />
 
       <div
-        className={`min-h-screen transition-all duration-300 ${
-          sidebarCollapsed ? 'ml-16' : 'ml-64'
-        } ${dashboardSurfaceClass}`}
+        className={`min-h-screen flex-1 ${dashboardSurfaceClass}`}
       >
         <header
           className={`sticky top-0 z-30 w-full ${dashboardSurfaceClass}`}
@@ -341,16 +337,10 @@ export function AppShell() {
           className={
             isDashboardRoute
               ? 'w-full px-4 py-4 md:px-6 md:py-6'
-              : 'mx-auto max-w-[1450px] p-4 md:p-6'
+              : 'w-full px-4 py-4 md:px-6 md:py-6'
           }
         >
-          {isDashboardRoute ? (
-            <Outlet />
-          ) : (
-            <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <Outlet />
-            </section>
-          )}
+          <Outlet />
         </div>
       </div>
     </main>

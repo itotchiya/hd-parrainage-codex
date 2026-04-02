@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface DashboardSectionHeaderProps {
   title: string
@@ -15,6 +16,21 @@ export function DashboardSectionHeader({
   actions,
   className,
 }: DashboardSectionHeaderProps) {
+  const normalizedActions = actions
+    ? React.Children.map(actions, (child) => {
+        if (!React.isValidElement(child)) return child
+        if (child.type !== Button) return child
+
+        const buttonChild = child as React.ReactElement<React.ComponentProps<typeof Button>>
+
+        return React.cloneElement(buttonChild, {
+          variant: 'outline',
+          size: 'sm',
+          className: cn('h-8 gap-1.5', buttonChild.props.className),
+        })
+      })
+    : null
+
   return (
     <div className={cn('mb-3 flex items-start justify-between gap-3', className)}>
       <div className="min-w-0 space-y-0.5">
@@ -23,7 +39,9 @@ export function DashboardSectionHeader({
           <p className="text-xs text-muted-foreground">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="inline-flex shrink-0 items-center gap-1">{actions}</div> : null}
+      {normalizedActions ? (
+        <div className="inline-flex shrink-0 items-center gap-1">{normalizedActions}</div>
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Percent, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Percent, Plus, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents } from '../../agents/api'
@@ -15,6 +16,8 @@ import { ProgramsOverviewTable } from '../components/ProgramsOverviewTable'
 import { RecentActivityTable } from '../components/RecentActivityTable'
 import { TopAffiliatesByProspectsTable } from '../components/TopAffiliatesByProspectsTable'
 import { KpiCard } from '../components/KpiCard'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Button } from '@/components/ui/button'
 import type { ProgramRecord } from '../../../types/programs'
 import type { DashboardMetricCardRecord, DashboardMetricKey } from '../../../types/dashboard'
 
@@ -200,9 +203,19 @@ export function DashboardPage() {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-semibold text-foreground md:text-lg">
-        {`Performance du mois — ${monthLabel}`}
-      </h2>
+      <PageHeader
+        title={`Performance du mois — ${monthLabel}`}
+        right={
+          <PageHeaderToolbar>
+            <Button asChild variant="default" size="sm" className="gap-2">
+              <Link to="/agents">
+                <Plus className="size-4" aria-hidden />
+                Add agent
+              </Link>
+            </Button>
+          </PageHeaderToolbar>
+        }
+      />
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card: DashboardMetricCardRecord) => (
           <KpiCard

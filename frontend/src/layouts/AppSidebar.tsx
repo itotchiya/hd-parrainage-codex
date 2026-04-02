@@ -44,17 +44,34 @@ export function AppSidebar({
 }: AppSidebarProps) {
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ${
-        collapsed ? 'w-16' : 'w-64'
-      }`}
+      className={[
+        'sticky top-0 z-40 flex h-screen flex-col text-foreground transition-all duration-300',
+        'bg-transparent',
+        // Soft divider like shadcn docs (no harsh border).
+        "relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gradient-to-b after:from-transparent after:via-border/70 after:to-transparent",
+        collapsed ? 'w-16' : 'w-64',
+        'shrink-0',
+      ].join(' ')}
     >
-      <div className="flex h-16 items-center border-b border-sidebar-border px-3">
+      <div className="flex h-16 items-center px-3">
         {collapsed ? (
           <div className="flex w-full items-center justify-center">
-            <img src="/Uploads/logo-mark-dark.svg" alt="Myhd mark" className="h-9 w-9" />
+            <img
+              src="/Uploads/logo-mark-light.svg"
+              alt="Myhd mark"
+              className="h-9 w-9 dark:hidden"
+            />
+            <img
+              src="/Uploads/logo-mark-dark.svg"
+              alt="Myhd mark"
+              className="hidden h-9 w-9 dark:block"
+            />
           </div>
         ) : (
-          <img src="/Uploads/logo-dark.svg" alt="Myhd" className="h-9 w-auto" />
+          <>
+            <img src="/Uploads/logo-light.svg" alt="Myhd" className="h-9 w-auto dark:hidden" />
+            <img src="/Uploads/logo-dark.svg" alt="Myhd" className="hidden h-9 w-auto dark:block" />
+          </>
         )}
       </div>
 
@@ -69,10 +86,10 @@ export function AppSidebar({
                   to={item.path}
                   className={({ isActive }) =>
                     [
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                       isActive
-                        ? 'bg-white text-[#020A17] shadow-[0_10px_24px_-18px_rgba(2,10,23,0.65)]'
-                        : 'text-sidebar-foreground/80 hover:bg-white/8 hover:text-sidebar-foreground',
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
                       collapsed ? 'justify-center px-2' : '',
                     ].join(' ')
                   }
@@ -86,12 +103,12 @@ export function AppSidebar({
         </ul>
       </nav>
 
-      <div className="border-t border-sidebar-border p-2">
+      <div className="p-2">
         <button
           type="button"
           onClick={onLogout}
           disabled={logoutPending}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/80 transition hover:bg-white/8 hover:text-sidebar-foreground disabled:cursor-not-allowed disabled:opacity-60 ${
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 ${
             collapsed ? 'justify-center px-2' : ''
           }`}
         >
