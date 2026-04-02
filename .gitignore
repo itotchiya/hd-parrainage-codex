@@ -30,3 +30,5 @@ config.toml
 AUDIT-dashboard-react-error-310.md
 audit-screenshot-*.png
 .mcp.json
+/docs/
+frontend-ui-style-guide.md
