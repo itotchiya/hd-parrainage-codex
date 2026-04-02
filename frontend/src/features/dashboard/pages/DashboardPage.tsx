@@ -18,6 +18,11 @@ import { KpiCard } from '../components/KpiCard'
 import type { ProgramRecord } from '../../../types/programs'
 import type { DashboardMetricCardRecord, DashboardMetricKey } from '../../../types/dashboard'
 
+function capitalize(value: string) {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 export function DashboardPage() {
   const { user } = useAuthSession()
   const isBusinessOwner = Boolean(
@@ -186,8 +191,18 @@ export function DashboardPage() {
     )
   }
 
+  const monthLabel = capitalize(
+    new Date().toLocaleDateString('fr-FR', {
+      month: 'long',
+      year: 'numeric',
+    }),
+  )
+
   return (
     <section className="space-y-3">
+      <h2 className="text-base font-semibold text-foreground md:text-lg">
+        {`Performance du mois — ${monthLabel}`}
+      </h2>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card: DashboardMetricCardRecord) => (
           <KpiCard

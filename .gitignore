@@ -24,3 +24,9 @@ config.toml
 # To keep Docker local-only too, uncomment:
 # /docker/
 # /docker-compose.yml
+
+
+# Audit files and local screenshots
+AUDIT-dashboard-react-error-310.md
+audit-screenshot-*.png
+.mcp.json

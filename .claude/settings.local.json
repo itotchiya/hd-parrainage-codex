@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__devtools__list_pages",
+      "mcp__devtools__new_page",
+      "mcp__devtools__take_screenshot",
+      "mcp__devtools__list_console_messages",
+      "mcp__devtools__list_network_requests",
+      "mcp__devtools__take_snapshot",
+      "mcp__devtools__click",
+      "mcp__devtools__get_network_request",
+      "Bash(xargs grep:*)",
+      "mcp__devtools__evaluate_script",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "obsidian",
+    "pencil",
+    "context7",
+    "figma",
+    "postman",
+    "sentry",
+    "vercel",
+    "devtools",
+    "playwright",
+    "MCP_DOCKER"
+  ]
+}
