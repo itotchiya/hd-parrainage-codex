@@ -1,10 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Building2, ChevronRight, Shield, Users2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
+
 import { ApiError } from '../../../lib/api'
-import { env } from '../../../lib/env'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { useAuthSession } from '../session'
 
 const loginSchema = z.object({
@@ -21,21 +33,21 @@ const demoAccounts = [
   {
     id: 'super-admin',
     label: 'Super Admin',
-    subtitle: 'Gestion complete de la plateforme',
+    subtitle: 'Platform governance and visibility',
     email: 'superadmin@hd-parrainage.test',
     icon: 'shield',
   },
   {
     id: 'business-owner',
     label: 'Business Owner',
-    subtitle: "Gerez vos programmes d'affiliation",
+    subtitle: 'Programs, agents, and approvals',
     email: 'owner@havetdigital.test',
     icon: 'building',
   },
   {
     id: 'agent',
     label: 'Affilie',
-    subtitle: 'Suivez vos commissions et prospects',
+    subtitle: 'Assigned programs, prospects, and rewards',
     email: 'agent@havetdigital.test',
     icon: 'users',
   },
@@ -43,30 +55,45 @@ const demoAccounts = [
 
 function DemoIcon({ icon }: { icon: (typeof demoAccounts)[number]['icon'] }) {
   if (icon === 'shield') {
-    return (
-      <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 3l7 3v6c0 4.2-2.8 8-7 9-4.2-1-7-4.8-7-9V6l7-3Z" />
-      </svg>
-    )
+    return <Shield className="size-4" />
   }
 
   if (icon === 'building') {
-    return (
-      <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 21h18" />
-        <path d="M5 21V7l7-4 7 4v14" />
-        <path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01" />
-      </svg>
-    )
+    return <Building2 className="size-4" />
   }
 
+  return <Users2 className="size-4" />
+}
+
+function DemoAccountCard({
+  account,
+  selected,
+  onSelect,
+}: {
+  account: (typeof demoAccounts)[number]
+  selected: boolean
+  onSelect: () => void
+}) {
   return (
-    <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <path d="M8.5 11A3.5 3.5 0 1 0 8.5 4a3.5 3.5 0 0 0 0 7Z" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a3.5 3.5 0 0 1 0 6.74" />
-    </svg>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
+        selected
+          ? 'border-ring bg-accent/50'
+          : 'border-border bg-background hover:bg-muted/50',
+      )}
+    >
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <DemoIcon icon={account.icon} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-foreground">{account.label}</span>
+        <span className="block truncate text-xs text-muted-foreground">{account.subtitle}</span>
+      </span>
+      <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground', selected && 'text-foreground')} />
+    </button>
   )
 }
 
@@ -131,139 +158,129 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 md:px-6 md:py-10">
-      <section className="mx-auto w-full max-w-xl rounded-[1.6rem] border border-border bg-card px-5 py-6 shadow-sm sm:px-7 sm:py-8">
-        <header className="space-y-3 text-center">
-          <p className="text-3xl font-semibold leading-none tracking-tight text-foreground sm:text-4xl">
-            Myhd
-            <span className="ml-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground sm:text-sm">
-              Affiliation
-            </span>
-          </p>
-          <h1 className="app-page-title">Connexion</h1>
-          <p className="text-sm text-muted-foreground">Connectez-vous a votre espace de travail</p>
-        </header>
+    <main className="min-h-screen bg-background">
+      <div className="mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-4 py-6 sm:px-6">
+        <Card className="w-full rounded-[1.5rem] border-border bg-card shadow-sm">
+          <CardHeader className="space-y-4 px-5 pt-5 sm:px-6 sm:pt-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex justify-center">
+                <img src="/Uploads/logo-light.svg" alt="Myhd" className="h-9 w-auto dark:hidden" />
+                <img src="/Uploads/logo-dark.svg" alt="Myhd" className="hidden h-9 w-auto dark:block" />
+              </div>
 
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              className="w-full rounded-[0.95rem] border border-input bg-background px-4 py-3 text-[0.96rem] text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-              placeholder="superadmin@hd-parrainage.test"
-              {...register('email')}
-            />
-            {errors.email ? (
-              <p className="text-sm text-rose-700">{errors.email.message}</p>
-            ) : null}
-          </div>
+              <div className="space-y-1.5">
+                <CardTitle className="text-2xl font-semibold tracking-tight">
+                  Sign in
+                </CardTitle>
+                <CardDescription className="text-sm leading-6">
+                  Enter your credentials or choose a demo role.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-4">
-              <label className="text-sm font-semibold text-foreground" htmlFor="password">
-                Mot de passe
+          <CardContent className="space-y-5 px-5 pb-5 sm:px-6 sm:pb-6">
+            <form className="space-y-4" onSubmit={onSubmit}>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground" htmlFor="email">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="superadmin@hd-parrainage.test"
+                  className="h-10 rounded-xl px-4"
+                  {...register('email')}
+                />
+                {errors.email ? (
+                  <p className="text-sm text-rose-700">{errors.email.message}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <label className="text-sm font-medium text-foreground" htmlFor="password">
+                    Password
+                  </label>
+                  <Link
+                    to="/password/forgot"
+                    className="text-sm font-medium text-foreground transition hover:text-foreground/80"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className="h-10 rounded-xl px-4"
+                  {...register('password')}
+                />
+                {errors.password ? (
+                  <p className="text-sm text-rose-700">{errors.password.message}</p>
+                ) : null}
+              </div>
+
+              <label className="flex items-center gap-3 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-input text-primary focus:ring-ring"
+                  {...register('remember')}
+                />
+                Keep this browser signed in
               </label>
-              <Link
-                to="/password/forgot"
-                className="text-sm font-semibold text-foreground transition hover:text-foreground/80"
-              >
-                Mot de passe oublie ?
+
+              {submissionMessage ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">
+                  {submissionMessage}
+                </div>
+              ) : null}
+
+              <Button type="submit" disabled={loginPending} className="h-10 w-full rounded-xl">
+                {loginPending ? 'Signing in...' : 'Sign in'}
+              </Button>
+            </form>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Demo access
+                </p>
+                <Badge variant="secondary" className="font-medium">
+                  Password: {demoPassword}
+                </Badge>
+              </div>
+
+              <div className="grid gap-2.5">
+                {demoAccounts.map((account) => (
+                  <DemoAccountCard
+                    key={account.id}
+                    account={account}
+                    selected={selectedEmail === account.email}
+                    onSelect={() => applyDemoAccount(account.email)}
+                  />
+                ))}
+              </div>
+
+              <p className="text-sm leading-6 text-muted-foreground">
+                Choose a role to prefill the login form with demo credentials.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-x-3 gap-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
+              <Link className="font-medium text-foreground transition hover:text-foreground/80" to="/activate-invitation">
+                Activate invitation
+              </Link>
+              <span className="text-border">/</span>
+              <Link className="font-medium text-foreground transition hover:text-foreground/80" to="/password/reset">
+                Finish reset
               </Link>
             </div>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              className="w-full rounded-[0.95rem] border border-input bg-background px-4 py-3 text-[0.96rem] text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-              placeholder="Entrez votre mot de passe"
-              {...register('password')}
-            />
-            {errors.password ? (
-              <p className="text-sm text-rose-700">{errors.password.message}</p>
-            ) : null}
-          </div>
-
-          <label className="flex items-center gap-3 rounded-[0.95rem] border border-border bg-muted/30 px-4 py-3 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
-              {...register('remember')}
-            />
-            Se souvenir de moi sur ce navigateur
-          </label>
-
-          {submissionMessage ? (
-            <div className="rounded-[0.95rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">
-              {submissionMessage}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={loginPending}
-            className="inline-flex w-full items-center justify-center rounded-[0.95rem] bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loginPending ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
-
-        <section className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Demo accounts
-          </p>
-          <div className="mt-3 space-y-3">
-            {demoAccounts.map((account) => {
-              const isSelected = selectedEmail === account.email
-
-              return (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => applyDemoAccount(account.email)}
-                  className={`flex w-full items-center gap-3 rounded-[0.95rem] border px-3 py-3 text-left transition ${
-                    isSelected
-                      ? 'border-ring bg-accent/40'
-                      : 'border-border bg-card hover:border-ring/40'
-                  }`}
-                >
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-                    <DemoIcon icon={account.icon} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[0.98rem] font-semibold text-foreground">{account.label}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{account.subtitle}</span>
-                  </span>
-                  <span
-                    aria-hidden
-                    className={`h-5 w-5 rounded-full border ${isSelected ? 'border-primary bg-primary' : 'border-input bg-background'}`}
-                  />
-                </button>
-              )
-            })}
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Cliquez un role pour remplir automatiquement l&apos;email et le mot de passe de demo.
-          </p>
-        </section>
-
-        <footer className="mt-6 flex flex-wrap justify-center gap-3 text-sm text-muted-foreground">
-          <span>{env.appUrl}</span>
-          <span>•</span>
-          <span>{env.apiBaseUrl}</span>
-          <span>•</span>
-          <Link className="font-semibold text-foreground transition hover:text-foreground/80" to="/activate-invitation">
-            Activer invitation
-          </Link>
-          <span>•</span>
-          <Link className="font-semibold text-foreground transition hover:text-foreground/80" to="/password/reset">
-            Finaliser reset
-          </Link>
-        </footer>
-      </section>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   )
 }
