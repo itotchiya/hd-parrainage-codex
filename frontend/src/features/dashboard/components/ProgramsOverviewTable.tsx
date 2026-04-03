@@ -28,6 +28,7 @@ function exchangeModeLabel(mode: ProgramRecord['exchange_mode']) {
 const STATUS_LABEL_FR: Record<ProgramRecord['status'], string> = {
   active: 'Actif',
   paused: 'En pause',
+  suspended: 'Suspendu',
   draft: 'Brouillon',
   archived: 'Archivé',
 }
@@ -56,7 +57,7 @@ export function ProgramsOverviewTable({ programs, defaultBusinessName }: Program
           Aucun programme pour ce compte.
         </p>
       ) : (
-        <div className="rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>

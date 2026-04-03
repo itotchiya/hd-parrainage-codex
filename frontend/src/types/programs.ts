@@ -1,6 +1,6 @@
 export type ProgramCommissionType = 'per-transaction' | 'revenue-tier'
 export type ProgramExchangeMode = 'cash' | 'reward' | 'both'
-export type ProgramStatus = 'draft' | 'active' | 'paused' | 'archived'
+export type ProgramStatus = 'draft' | 'active' | 'paused' | 'suspended' | 'archived'
 
 export interface ExchangePackItem {
   id: string
@@ -32,13 +32,27 @@ export interface AssignedAgent {
     status: string
     display_name: string | null
     email: string | null
+    avatar_url?: string | null
   } | null
 }
 
 export interface ProgramActions {
   can_create: boolean
   can_update: boolean
+  can_edit_general?: boolean
+  can_edit_cash?: boolean
+  can_edit_rewards?: boolean
+  can_activate?: boolean
   can_pause: boolean
+  can_reactivate?: boolean
+  /** Resume from suspended (wind-down) — same API as reactivate. */
+  can_lift_suspension?: boolean
+  can_suspend?: boolean
+  can_archive?: boolean
+  /** Soft-delete allowed (archived, or no active assignments and no prospects). */
+  can_soft_delete?: boolean
+  /** @deprecated use can_soft_delete */
+  can_delete_from_archive?: boolean
   can_assign_agent: boolean
 }
 
@@ -60,6 +74,12 @@ export interface ProgramRecord {
   ends_at: string | null
   activated_at: string | null
   paused_at: string | null
+  suspended_at?: string | null
+  suspension_deadline_at?: string | null
+  suspension_days_left?: number | null
+  /** Server snapshot; UI uses suspension_deadline_at for live countdown. */
+  seconds_until_suspension_deadline?: number | null
+  has_open_prospects?: boolean
   created_at: string | null
   updated_at: string | null
   exchange_pack: ExchangePackRecord | null

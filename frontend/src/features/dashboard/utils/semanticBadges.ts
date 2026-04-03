@@ -25,6 +25,8 @@ export function programStatusBadgeClass(status: ProgramStatus): string {
       return 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300'
     case 'draft':
       return 'border-transparent bg-sky-500/15 text-sky-900 dark:bg-sky-500/20 dark:text-sky-300'
+    case 'suspended':
+      return 'border-transparent bg-orange-500/15 text-orange-900 dark:bg-orange-500/20 dark:text-orange-300'
     case 'archived':
       return 'border-transparent bg-muted text-muted-foreground'
     default:

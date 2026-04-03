@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\Programs;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Programs\AssignedAgentResource;
+use App\Mail\ProgramAssignmentMail;
 use App\Models\Agent;
+use App\Models\AppNotification;
 use App\Models\Program;
 use App\Models\ProgramAgentAssignment;
 use App\Models\User;
+use App\Services\ProgramAssignedAgentNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -62,6 +65,7 @@ class ProgramAgentAssignmentController extends Controller
             ->where('status', 'active')
             ->get()
             ->keyBy('agent_id');
+        $previousAgentIds = $activeAssignments->keys();
 
         foreach ($agentIds as $agentId) {
             ProgramAgentAssignment::query()->updateOrCreate(
@@ -79,6 +83,9 @@ class ProgramAgentAssignmentController extends Controller
             );
         }
 
+        $newAgentIds = $agentIds->diff($previousAgentIds)->values();
+        $removedAgentIds = $previousAgentIds->diff($agentIds)->values();
+
         $activeAssignments
             ->reject(fn (ProgramAgentAssignment $assignment, string $agentId) => $agentIds->contains($agentId))
             ->each(function (ProgramAgentAssignment $assignment): void {
@@ -87,6 +94,79 @@ class ProgramAgentAssignmentController extends Controller
                     'removed_at' => now(),
                 ])->save();
             });
+
+        if ($newAgentIds->isNotEmpty() && $program->status !== 'draft') {
+            $agents = Agent::query()
+                ->with('user')
+                ->whereIn('id', $newAgentIds->all())
+                ->get();
+            $businessName = $program->business?->display_name ?? 'Business';
+            $programUrl = $this->buildProgramUrl($program->id);
+            $mailStaggerIndex = 0;
+
+            foreach ($agents as $agent) {
+                if ($agent->user_id === null) {
+                    continue;
+                }
+
+                AppNotification::query()->create([
+                    'recipient_user_id' => $agent->user_id,
+                    'business_id' => $businessId,
+                    'notification_type' => 'program',
+                    'title' => 'Program assigned',
+                    'message' => sprintf('You were assigned to program "%s".', $program->name),
+                    'severity' => 'info',
+                    'metadata' => [
+                        'event' => 'program_assigned',
+                        'program_id' => $program->id,
+                        'agent_id' => $agent->id,
+                    ],
+                    'read_at' => null,
+                ]);
+
+                if ($agent->user?->email) {
+                    ProgramAssignedAgentNotifier::deliverProgramAgentMail(
+                        $agent->user->email,
+                        $mailStaggerIndex,
+                        new ProgramAssignmentMail($program, $businessName, $programUrl),
+                        'Program assignment email delivery failed.',
+                        [
+                            'program_id' => $program->id,
+                            'agent_id' => $agent->id,
+                            'email' => $agent->user->email,
+                        ],
+                    );
+                    $mailStaggerIndex++;
+                }
+            }
+        }
+
+        if ($removedAgentIds->isNotEmpty()) {
+            $removedAgents = Agent::query()
+                ->whereIn('id', $removedAgentIds->all())
+                ->get();
+
+            foreach ($removedAgents as $agent) {
+                if ($agent->user_id === null) {
+                    continue;
+                }
+
+                AppNotification::query()->create([
+                    'recipient_user_id' => $agent->user_id,
+                    'business_id' => $businessId,
+                    'notification_type' => 'program',
+                    'title' => 'Program unassigned',
+                    'message' => sprintf('You were removed from program "%s".', $program->name),
+                    'severity' => 'info',
+                    'metadata' => [
+                        'event' => 'program_unassigned',
+                        'program_id' => $program->id,
+                        'agent_id' => $agent->id,
+                    ],
+                    'read_at' => null,
+                ]);
+            }
+        }
 
         $assignments = $program->agentAssignments()
             ->with('agent.user')
@@ -127,5 +207,12 @@ class ProgramAgentAssignmentController extends Controller
         abort_if($businessId === null, 403, 'No business scope is available for this action.');
 
         return $businessId;
+    }
+
+    private function buildProgramUrl(string $programId): string
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5175'), '/');
+
+        return $frontendUrl.'/programs/'.$programId;
     }
 }

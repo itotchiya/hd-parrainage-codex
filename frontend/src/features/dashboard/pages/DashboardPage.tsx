@@ -75,8 +75,9 @@ export function DashboardPage() {
     const order: Record<ProgramRecord['status'], number> = {
       active: 0,
       paused: 1,
-      draft: 2,
-      archived: 3,
+      suspended: 2,
+      draft: 3,
+      archived: 4,
     }
     return [...programs].sort((a, b) => {
       const diff = order[a.status] - order[b.status]
@@ -202,12 +203,12 @@ export function DashboardPage() {
   )
 
   return (
-    <section className="space-y-3">
+    <section className="min-w-0 space-y-2.5 sm:space-y-3">
       <PageHeader
         title={`Performance du mois — ${monthLabel}`}
         right={
           <PageHeaderToolbar>
-            <Button asChild variant="default" size="sm" className="gap-2">
+            <Button asChild variant="default" size="sm" className="w-auto self-start gap-2">
               <Link to="/agents">
                 <Plus className="size-4" aria-hidden />
                 Add agent
@@ -216,7 +217,7 @@ export function DashboardPage() {
           </PageHeaderToolbar>
         }
       />
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card: DashboardMetricCardRecord) => (
           <KpiCard
             key={card.key}
@@ -230,25 +231,25 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
-        <article className="app-card-padding rounded-lg bg-card xl:col-span-3">
+      <div className="grid grid-cols-1 gap-2.5 md:gap-3 xl:grid-cols-5">
+        <article className="rounded-lg bg-card p-3 sm:p-4 xl:col-span-3">
           <PerformanceProspectsClientsChart prospects={prospects} transactions={transactions} />
         </article>
 
-        <article className="app-card-padding rounded-lg bg-card xl:col-span-2">
+        <article className="rounded-lg bg-card p-3 sm:p-4 xl:col-span-2">
           <PointsBalancePieChart ledgerEntries={pointsLedger} />
         </article>
       </div>
 
-      <article className="app-card-padding rounded-lg bg-card">
+      <article className="rounded-lg bg-card p-3 sm:p-4">
         <TopAffiliatesByProspectsTable rows={topAffiliateRows} />
       </article>
 
-      <article className="app-card-padding rounded-lg bg-card">
+      <article className="rounded-lg bg-card p-3 sm:p-4">
         <RecentActivityTable transactions={recentTransactions} />
       </article>
 
-      <article className="app-card-padding rounded-lg bg-card">
+      <article className="rounded-lg bg-card p-3 sm:p-4">
         <ProgramsOverviewTable
           programs={sortedPrograms}
           defaultBusinessName={user?.primary_business?.display_name ?? undefined}

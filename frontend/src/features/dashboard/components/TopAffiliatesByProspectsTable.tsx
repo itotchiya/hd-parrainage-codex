@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -69,7 +69,7 @@ export function TopAffiliatesByProspectsTable({ rows }: TopAffiliatesByProspects
           Aucune activité affilié pour le moment.
         </p>
       ) : (
-        <div className="rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -92,9 +92,9 @@ export function TopAffiliatesByProspectsTable({ rows }: TopAffiliatesByProspects
                       aria-label={`Voir le profil de ${row.displayName}`}
                     >
                       <Avatar className="size-9 shrink-0">
-                        <AvatarFallback className="text-xs font-medium">
+                        <AgentAvatarFallback seed={row.agentId} className="text-xs font-medium">
                           {initials(row.displayName)}
-                        </AvatarFallback>
+                        </AgentAvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
                         <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">

@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Programs\ProgramResource;
 use App\Models\ExchangePack;
 use App\Models\Program;
+use App\Models\Prospect;
 use App\Models\User;
+use App\Services\ProgramAssignedAgentNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class ProgramController extends Controller
@@ -27,6 +31,12 @@ class ProgramController extends Controller
             ->with([
                 'business',
                 'exchangePack.items',
+                'agentAssignments' => function ($relation): void {
+                    $relation
+                        ->where('status', 'active')
+                        ->orderByDesc('assigned_at')
+                        ->with(['agent.user']);
+                },
             ])
             ->withCount([
                 'agentAssignments as active_agent_assignments_count' => fn (Builder $builder) => $builder->where('status', 'active'),
@@ -51,7 +61,7 @@ class ProgramController extends Controller
         }
 
         $programs = $query
-            ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'draft' THEN 1 WHEN status = 'paused' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'paused' THEN 1 WHEN status = 'suspended' THEN 2 WHEN status = 'draft' THEN 3 ELSE 4 END")
             ->orderBy('name')
             ->get();
 
@@ -109,7 +119,12 @@ class ProgramController extends Controller
             ->with([
                 'business',
                 'exchangePack.items',
-                'agentAssignments.agent.user',
+                'agentAssignments' => function ($relation): void {
+                    $relation
+                        ->where('status', 'active')
+                        ->orderByDesc('assigned_at')
+                        ->with(['agent.user']);
+                },
             ])
             ->withCount([
                 'agentAssignments as active_agent_assignments_count' => fn (Builder $builder) => $builder->where('status', 'active'),
@@ -134,6 +149,10 @@ class ProgramController extends Controller
 
         $payload = $this->validatedPayload($request, $businessId, $program);
 
+        $hasActiveAssignments = $this->hasActiveAssignments($program);
+        $hasProspects = $this->hasAnyProspects($program);
+        $isLockedByAssignments = $hasActiveAssignments || $hasProspects;
+
         $program->fill([
             'name' => $payload['name'],
             'description' => $payload['description'],
@@ -148,6 +167,31 @@ class ProgramController extends Controller
             'ends_at' => $payload['ends_at'],
             'updated_by_user_id' => $user->id,
         ]);
+
+        if ($isLockedByAssignments) {
+            $blockedFields = [
+                'name',
+                'description',
+                'commission_type',
+                'exchange_mode',
+                'points_per_transaction',
+                'points_per_euro',
+                'eligibility_criteria',
+                'status',
+                'starts_at',
+                'ends_at',
+            ];
+
+            $hasBlockedChange = collect($blockedFields)->contains(
+                fn (string $field) => $program->isDirty($field)
+            );
+
+            if ($hasBlockedChange) {
+                throw ValidationException::withMessages([
+                    'program' => 'Program general and cash settings cannot be edited after agents or prospects are attached. Only rewards pack changes are allowed.',
+                ]);
+            }
+        }
 
         if ($program->isDirty('name')) {
             $program->slug = $this->uniqueSlugForBusiness($businessId, $payload['name'], $program->id);
@@ -177,12 +221,67 @@ class ProgramController extends Controller
             $program->rule_version++;
         }
 
+        $exchangePackChanged = $program->isDirty('exchange_pack_id');
+        $becameActiveFromDraft = $program->getOriginal('status') === 'draft' && $program->status === 'active';
+
         $program->save();
         $program->loadMissing([
             'business',
             'exchangePack.items',
             'agentAssignments.agent.user',
         ]);
+
+        if ($exchangePackChanged) {
+            ProgramAssignedAgentNotifier::notifyRewardsUpdated($program);
+        }
+
+        if ($becameActiveFromDraft) {
+            ProgramAssignedAgentNotifier::notifyAssignmentForAllActiveAgents($program);
+        }
+
+        return response()->json([
+            'data' => ProgramResource::make($program)->resolve($request),
+        ]);
+    }
+
+    public function activate(Request $request, string $programId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+
+        $this->assertPermission($user, 'program.update', $businessId);
+
+        $program = Program::query()
+            ->where('business_id', $businessId)
+            ->findOrFail($programId);
+
+        if ($program->status !== 'draft') {
+            throw ValidationException::withMessages([
+                'status' => 'Only draft programs can be activated with this action.',
+            ]);
+        }
+
+        $this->assertDraftReadyForActivation($program);
+
+        $attrs = [
+            'status' => 'active',
+            'activated_at' => $program->activated_at ?? now(),
+            'paused_at' => null,
+            'updated_by_user_id' => $user->id,
+        ];
+        if ($this->programsSuspensionColumnsExist()) {
+            $attrs['suspended_at'] = null;
+            $attrs['suspension_deadline_at'] = null;
+        }
+        $program->forceFill($attrs)->save();
+
+        $program->loadMissing([
+            'business',
+            'exchangePack.items',
+            'agentAssignments.agent.user',
+        ]);
+
+        ProgramAssignedAgentNotifier::notifyAssignmentForAllActiveAgents($program);
 
         return response()->json([
             'data' => ProgramResource::make($program)->resolve($request),
@@ -211,6 +310,9 @@ class ProgramController extends Controller
             'exchangePack.items',
         ]);
 
+        // Notify on every successful pause (no deduplication): repeat calls re-email assigned agents.
+        ProgramAssignedAgentNotifier::notifyPaused($program);
+
         return response()->json([
             'data' => ProgramResource::make($program)->resolve($request),
         ]);
@@ -227,16 +329,120 @@ class ProgramController extends Controller
             ->where('business_id', $businessId)
             ->findOrFail($programId);
 
-        if ($program->commission_type === 'revenue_tier') {
+        if (! in_array($program->status, ['paused', 'suspended'], true)) {
             throw ValidationException::withMessages([
-                'commission_type' => 'Revenue-tier programs cannot be activated until tier rules are modeled.',
+                'status' => 'Only paused or suspended programs can be reactivated (resume or lift suspension).',
+            ]);
+        }
+
+        $this->assertProgramOperational($program);
+
+        $attrs = [
+            'status' => 'active',
+            'activated_at' => now(),
+            'paused_at' => null,
+            'updated_by_user_id' => $user->id,
+        ];
+        if ($this->programsSuspensionColumnsExist()) {
+            $attrs['suspended_at'] = null;
+            $attrs['suspension_deadline_at'] = null;
+        }
+        $program->forceFill($attrs)->save();
+
+        $program->loadMissing([
+            'business',
+            'exchangePack.items',
+        ]);
+
+        ProgramAssignedAgentNotifier::notifyResumed($program);
+
+        return response()->json([
+            'data' => ProgramResource::make($program)->resolve($request),
+        ]);
+    }
+
+    public function suspend(Request $request, string $programId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+
+        $this->assertPermission($user, 'program.pause', $businessId);
+
+        $program = Program::query()
+            ->where('business_id', $businessId)
+            ->findOrFail($programId);
+
+        $this->assertProgramOperational($program);
+
+        if ($program->status === 'suspended') {
+            throw ValidationException::withMessages([
+                'status' => 'Program is already suspended.',
+            ]);
+        }
+
+        $hasOpenProspects = $this->hasOpenProspects($program);
+
+        if ($hasOpenProspects) {
+            throw ValidationException::withMessages([
+                'status' => 'Program cannot be suspended while open prospects still exist.',
+            ]);
+        }
+
+        if (! $this->programsSuspensionColumnsExist()) {
+            throw ValidationException::withMessages([
+                'status' => 'Database schema is missing program suspension columns. Run `php artisan migrate` in the backend (migration adds programs.suspended_at and programs.suspension_deadline_at).',
+            ]);
+        }
+
+        $suspendedAt = now();
+
+        $program->forceFill([
+            'status' => 'suspended',
+            'paused_at' => $program->paused_at ?? $suspendedAt,
+            'suspended_at' => $suspendedAt,
+            'suspension_deadline_at' => $suspendedAt->copy()->addDays(30),
+            'updated_by_user_id' => $user->id,
+        ])->save();
+
+        $program->loadMissing([
+            'business',
+            'exchangePack.items',
+        ]);
+
+        ProgramAssignedAgentNotifier::notifySuspended($program);
+
+        return response()->json([
+            'data' => ProgramResource::make($program)->resolve($request),
+        ]);
+    }
+
+    public function archive(Request $request, string $programId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+
+        $this->assertPermission($user, 'program.pause', $businessId);
+
+        $program = Program::query()
+            ->where('business_id', $businessId)
+            ->findOrFail($programId);
+
+        if ($program->status !== 'suspended') {
+            throw ValidationException::withMessages([
+                'status' => 'Program can be archived only after suspension.',
+            ]);
+        }
+
+        $deadline = $program->suspension_deadline_at;
+        if ($deadline === null || $deadline->isFuture()) {
+            throw ValidationException::withMessages([
+                'status' => 'Program can be archived only after the 30-day suspension period.',
             ]);
         }
 
         $program->forceFill([
-            'status' => 'active',
-            'activated_at' => now(),
-            'paused_at' => null,
+            'status' => 'archived',
+            'archived_at' => now(),
             'updated_by_user_id' => $user->id,
         ])->save();
 
@@ -247,6 +453,39 @@ class ProgramController extends Controller
 
         return response()->json([
             'data' => ProgramResource::make($program)->resolve($request),
+        ]);
+    }
+
+    public function deleteFromArchive(Request $request, string $programId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+
+        $this->assertPermission($user, 'program.update', $businessId);
+
+        $program = Program::query()
+            ->where('business_id', $businessId)
+            ->findOrFail($programId);
+
+        $hasActiveAgents = $program->agentAssignments()->where('status', 'active')->exists();
+        $hasAnyProspects = $program->prospects()->exists();
+
+        $allowed = $program->status === 'archived'
+            || (! $hasActiveAgents && ! $hasAnyProspects);
+
+        if (! $allowed) {
+            throw ValidationException::withMessages([
+                'status' => 'Program can be soft-deleted only when archived, or when it has no active agent assignments and no prospects.',
+            ]);
+        }
+
+        $program->delete();
+
+        return response()->json([
+            'data' => [
+                'id' => $programId,
+                'deleted' => true,
+            ],
         ]);
     }
 
@@ -264,7 +503,7 @@ class ProgramController extends Controller
             'points_per_euro' => ['nullable', 'integer', 'min:1'],
             'exchange_pack_id' => ['nullable', 'uuid'],
             'eligibility_criteria' => ['required', 'string'],
-            'status' => ['nullable', 'in:draft,active,paused,archived'],
+            'status' => ['nullable', 'in:draft,active,paused'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ]);
@@ -307,18 +546,6 @@ class ProgramController extends Controller
             }
         }
 
-        if ($commissionType === 'revenue_tier' && $status === 'active') {
-            throw ValidationException::withMessages([
-                'status' => 'Revenue-tier programs must stay in draft or paused state until tier rules exist.',
-            ]);
-        }
-
-        if ($status === 'archived' && $program === null) {
-            throw ValidationException::withMessages([
-                'status' => 'Programs cannot be created directly in archived state.',
-            ]);
-        }
-
         return [
             'name' => trim((string) $validated['name']),
             'description' => $validated['description'] === null ? null : trim((string) $validated['description']),
@@ -332,6 +559,68 @@ class ProgramController extends Controller
             'starts_at' => $validated['starts_at'] ?? null,
             'ends_at' => $validated['ends_at'] ?? null,
         ];
+    }
+
+    private function hasActiveAssignments(Program $program): bool
+    {
+        return $program->agentAssignments()
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    private function hasAnyProspects(Program $program): bool
+    {
+        return $program->prospects()->exists();
+    }
+
+    private function hasOpenProspects(Program $program): bool
+    {
+        return $program->prospects()
+            ->where('conversion_status', 'open')
+            ->exists();
+    }
+
+    private function assertDraftReadyForActivation(Program $program): void
+    {
+        if ($program->commission_type === 'per_transaction' && $program->points_per_transaction === null) {
+            throw ValidationException::withMessages([
+                'points_per_transaction' => 'Set points per transaction before activating.',
+            ]);
+        }
+
+        if (in_array($program->exchange_mode, ['cash', 'both'], true) && $program->points_per_euro === null) {
+            throw ValidationException::withMessages([
+                'points_per_euro' => 'Set points per euro before activating.',
+            ]);
+        }
+
+        if (in_array($program->exchange_mode, ['reward', 'both'], true) && $program->exchange_pack_id === null) {
+            throw ValidationException::withMessages([
+                'exchange_pack_id' => 'Select an exchange pack before activating.',
+            ]);
+        }
+    }
+
+    /** Cached: suspension fields from migration 2026_04_02_120000_add_suspension_fields_to_programs_table. */
+    private function programsSuspensionColumnsExist(): bool
+    {
+        static $cache = null;
+
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        return $cache = Schema::hasColumn('programs', 'suspended_at')
+            && Schema::hasColumn('programs', 'suspension_deadline_at');
+    }
+
+    private function assertProgramOperational(Program $program): void
+    {
+        if ($program->status === 'archived') {
+            throw ValidationException::withMessages([
+                'status' => 'Archived programs are read-only and cannot be reactivated or paused.',
+            ]);
+        }
     }
 
     private function normalizeCommissionType(string $value): string
@@ -398,11 +687,13 @@ class ProgramController extends Controller
 
             abort_if($agent === null, 403, 'No agent profile is available for this action.');
 
-            return $query->whereHas('agentAssignments', function (Builder $builder) use ($agent): void {
-                $builder
-                    ->where('agent_id', $agent->id)
-                    ->where('status', 'active');
-            });
+            return $query
+                ->where('status', '!=', 'draft')
+                ->whereHas('agentAssignments', function (Builder $builder) use ($agent): void {
+                    $builder
+                        ->where('agent_id', $agent->id)
+                        ->where('status', 'active');
+                });
         }
 
         if ($businessId !== null && $roleSlugs->contains('business-owner')) {

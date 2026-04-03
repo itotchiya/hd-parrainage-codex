@@ -34,6 +34,8 @@ class Program extends Model
         'ends_at',
         'activated_at',
         'paused_at',
+        'suspended_at',
+        'suspension_deadline_at',
         'archived_at',
         'created_by_user_id',
         'updated_by_user_id',
@@ -46,6 +48,8 @@ class Program extends Model
             'ends_at' => 'datetime',
             'activated_at' => 'datetime',
             'paused_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'suspension_deadline_at' => 'datetime',
             'archived_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

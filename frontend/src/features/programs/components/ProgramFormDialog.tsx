@@ -162,11 +162,6 @@ export function ProgramFormDialog({
                 'An exchange pack is required when reward exchange is enabled.'
             }
 
-            if (form.commission_type === 'revenue-tier' && form.status === 'active') {
-              nextErrors.status =
-                'Revenue-tier programs must stay draft or paused until tier rules exist.'
-            }
-
             if (Object.keys(nextErrors).length > 0) {
               setClientErrors(nextErrors)
               return
@@ -224,9 +219,7 @@ export function ProgramFormDialog({
                 className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
               >
                 <option value="draft">Draft</option>
-                <option value="active" disabled={form.commission_type === 'revenue-tier'}>
-                  Active
-                </option>
+                <option value="active">Active</option>
                 <option value="paused">Paused</option>
               </select>
               {clientErrors.status ?? fieldError(error, 'status') ? (
@@ -264,10 +257,6 @@ export function ProgramFormDialog({
                     clearClientError('status')
                     patchForm({
                       commission_type: nextCommissionType,
-                      status:
-                        nextCommissionType === 'revenue-tier' && form.status === 'active'
-                          ? 'draft'
-                          : form.status,
                     })
                   }
                 }

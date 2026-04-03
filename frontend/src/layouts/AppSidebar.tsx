@@ -20,6 +20,9 @@ interface AppSidebarProps {
   navItems: AppModuleRoute[]
   onLogout: () => Promise<void>
   logoutPending: boolean
+  isMobile: boolean
+  mobileOpen: boolean
+  onNavigate?: () => void
 }
 
 const routeIcons: Record<NavigationIconKey, React.ComponentType<{ className?: string }>> = {
@@ -41,16 +44,23 @@ export function AppSidebar({
   navItems,
   onLogout,
   logoutPending,
+  isMobile,
+  mobileOpen,
+  onNavigate,
 }: AppSidebarProps) {
   return (
     <aside
       className={[
-        'sticky top-0 z-40 flex h-screen flex-col text-foreground transition-all duration-300',
+        'z-40 flex h-screen flex-col text-foreground transition-all duration-300',
         'bg-transparent',
         // Soft divider like shadcn docs (no harsh border).
         "relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gradient-to-b after:from-transparent after:via-border/70 after:to-transparent",
-        collapsed ? 'w-16' : 'w-64',
-        'shrink-0',
+        isMobile
+          ? [
+              'fixed inset-y-0 left-0 w-64',
+              mobileOpen ? 'translate-x-0' : '-translate-x-full',
+            ].join(' ')
+          : [collapsed ? 'w-16' : 'w-64', 'sticky top-0 shrink-0'].join(' '),
       ].join(' ')}
     >
       <div className="flex h-16 items-center px-3">
@@ -84,6 +94,7 @@ export function AppSidebar({
               <li key={item.path}>
                 <NavLink
                   to={item.path}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     [
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',

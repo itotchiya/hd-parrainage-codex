@@ -51,8 +51,12 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::post('/programs', [ProgramController::class, 'store']);
     Route::get('/programs/{programId}', [ProgramController::class, 'show']);
     Route::patch('/programs/{programId}', [ProgramController::class, 'update']);
+    Route::post('/programs/{programId}/activate', [ProgramController::class, 'activate']);
     Route::post('/programs/{programId}/pause', [ProgramController::class, 'pause']);
     Route::post('/programs/{programId}/reactivate', [ProgramController::class, 'reactivate']);
+    Route::post('/programs/{programId}/suspend', [ProgramController::class, 'suspend']);
+    Route::post('/programs/{programId}/archive', [ProgramController::class, 'archive']);
+    Route::post('/programs/{programId}/delete', [ProgramController::class, 'deleteFromArchive']);
     Route::get('/programs/{programId}/agents', [ProgramAgentAssignmentController::class, 'index']);
     Route::put('/programs/{programId}/agents', [ProgramAgentAssignmentController::class, 'sync']);
     Route::get('/exchange-packs', [ExchangePackController::class, 'index']);

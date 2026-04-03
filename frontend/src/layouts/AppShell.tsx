@@ -7,7 +7,8 @@ import { useAuthSession } from '../features/auth/session'
 import { fetchNotifications } from '../features/notifications/api'
 import { AppSidebar } from './AppSidebar'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
+import { avatarSeedForUser } from '@/lib/avatar-fallback'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Breadcrumb,
@@ -33,6 +34,11 @@ export function AppShell() {
   const navigate = useNavigate()
   const { hasPermission, logout, logoutPending, user } = useAuthSession()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 1279px)').matches
+  })
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     if (typeof window === 'undefined') {
       return 'system'
@@ -125,9 +131,32 @@ export function AppShell() {
     }
   }, [theme])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(max-width: 1279px)')
+    const syncMobileState = () => {
+      const nextIsMobile = mediaQuery.matches
+      setIsMobile(nextIsMobile)
+      if (!nextIsMobile) setMobileSidebarOpen(false)
+    }
+
+    syncMobileState()
+    mediaQuery.addEventListener('change', syncMobileState)
+
+    return () => mediaQuery.removeEventListener('change', syncMobileState)
+  }, [])
+
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [location.pathname])
+
   return (
     <main
-      className={`min-h-screen text-foreground ${dashboardSurfaceClass} flex`}
+      className={[
+        `min-h-screen overflow-x-hidden text-foreground ${dashboardSurfaceClass}`,
+        'flex w-full',
+      ].join(' ')}
     >
       <AppSidebar
         collapsed={sidebarCollapsed}
@@ -137,10 +166,30 @@ export function AppShell() {
           navigate('/login', { replace: true })
         }}
         logoutPending={logoutPending}
+        isMobile={isMobile}
+        mobileOpen={mobileSidebarOpen}
+        onNavigate={() => {
+          if (isMobile) setMobileSidebarOpen(false)
+        }}
       />
 
+      {isMobile && mobileSidebarOpen ? (
+        <button
+          type="button"
+          aria-label="Close sidebar menu"
+          className="fixed inset-y-0 left-64 right-0 z-30 bg-transparent"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      ) : null}
+
       <div
-        className={`min-h-screen flex-1 ${dashboardSurfaceClass}`}
+        className={[
+          `relative min-h-screen min-w-0 ${dashboardSurfaceClass} transition-transform duration-300 will-change-transform`,
+          isMobile
+            ? 'w-[100vw] max-w-[100vw] shrink-0 grow-0 basis-[100vw]'
+            : 'w-full max-w-full flex-1',
+          isMobile && mobileSidebarOpen ? 'translate-x-64' : 'translate-x-0',
+        ].join(' ')}
       >
         <header
           className={`sticky top-0 z-30 w-full ${dashboardSurfaceClass}`}
@@ -151,13 +200,30 @@ export function AppShell() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => setSidebarCollapsed((value) => !value)}
+                onClick={() => {
+                  if (isMobile) {
+                    setMobileSidebarOpen((value) => !value)
+                    return
+                  }
+                  setSidebarCollapsed((value) => !value)
+                }}
                 className="-ml-1"
-                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-label={
+                  isMobile
+                    ? mobileSidebarOpen
+                      ? 'Close sidebar'
+                      : 'Open sidebar'
+                    : sidebarCollapsed
+                      ? 'Expand sidebar'
+                      : 'Collapse sidebar'
+                }
               >
                 <PanelLeft className="h-4 w-4" />
               </Button>
-              <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 hidden data-[orientation=vertical]:h-4 md:block"
+              />
               {isDashboardRoute ? (
                 <p className="text-sm text-muted-foreground">
                   Hello, <span className="font-semibold text-foreground">{displayName}</span>
@@ -226,7 +292,10 @@ export function AppShell() {
                 )}
               </Button>
 
-              <Separator orientation="vertical" className="bg-border/80 data-[orientation=vertical]:h-4" />
+              <Separator
+                orientation="vertical"
+                className="hidden bg-border/80 data-[orientation=vertical]:h-4 md:block"
+              />
 
               <div className="relative">
                 <Button
@@ -248,7 +317,10 @@ export function AppShell() {
                 ) : null}
               </div>
 
-              <Separator orientation="vertical" className="bg-border/80 data-[orientation=vertical]:h-4" />
+              <Separator
+                orientation="vertical"
+                className="hidden bg-border/80 data-[orientation=vertical]:h-4 md:block"
+              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -258,7 +330,12 @@ export function AppShell() {
                   >
                     <Avatar className="h-6 w-6">
                       <AvatarImage src={user?.avatar_url ?? undefined} alt={user?.display_name ?? 'User'} />
-                      <AvatarFallback className="text-xs font-semibold">{userInitial}</AvatarFallback>
+                      <AgentAvatarFallback
+                        seed={user ? avatarSeedForUser({ id: user.id }) : 'anonymous'}
+                        className="text-xs font-semibold"
+                      >
+                        {userInitial}
+                      </AgentAvatarFallback>
                     </Avatar>
                     <span className="hidden md:block">
                       <span className="block max-w-[140px] truncate text-xs font-semibold text-foreground">

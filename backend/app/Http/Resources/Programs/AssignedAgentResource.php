@@ -24,6 +24,7 @@ class AssignedAgentResource extends JsonResource
                 'status' => $this->agent->status,
                 'display_name' => $this->agent->user?->display_name,
                 'email' => $this->agent->user?->email,
+                'avatar_url' => $this->agent->user?->avatar_url,
             ],
         ];
     }

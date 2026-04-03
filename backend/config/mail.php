@@ -115,4 +115,23 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Program → agent bulk mail spacing
+    |--------------------------------------------------------------------------
+    |
+    | Seconds to wait between each recipient when notifying many agents (sleep in
+    | the same request). Helps ESP rate limits (Resend free tier: daily caps and
+    | per-second limits — see resend.com/docs).
+    |
+    | By default program-agent mail sends synchronously (same request as the API).
+    | Set MAIL_PROGRAM_AGENT_USE_QUEUE=true only if you run queue:work and monitor
+    | failed_jobs; otherwise queued mail may never send.
+    |
+    */
+
+    'program_agent_bulk_stagger_seconds' => max(0, (int) env('MAIL_PROGRAM_AGENT_STAGGER_SECONDS', 3)),
+
+    'program_agent_use_queue' => filter_var(env('MAIL_PROGRAM_AGENT_USE_QUEUE', false), FILTER_VALIDATE_BOOLEAN),
+
 ];
