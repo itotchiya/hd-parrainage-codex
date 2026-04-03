@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Plus, Search } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchPrograms } from '../../programs/api'
@@ -12,6 +13,19 @@ import {
   fetchDeletedProspects,
   fetchProspects,
 } from '../api'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Button } from '@/components/ui/button'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { ProspectPipelineStage, ProspectRecord } from '../../../types/prospects'
 
 const prospectsQueryKey = ['prospects', 'list']
@@ -22,10 +36,10 @@ const stagePresentation: Record<
   ProspectPipelineStage,
   { label: string; className: string }
 > = {
-  suspect: { label: 'Suspect', className: 'bg-slate-100 text-slate-700' },
-  prospect_froid: { label: 'Prospect Froid', className: 'bg-blue-100 text-blue-700' },
-  prospect_tiede: { label: 'Prospect Tiede', className: 'bg-amber-100 text-amber-700' },
-  prospect_chaud: { label: 'Prospect Chaud', className: 'bg-emerald-100 text-emerald-700' },
+  suspect: { label: 'Suspect', className: 'border-border bg-muted/40 text-foreground' },
+  prospect_froid: { label: 'Prospect Froid', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
+  prospect_tiede: { label: 'Prospect Tiede', className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300' },
+  prospect_chaud: { label: 'Prospect Chaud', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
 }
 
 const submissionPresentation = {
@@ -50,11 +64,14 @@ function formatDate(value: string | null) {
 export function ProspectsPage() {
   const queryClient = useQueryClient()
   const { user, hasPermission } = useAuthSession()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | ProspectPipelineStage>('all')
   const [selectedAgentId, setSelectedAgentId] = useState('all')
   const [showDeleted, setShowDeleted] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
+  const queryWantsCreate = searchParams.get('create') === 'true'
+  const queryProgramId = searchParams.get('programId')
+  const [createOpen, setCreateOpen] = useState(queryWantsCreate)
   const [deleteTarget, setDeleteTarget] = useState<ProspectRecord | null>(null)
 
   const prospectsQuery = useQuery({
@@ -101,8 +118,26 @@ export function ProspectsPage() {
   const sourceQuery = showDeleted ? deletedProspectsQuery : prospectsQuery
   const prospects = sourceQuery.data?.data ?? []
   const assignedPrograms = assignedProgramsQuery.data?.data ?? []
+  const eligiblePrograms = assignedPrograms.filter((program) => program.status === 'active')
+  const canSubmitProspects = hasPermission('prospect.submit')
   const createError = createMutation.error as ApiError | null
   const deleteError = deleteMutation.error as ApiError | null
+
+  useEffect(() => {
+    if (!queryWantsCreate) {
+      return
+    }
+
+    if (!canSubmitProspects || eligiblePrograms.length === 0) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('create')
+      nextParams.delete('programId')
+      setSearchParams(nextParams, { replace: true })
+      return
+    }
+
+    setCreateOpen(true)
+  }, [canSubmitProspects, eligiblePrograms.length, queryWantsCreate, searchParams, setSearchParams])
 
   const agentOptions = useMemo(() => {
     return Array.from(
@@ -148,169 +183,165 @@ export function ProspectsPage() {
 
   if (sourceQuery.isPending) {
     return (
-      <article className="rounded-xl border border-slate-300/70 bg-white/90 p-6 text-sm text-slate-600">
-        Loading prospects...
-      </article>
+      <article className="app-panel text-sm text-muted-foreground">Loading prospects...</article>
     )
   }
 
   if (sourceQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(sourceQuery.error as ApiError).message}
       </article>
     )
   }
 
   return (
-    <section className="space-y-5">
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <article className="rounded-xl border border-slate-300/70 bg-white p-6 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.22)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Funnel tracking
-          </p>
-          <h1 className="app-page-title mt-2 text-slate-950">
-            Prospects
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Live prospect stages, deleted history, and scoped ownership from backend data.
-          </p>
-        </article>
+    <section className="app-section">
+      <PageHeader
+        title="Prospects"
+        right={
+          <PageHeaderToolbar>
+            <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
+              <FieldLabel htmlFor="prospects-search" className="sr-only">
+                Search prospects
+              </FieldLabel>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="prospects-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Contact, company, program, agent..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
 
-        <article className="rounded-xl border border-slate-800 bg-slate-950 p-6 text-slate-50 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.9)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-            Scope
-          </p>
-          <p className="app-stat-value mt-3 text-slate-50">
+            <Select
+              value={stageFilter}
+              onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
+              disabled={showDeleted}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                <SelectValue placeholder="Stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Pipeline stage</SelectLabel>
+                  <SelectItem value="all">All stages</SelectItem>
+                  {Object.entries(stagePresentation).map(([key, stage]) => (
+                    <SelectItem key={key} value={key}>
+                      {stage.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            {hasPermission('prospect.view') && user?.agent_profile === null ? (
+              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectValue placeholder="Agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Agent</SelectLabel>
+                    <SelectItem value="all">All agents</SelectItem>
+                    {agentOptions.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowDeleted((c) => !c)}>
+              {showDeleted ? 'Active prospects' : 'Deleted history'}
+            </Button>
+
+            {canSubmitProspects ? (
+              <Button
+                type="button"
+                size="sm"
+                className="gap-2 sm:shrink-0"
+                onClick={() => setCreateOpen(true)}
+                disabled={eligiblePrograms.length === 0}
+              >
+                <Plus className="size-4" aria-hidden />
+                New prospect
+              </Button>
+            ) : null}
+          </PageHeaderToolbar>
+        }
+      />
+      <p className="app-copy text-muted-foreground">
+        Funnel stages, sync status, and ownership from live data.
+      </p>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_minmax(220px,280px)]">
+        <article className="rounded-lg border border-border bg-muted/15 px-4 py-3 md:px-5 md:py-4">
+          <p className="app-eyebrow">Scope</p>
+          <p className="mt-1 text-base font-semibold text-foreground">
             {user?.primary_business?.display_name ?? 'Global platform'}
           </p>
-          <div className="mt-5 space-y-2 text-sm text-slate-300">
-            <p>Visible prospects: {prospects.length}</p>
-            <p>Create rights: {hasPermission('prospect.submit') ? 'Enabled' : 'Read only'}</p>
-            <p>Deleted view: {showDeleted ? 'Active' : 'Hidden'}</p>
+          <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+            <p>Visible: {prospects.length}</p>
+            <p>Create: {hasPermission('prospect.submit') ? 'Enabled' : 'Read only'}</p>
+            <p>Deleted view: {showDeleted ? 'On' : 'Off'}</p>
           </div>
         </article>
       </div>
 
       {!showDeleted ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="app-grid-tight sm:grid-cols-2 xl:grid-cols-4">
           {stageCards.map((stage) => (
-            <article
-              key={stage.key}
-              className="rounded-lg border border-slate-300/70 bg-white px-5 py-4 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.16)]"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                {stage.label}
-              </p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                {stage.count}
-              </p>
+            <article key={stage.key} className="rounded-lg border border-border bg-card px-4 py-3 md:px-5 md:py-4">
+              <p className="app-eyebrow">{stage.label}</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{stage.count}</p>
             </article>
           ))}
         </div>
       ) : (
-        <article className="rounded-xl border border-dashed border-slate-300 bg-white/90 p-5 text-sm text-slate-600">
-          Deleted records remain visible here for audit and correction history.
+        <article className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
+          Deleted records stay visible for audit and correction history.
         </article>
       )}
 
-      <article className="rounded-xl border border-slate-300/70 bg-white/90 p-4 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.16)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-4 sm:flex-row">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:bg-white"
-              placeholder="Search by contact, company, program, or agent..."
-            />
-            <select
-              value={stageFilter}
-              onChange={(event) => setStageFilter(event.target.value as 'all' | ProspectPipelineStage)}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:bg-white"
-              disabled={showDeleted}
-            >
-              <option value="all">All stages</option>
-              {Object.entries(stagePresentation).map(([key, stage]) => (
-                <option key={key} value={key}>
-                  {stage.label}
-                </option>
-              ))}
-            </select>
-            {hasPermission('prospect.view') && user?.agent_profile === null ? (
-              <select
-                value={selectedAgentId}
-                onChange={(event) => setSelectedAgentId(event.target.value)}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:bg-white"
-              >
-                <option value="all">All agents</option>
-                {agentOptions.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowDeleted((current) => !current)}
-              className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
-            >
-              {showDeleted ? 'Active prospects' : 'Deleted history'}
-            </button>
-            {hasPermission('prospect.submit') ? (
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                New prospect
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </article>
-
       {filteredProspects.length === 0 ? (
-        <article className="rounded-xl border border-dashed border-slate-300 bg-white/90 p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Prospect inventory
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-            No prospects match the current filter.
-          </h2>
+        <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
+          <p className="app-eyebrow">Prospect inventory</p>
+          <h2 className="mt-2 text-lg font-semibold text-foreground">No prospects match the current filter.</h2>
         </article>
       ) : (
-        <div className="space-y-4">
+        <div className="app-section">
           {filteredProspects.map((prospect) => {
             const stage = stagePresentation[prospect.pipeline_stage]
 
             return (
-              <article
-                key={prospect.id}
-                className="rounded-xl border border-slate-300/70 bg-white p-5 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.16)]"
-              >
+              <article key={prospect.id} className="rounded-lg border border-border bg-card app-card-padding">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <p className="app-eyebrow">
                         {prospect.business_name ?? 'Business'} / {prospect.program_name ?? 'Program'}
                       </p>
-                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
                         {prospect.contact_name}
                       </h2>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className={`rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] ${stage.className}`}>
+                      <span
+                        className={`rounded-md border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${stage.className}`}
+                      >
                         {stage.label}
                       </span>
-                      <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                      <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         {submissionPresentation[prospect.submission_status]}
                       </span>
                     </div>
-                    <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-3">
+                    <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
                       <p>Email: {prospect.contact_email ?? 'Not provided'}</p>
                       <p>Phone: {prospect.contact_phone_raw ?? 'Not provided'}</p>
                       <p>Agent: {prospect.agent_name ?? 'Unknown'}</p>
@@ -318,20 +349,13 @@ export function ProspectsPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 xl:justify-end">
-                    <Link
-                      to={`/prospects/${prospect.id}`}
-                      className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
-                    >
-                      Open
-                    </Link>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/prospects/${prospect.id}`}>Open</Link>
+                    </Button>
                     {prospect.actions.can_delete ? (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(prospect)}
-                        className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      >
+                      <Button type="button" size="sm" variant="destructive" onClick={() => setDeleteTarget(prospect)}>
                         Delete
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -344,14 +368,15 @@ export function ProspectsPage() {
                 </div>
 
                 {prospect.sync_error_message ? (
-                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
                     {prospect.sync_error_message}
                   </p>
                 ) : null}
 
                 {prospect.deleted_at ? (
-                  <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    Deleted on {formatDate(prospect.deleted_at)} by {prospect.deleted_by_user?.display_name ?? 'Unknown'}.
+                  <p className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Deleted on {formatDate(prospect.deleted_at)} by{' '}
+                    {prospect.deleted_by_user?.display_name ?? 'Unknown'}.
                     {prospect.soft_delete_reason ? ` Reason: ${prospect.soft_delete_reason}` : ''}
                   </p>
                 ) : null}
@@ -363,11 +388,18 @@ export function ProspectsPage() {
 
       <NewProspectDialog
         open={createOpen}
-        programs={assignedPrograms}
+        programs={eligiblePrograms}
+        defaultProgramId={queryProgramId}
         isSubmitting={createMutation.isPending}
         error={createError}
         onClose={() => {
           setCreateOpen(false)
+          if (queryWantsCreate || queryProgramId) {
+            const nextParams = new URLSearchParams(searchParams)
+            nextParams.delete('create')
+            nextParams.delete('programId')
+            setSearchParams(nextParams, { replace: true })
+          }
           createMutation.reset()
         }}
         onSubmit={async (payload) => {
@@ -409,9 +441,9 @@ export function ProspectsPage() {
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
+    <article className="rounded-lg border border-border bg-muted/15 p-4">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </article>
   )
 }

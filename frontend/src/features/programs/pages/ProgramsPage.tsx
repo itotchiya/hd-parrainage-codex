@@ -46,7 +46,7 @@ const exchangePackQueryKey = ['exchange-packs', 'list']
 
 export function ProgramsPage() {
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuthSession()
+  const { user, hasPermission } = useAuthSession()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProgramStatus>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -166,6 +166,8 @@ export function ProgramsPage() {
   const programs = programsQuery.data?.data ?? []
   const packs = packsQuery.data?.data ?? []
   const ownerCanCreate = hasPermission('program.create')
+  const cardMode = user?.agent_profile !== null ? 'agent' : 'owner'
+  const canSubmitProspect = hasPermission('prospect.submit')
   const mutationError = (createMutation.error ?? updateMutation.error) as ApiError | null
 
   const filteredPrograms = useMemo(() => {
@@ -269,6 +271,13 @@ export function ProgramsPage() {
             <ProgramCard
               key={program.id}
               program={program}
+              mode={cardMode}
+              canSubmitProspect={canSubmitProspect}
+              prospectCreateHref={
+                canSubmitProspect && program.status === 'active'
+                  ? `/prospects?create=true&programId=${encodeURIComponent(program.id)}`
+                  : undefined
+              }
               togglePending={
                 pauseMutation.isPending || reactivateMutation.isPending || suspendMutation.isPending
               }

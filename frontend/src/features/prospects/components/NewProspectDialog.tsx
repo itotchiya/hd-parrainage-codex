@@ -6,6 +6,7 @@ import type { ProspectCreatePayload } from '../../../types/prospects'
 interface NewProspectDialogProps {
   open: boolean
   programs: ProgramRecord[]
+  defaultProgramId?: string | null
   isSubmitting: boolean
   error: ApiError | null
   onClose: () => void
@@ -20,9 +21,14 @@ type FormState = {
   company_name: string
 }
 
-function buildInitialState(programs: ProgramRecord[]): FormState {
+function buildInitialState(programs: ProgramRecord[], defaultProgramId?: string | null): FormState {
+  const preferredProgramId =
+    defaultProgramId && programs.some((program) => program.id === defaultProgramId)
+      ? defaultProgramId
+      : programs[0]?.id ?? ''
+
   return {
-    program_id: programs[0]?.id ?? '',
+    program_id: preferredProgramId,
     contact_name: '',
     contact_email: '',
     contact_phone_raw: '',
@@ -37,12 +43,13 @@ function fieldError(error: ApiError | null, field: string) {
 export function NewProspectDialog({
   open,
   programs,
+  defaultProgramId,
   isSubmitting,
   error,
   onClose,
   onSubmit,
 }: NewProspectDialogProps) {
-  const [form, setForm] = useState<FormState>(() => buildInitialState(programs))
+  const [form, setForm] = useState<FormState>(() => buildInitialState(programs, defaultProgramId))
   const [clientError, setClientError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -50,9 +57,9 @@ export function NewProspectDialog({
       return
     }
 
-    setForm(buildInitialState(programs))
+    setForm(buildInitialState(programs, defaultProgramId))
     setClientError(null)
-  }, [open, programs])
+  }, [defaultProgramId, open, programs])
 
   if (!open) {
     return null

@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Search } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchExchangePacks } from '../../programs/api'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import type { ExchangePackRecord } from '../../../types/programs'
 
 function formatDate(value: string | null) {
@@ -52,61 +56,58 @@ export function ExchangePacksPage() {
 
   if (query.isPending) {
     return (
-      <article className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Loading exchange packs...
-      </article>
+      <article className="app-panel text-sm text-muted-foreground">Loading exchange packs...</article>
     )
   }
 
   if (query.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(query.error as ApiError).message}
       </article>
     )
   }
 
   return (
-    <section className="space-y-5">
-      <article className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Exchange packs
-            </p>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                Reward catalog
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Active packs only. Descriptions stay short and the item grid carries the detail.
-              </p>
-            </div>
-          </div>
+    <section className="app-section">
+      <PageHeader
+        title="Exchange packs"
+        right={
+          <PageHeaderToolbar>
+            <Field className="w-full sm:min-w-[200px] sm:max-w-[360px] sm:flex-1">
+              <FieldLabel htmlFor="exchange-packs-search" className="sr-only">
+                Search exchange packs
+              </FieldLabel>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="exchange-packs-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search packs or reward items..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+          </PageHeaderToolbar>
+        }
+      />
+      <p className="app-copy text-muted-foreground">
+        Active packs only. Descriptions stay short; item grids carry the detail.
+      </p>
 
-          <div className="grid min-w-[280px] gap-3 sm:grid-cols-3 xl:w-[420px]">
-            <MetricCard label="Business" value={user?.primary_business?.display_name ?? 'Global'} />
-            <MetricCard label="Packs" value={packs.length.toString()} />
-            <MetricCard label="Items" value={totalItems.toString()} />
-          </div>
-        </div>
-      </article>
-
-      <article className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-          placeholder="Search packs or reward items"
-        />
-      </article>
+      <div className="app-grid-tight grid-cols-1 sm:grid-cols-3">
+        <MetricCard label="Business" value={user?.primary_business?.display_name ?? 'Global'} />
+        <MetricCard label="Packs" value={packs.length.toString()} />
+        <MetricCard label="Items" value={totalItems.toString()} />
+      </div>
 
       {filtered.length === 0 ? (
-        <article className="rounded-xl border border-dashed border-border bg-card px-5 py-6 text-sm text-muted-foreground">
+        <article className="rounded-lg border border-dashed border-border bg-muted/15 px-5 py-6 text-sm text-muted-foreground">
           No exchange packs match the current filter.
         </article>
       ) : (
-        <div className="space-y-4">
+        <div className="app-section">
           {filtered.map((pack) => (
             <PackCard key={pack.id} pack={pack} />
           ))}
@@ -118,10 +119,8 @@ export function ExchangePacksPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
+    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
+      <p className="app-eyebrow">{label}</p>
       <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
     </article>
   )
@@ -129,36 +128,34 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 
 function PackCard({ pack }: { pack: ExchangePackRecord }) {
   return (
-    <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="rounded-lg border border-border bg-card app-card-padding">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Active pack
             </span>
-            <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {pack.items.length} items
             </span>
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">{pack.name}</h2>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{pack.name}</h2>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             {pack.description ?? 'No description provided.'}
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="rounded-lg border border-border bg-muted/15 px-4 py-3 text-xs uppercase tracking-wide text-muted-foreground">
           Updated {formatDate(pack.updated_at)}
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {pack.items.map((item) => (
-          <article key={item.id} className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              {item.item_type}
-            </p>
+          <article key={item.id} className="rounded-lg border border-border bg-muted/15 p-4">
+            <p className="app-eyebrow">{item.item_type}</p>
             <h3 className="mt-2 text-base font-semibold text-foreground">{item.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {item.description ?? 'No reward description.'}
             </p>
             <p className="mt-3 text-sm font-semibold text-foreground">

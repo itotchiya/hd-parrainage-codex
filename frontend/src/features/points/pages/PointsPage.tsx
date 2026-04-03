@@ -1,8 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Search } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchPointsByProgram, fetchPointsLedger, fetchPointsSummary } from '../api'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type {
   PointsLedgerEntryStatus,
   PointsLedgerRecord,
@@ -13,11 +26,11 @@ const statusPresentation: Record<
   PointsLedgerEntryStatus,
   { label: string; className: string }
 > = {
-  pending: { label: 'Pending', className: 'bg-blue-100 text-blue-700' },
-  available: { label: 'Available', className: 'bg-emerald-100 text-emerald-700' },
-  locked: { label: 'Locked', className: 'bg-amber-100 text-amber-700' },
-  consumed: { label: 'Consumed', className: 'bg-muted text-muted-foreground' },
-  reversed: { label: 'Reversed', className: 'bg-rose-100 text-rose-700' },
+  pending: { label: 'Pending', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
+  available: { label: 'Available', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
+  locked: { label: 'Locked', className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300' },
+  consumed: { label: 'Consumed', className: 'border-border bg-muted text-muted-foreground' },
+  reversed: { label: 'Reversed', className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300' },
 }
 
 function formatDate(value: string | null, withTime = false) {
@@ -85,7 +98,7 @@ export function PointsPage() {
 
   if (summaryQuery.isPending || byProgramQuery.isPending || ledgerQuery.isPending) {
     return (
-      <article className="rounded-xl border border-border bg-card/90 p-6 text-sm text-muted-foreground">
+      <article className="app-panel text-sm text-muted-foreground">
         Loading point balances and ledger history...
       </article>
     )
@@ -93,7 +106,7 @@ export function PointsPage() {
 
   if (summaryQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(summaryQuery.error as ApiError).message}
       </article>
     )
@@ -101,7 +114,7 @@ export function PointsPage() {
 
   if (byProgramQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(byProgramQuery.error as ApiError).message}
       </article>
     )
@@ -109,35 +122,67 @@ export function PointsPage() {
 
   if (ledgerQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(ledgerQuery.error as ApiError).message}
       </article>
     )
   }
 
   return (
-    <section className="space-y-5">
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <article className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Points ledger
-          </p>
-          <h1 className="app-page-title mt-2">
-            Points
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Forecast, available balance, and immutable ledger events from live backend records.
-          </p>
-        </article>
+    <section className="app-section">
+      <PageHeader
+        title="Points"
+        right={
+          <PageHeaderToolbar>
+            <Field className="w-full sm:min-w-[200px] sm:max-w-[340px] sm:flex-1">
+              <FieldLabel htmlFor="points-ledger-search" className="sr-only">
+                Search ledger
+              </FieldLabel>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="points-ledger-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Program, prospect, agent, transaction..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
 
-        <article className="rounded-xl border border-border bg-foreground p-6 text-background shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-background/70">
-            Scope
-          </p>
-          <p className="app-stat-value mt-3 text-background">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as 'all' | PointsLedgerEntryStatus)}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Ledger status</SelectLabel>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {Object.entries(statusPresentation).map(([key, status]) => (
+                    <SelectItem key={key} value={key}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </PageHeaderToolbar>
+        }
+      />
+      <p className="app-copy text-muted-foreground">
+        Forecast, available balance, and immutable ledger events from live records.
+      </p>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_minmax(220px,280px)]">
+        <article className="rounded-lg border border-border bg-muted/15 px-4 py-3 md:px-5 md:py-4">
+          <p className="app-eyebrow">Scope</p>
+          <p className="mt-1 text-base font-semibold text-foreground">
             {user?.primary_business?.display_name ?? 'Global platform'}
           </p>
-          <div className="mt-5 space-y-2 text-sm text-background/80">
+          <div className="mt-3 space-y-1 text-sm text-muted-foreground">
             <p>Forecast prospects: {summary?.open_prospect_count ?? 0}</p>
             <p>Ledger entries: {summary?.ledger_entry_count ?? 0}</p>
             <p>Active exchanges: {summary?.active_exchange_request_count ?? 0}</p>
@@ -145,7 +190,7 @@ export function PointsPage() {
         </article>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="app-grid md:grid-cols-2 xl:grid-cols-3">
         <BalanceCard label="Forecast" value={summary?.forecast_points ?? 0} />
         <BalanceCard label="Pending" value={summary?.pending_points ?? 0} />
         <BalanceCard label="Available" value={summary?.available_points ?? 0} highlight />
@@ -154,25 +199,21 @@ export function PointsPage() {
         <BalanceCard label="Reversed" value={summary?.reversed_points ?? 0} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+      <div className="grid gap-3 xl:grid-cols-[1.05fr_0.95fr]">
+        <article className="rounded-lg border border-border bg-card app-card-padding">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Program balances
-              </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-                Available by program
-              </h2>
+              <p className="app-eyebrow">Program balances</p>
+              <h2 className="mt-1 text-base font-semibold text-foreground">Available by program</h2>
             </div>
-            <span className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {programBalances.length} programs
             </span>
           </div>
 
           <div className="mt-4 space-y-3">
             {programBalances.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-5 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-5 text-sm text-muted-foreground">
                 No program balances available.
               </div>
             ) : (
@@ -183,58 +224,28 @@ export function PointsPage() {
           </div>
         </article>
 
-        <article className="rounded-xl border border-border bg-foreground p-5 text-background shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-background/70">
-            Exchange readiness
-          </p>
-          <div className="mt-4 space-y-3">
-            <DarkInfo label="Immutable accrual" value="Live" />
-            <DarkInfo label="Lock / consume / reverse" value="Live" />
-            <DarkInfo label="Program-level balances" value="Live" />
-            <DarkInfo label="Request workflow" value="Use Exchanges module" />
+        <article className="rounded-lg border border-border bg-muted/15 app-card-padding">
+          <p className="app-eyebrow">Exchange readiness</p>
+          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+            <p>Immutable accrual — live</p>
+            <p>Lock / consume / reverse — live</p>
+            <p>Program-level balances — live</p>
+            <p className="text-foreground">Request workflow — use Exchanges (payouts)</p>
           </div>
         </article>
       </div>
 
-      <article className="rounded-xl border border-border bg-card/90 p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-4 sm:flex-row">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-              placeholder="Search by program, prospect, agent, transaction, or description..."
-            />
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'all' | PointsLedgerEntryStatus)}
-              className="rounded-lg border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-            >
-              <option value="all">All statuses</option>
-              {Object.entries(statusPresentation).map(([key, status]) => (
-                <option key={key} value={key}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
-            Immutable ledger history
-          </div>
-        </div>
-      </article>
+      <div className="rounded-lg border border-border bg-muted/10 px-3 py-2 text-center text-xs text-muted-foreground md:text-left">
+        Immutable ledger history
+      </div>
 
       {filteredLedger.length === 0 ? (
-        <article className="rounded-xl border border-dashed border-border bg-card/90 p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Ledger history
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-            No ledger entries match the current filter.
-          </h2>
+        <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
+          <p className="app-eyebrow">Ledger history</p>
+          <h2 className="mt-2 text-lg font-semibold text-foreground">No ledger entries match the current filter.</h2>
         </article>
       ) : (
-        <div className="space-y-4">
+        <div className="app-section">
           {filteredLedger.map((entry) => (
             <LedgerCard key={entry.id} entry={entry} />
           ))}
@@ -257,14 +268,26 @@ function BalanceCard({
     <article
       className={
         highlight
-          ? 'rounded-lg border border-border bg-foreground px-5 py-4 text-background shadow-sm'
-          : 'rounded-lg border border-border bg-card px-5 py-4 shadow-sm'
+          ? 'rounded-lg border border-foreground/20 bg-foreground px-5 py-4 text-background'
+          : 'rounded-lg border border-border bg-card px-5 py-4'
       }
     >
-      <p className={highlight ? 'text-[11px] uppercase tracking-[0.18em] text-background/70' : 'text-[11px] uppercase tracking-[0.18em] text-muted-foreground'}>
+      <p
+        className={
+          highlight
+            ? 'text-[11px] uppercase tracking-wide text-background/80'
+            : 'text-[11px] uppercase tracking-wide text-muted-foreground'
+        }
+      >
         {label}
       </p>
-      <p className={highlight ? 'mt-2 text-2xl font-semibold tracking-tight text-background' : 'mt-2 text-2xl font-semibold tracking-tight text-foreground'}>
+      <p
+        className={
+          highlight
+            ? 'mt-2 text-2xl font-semibold tracking-tight text-background'
+            : 'mt-2 text-2xl font-semibold tracking-tight text-foreground'
+        }
+      >
         {value.toLocaleString('en-GB')}
       </p>
     </article>
@@ -273,12 +296,10 @@ function BalanceCard({
 
 function ProgramBalanceCard({ program }: { program: PointsProgramBalanceRecord }) {
   return (
-    <article className="rounded-lg border border-border bg-muted/30 p-4">
+    <article className="rounded-lg border border-border bg-muted/15 p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {program.program_slug ?? 'Program'}
-          </p>
+          <p className="app-eyebrow">{program.program_slug ?? 'Program'}</p>
           <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
             {program.program_name ?? 'Unnamed program'}
           </h3>
@@ -287,7 +308,7 @@ function ProgramBalanceCard({ program }: { program: PointsProgramBalanceRecord }
             {program.exchange_pack_name ? ` / ${program.exchange_pack_name}` : ''}
           </p>
         </div>
-        <span className="rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <span className="rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {program.open_prospect_count} prospects
         </span>
       </div>
@@ -304,19 +325,10 @@ function ProgramBalanceCard({ program }: { program: PointsProgramBalanceRecord }
   )
 }
 
-function DarkInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-background/10 bg-background/10 px-4 py-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-background/70">{label}</p>
-      <p className="mt-1 font-medium text-background">{value}</p>
-    </div>
-  )
-}
-
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <article className="rounded-lg border border-border bg-card p-4">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </article>
   )
@@ -326,11 +338,11 @@ function LedgerCard({ entry }: { entry: PointsLedgerRecord }) {
   const status = statusPresentation[entry.entry_status]
 
   return (
-    <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="rounded-lg border border-border bg-card app-card-padding">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="app-eyebrow">
               {entry.program_name ?? 'Program'} / {entry.source}
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
@@ -338,18 +350,24 @@ function LedgerCard({ entry }: { entry: PointsLedgerRecord }) {
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] ${status.className}`}>
+            <span
+              className={`rounded-md border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${status.className}`}
+            >
               {status.label}
             </span>
-            <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {entry.entry_type}
             </span>
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-muted/30 px-5 py-4 text-right">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Points delta</p>
-          <p className={`mt-2 text-2xl font-semibold tracking-tight ${entry.points_delta >= 0 ? 'text-emerald-700' : 'text-foreground'}`}>
+        <div className="rounded-lg border border-border bg-muted/15 px-5 py-4 text-right">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Points delta</p>
+          <p
+            className={`mt-2 text-2xl font-semibold tracking-tight ${
+              entry.points_delta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'
+            }`}
+          >
             {formatSignedPoints(entry.points_delta)}
           </p>
         </div>

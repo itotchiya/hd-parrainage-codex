@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../../lib/api'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../api'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Button } from '@/components/ui/button'
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -49,59 +51,48 @@ export function NotificationsPage() {
   )
 
   if (listQuery.isPending) {
-    return (
-      <article className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Loading notifications...
-      </article>
-    )
+    return <article className="app-panel text-sm text-muted-foreground">Loading notifications...</article>
   }
 
   if (listQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(listQuery.error as ApiError).message}
       </article>
     )
   }
 
   return (
-    <section className="space-y-5">
-      <article className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Notifications
-            </p>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                Inbox
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Only active follow-up items and audit signals stay visible here.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid min-w-[260px] gap-3 sm:grid-cols-3 xl:w-[360px] xl:grid-cols-1">
-            <MetricCard label="Total" value={records.length.toString()} />
-            <MetricCard label="Unread" value={unreadCount.toString()} />
-            <button
+    <section className="app-section">
+      <PageHeader
+        title="Notifications"
+        right={
+          <PageHeaderToolbar>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={markAllMutation.isPending || unreadCount === 0}
               onClick={() => markAllMutation.mutate()}
-              className="flex items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               Mark all read
-            </button>
-          </div>
-        </div>
-      </article>
+            </Button>
+          </PageHeaderToolbar>
+        }
+      />
+      <p className="app-copy text-muted-foreground">
+        Active follow-up items and audit signals from the backend.
+      </p>
 
-      <section className="space-y-4">
+      <div className="app-grid-tight sm:grid-cols-3">
+        <MetricCard label="Total" value={records.length.toString()} />
+        <MetricCard label="Unread" value={unreadCount.toString()} />
+        <MetricCard label="Read" value={grouped.read.length.toString()} />
+      </div>
+
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Unread
-          </h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Unread</h2>
           <span className="text-xs text-muted-foreground">{grouped.unread.length} items</span>
         </div>
         {grouped.unread.length === 0 ? (
@@ -122,11 +113,9 @@ export function NotificationsPage() {
         )}
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Archive
-          </h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Archive</h2>
           <span className="text-xs text-muted-foreground">{grouped.read.length} items</span>
         </div>
         {grouped.read.length === 0 ? (
@@ -151,8 +140,8 @@ export function NotificationsPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
     </article>
   )
@@ -160,7 +149,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <article className="rounded-xl border border-dashed border-border bg-card px-5 py-6 text-sm text-muted-foreground">
+    <article className="rounded-lg border border-dashed border-border bg-muted/15 px-5 py-6 text-sm text-muted-foreground">
       {message}
     </article>
   )
@@ -185,38 +174,33 @@ function NotificationCard({
   const unread = !readAt
 
   return (
-    <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="rounded-lg border border-border bg-card app-card-padding">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {type}
             </span>
             <span
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
-                unread ? 'bg-amber-100 text-amber-800' : 'bg-muted text-muted-foreground'
+              className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                unread
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+                  : 'border-border bg-muted/30 text-muted-foreground'
               }`}
             >
               {unread ? 'Unread' : 'Read'}
             </span>
           </div>
           <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{message}</p>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{message}</p>
         </div>
 
         <div className="flex min-w-[180px] flex-col items-start gap-3 lg:items-end">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {formatDate(readAt)}
-          </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{formatDate(readAt)}</p>
           {unread && onMarkRead ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onMarkRead}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button type="button" size="sm" disabled={busy} onClick={onMarkRead}>
               Mark read
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

@@ -4,6 +4,9 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchSettings, fetchSyncOverview, updateBusinessSettings, updateOwnSettings } from '../api'
+import { PageHeader } from '@/components/app/PageHeader'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type SettingsTabId = 'profile' | 'notifications' | 'security' | 'payment'
 
@@ -158,7 +161,7 @@ export function SettingsPage() {
 
   if (query.isPending) {
     return (
-      <article className="rounded-xl border border-border bg-card/90 p-6 text-sm text-muted-foreground">
+      <article className="app-panel text-sm text-muted-foreground">
         Loading settings, profile state, and business context from the live backend...
       </article>
     )
@@ -189,27 +192,23 @@ export function SettingsPage() {
   const oldestQueuedValue = syncOverview?.oldest_queued_at ? formatDateTime(syncOverview.oldest_queued_at) : 'No queued sync job'
 
   return (
-    <section className="space-y-6">
-      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <article className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            {activeTabMeta.eyebrow}
-          </p>
-          <h1 className="app-page-title mt-2">
-            Settings
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            {activeTabMeta.description}
-          </p>
+    <section className="app-section">
+      <PageHeader title="Settings" />
+      <p className="app-copy text-muted-foreground">{activeTabMeta.description}</p>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 xl:grid-cols-[1.08fr_0.92fr]">
+        <article className="rounded-lg border border-border bg-card app-card-padding">
+          <p className="app-eyebrow">{activeTabMeta.eyebrow}</p>
+          <p className="mt-2 text-sm font-medium text-foreground">{activeTabMeta.label} tab</p>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
             <SettingsMetric label="Current scope" value={payload.business?.display_name ?? 'Global platform'} />
             <SettingsMetric label="Resolved roles" value={roleSummary.length.toString()} />
             <SettingsMetric label="Permission count" value={user?.permissions.length.toString() ?? '0'} />
           </div>
         </article>
 
-        <article className="rounded-xl border border-border bg-foreground p-6 text-background shadow-sm">
+        <article className="rounded-lg border border-border bg-foreground p-6 text-background">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-background/70">
             Runtime readiness
           </p>
@@ -226,28 +225,25 @@ export function SettingsPage() {
           const isActive = tab.id === activeTab
 
           return (
-            <button
+            <Button
               key={tab.id}
               type="button"
+              size="sm"
+              variant={isActive ? 'default' : 'outline'}
               onClick={() => {
                 setActiveTab(tab.id)
                 setFeedback(null)
               }}
-              className={
-                isActive
-                  ? 'rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground'
-                  : 'rounded-lg border border-border bg-card/80 px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground'
-              }
             >
               {tab.label}
-            </button>
+            </Button>
           )
         })}
       </div>
 
       {activeTab === 'profile' ? (
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <article className="rounded-[1.8rem] border border-border bg-card/92 p-6 shadow-sm">
+          <article className="rounded-lg border border-border bg-card app-card-padding">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -255,7 +251,7 @@ export function SettingsPage() {
                 </p>
                 <h2 className="app-section-title mt-2">Identity that already persists through the API</h2>
               </div>
-              <span className="rounded-full border border-border bg-muted/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {payload.user.status}
               </span>
             </div>
@@ -263,27 +259,27 @@ export function SettingsPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <InfoRow label="Email" value={payload.user.email} />
               <InfoRow label="Current business" value={payload.business?.display_name ?? 'Global platform'} />
-              <div className="md:col-span-2 rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+              <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
                 <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="display_name">
                   Display name
                 </label>
-                <input
+                <Input
                   id="display_name"
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
-                  className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  className="mt-2"
                   placeholder="Display name"
                 />
               </div>
-              <div className="md:col-span-2 rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+              <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
                 <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="avatar_url">
                   Avatar image URL
                 </label>
-                <input
+                <Input
                   id="avatar_url"
                   value={avatarUrl}
                   onChange={(event) => setAvatarUrl(event.target.value)}
-                  className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  className="mt-2"
                   placeholder="https://example.com/avatar.jpg"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -293,8 +289,10 @@ export function SettingsPage() {
             </div>
 
             {payload.permissions.can_update_own ? (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                className="mt-5"
                 disabled={ownMutation.isPending || displayName.trim().length === 0}
                 onClick={() =>
                   ownMutation.mutate({
@@ -302,14 +300,13 @@ export function SettingsPage() {
                     avatar_url: avatarUrl.trim() || null,
                   })
                 }
-                className="mt-5 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {ownMutation.isPending ? 'Saving profile...' : 'Save profile'}
-              </button>
+              </Button>
             ) : null}
           </article>
 
-          <article className="rounded-[1.8rem] border border-border bg-card/92 p-6 shadow-sm">
+          <article className="rounded-lg border border-border bg-card app-card-padding">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Business configuration
             </p>
@@ -318,59 +315,59 @@ export function SettingsPage() {
             {payload.business ? (
               <>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+                  <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="business_name">
                       Display name
                     </label>
-                    <input
+                    <Input
                       id="business_name"
                       value={businessName}
                       onChange={(event) => setBusinessName(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      className="mt-2"
                     />
                   </div>
-                  <div className="rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+                  <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="business_email">
                       Contact email
                     </label>
-                    <input
+                    <Input
                       id="business_email"
                       value={businessEmail}
                       onChange={(event) => setBusinessEmail(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      className="mt-2"
                     />
                   </div>
-                  <div className="rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+                  <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="business_phone">
                       Contact phone
                     </label>
-                    <input
+                    <Input
                       id="business_phone"
                       value={businessPhone}
                       onChange={(event) => setBusinessPhone(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      className="mt-2"
                     />
                   </div>
-                  <div className="rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+                  <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="business_website">
                       Website
                     </label>
-                    <input
+                    <Input
                       id="business_website"
                       value={businessWebsite}
                       onChange={(event) => setBusinessWebsite(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      className="mt-2"
                     />
                   </div>
-                  <div className="md:col-span-2 rounded-[1.1rem] border border-border bg-muted/30 px-4 py-3">
+                  <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
                     <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="business_timezone">
                       Timezone
                     </label>
-                    <input
+                    <Input
                       id="business_timezone"
                       value={businessTimezone}
                       onChange={(event) => setBusinessTimezone(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+                      className="mt-2"
                     />
                   </div>
                 </div>
@@ -382,8 +379,10 @@ export function SettingsPage() {
                 </div>
 
                 {payload.permissions.can_update_business ? (
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
+                    className="mt-5"
                     disabled={businessMutation.isPending || businessName.trim().length === 0}
                     onClick={() =>
                       businessMutation.mutate({
@@ -394,14 +393,13 @@ export function SettingsPage() {
                         timezone: businessTimezone.trim() || null,
                       })
                     }
-                    className="mt-5 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {businessMutation.isPending ? 'Saving business...' : 'Save business settings'}
-                  </button>
+                  </Button>
                 ) : null}
               </>
             ) : (
-              <p className="mt-5 rounded-[1.2rem] border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
+              <p className="mt-5 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
                 This account currently operates without a tenant-scoped business profile.
               </p>
             )}
@@ -411,7 +409,7 @@ export function SettingsPage() {
 
       {activeTab === 'notifications' ? (
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          <article className="rounded-[1.8rem] border border-border bg-card/92 p-6 shadow-sm">
+          <article className="rounded-lg border border-border bg-card app-card-padding">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Delivery channels
             </p>
@@ -422,7 +420,7 @@ export function SettingsPage() {
               <InfoRow label="SMS / urgent delivery" value="Not modeled yet in the backend contract" />
               <InfoRow label="Sync escalation" value={syncAlertsValue} />
             </div>
-            <p className="mt-5 rounded-[1.2rem] border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
+            <p className="mt-5 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
               This tab is intentionally read-only until preference persistence and provider delivery settings are introduced. The operational inbox at{' '}
               <Link to="/notifications" className="font-semibold text-foreground underline underline-offset-4">
                 /notifications
@@ -431,7 +429,7 @@ export function SettingsPage() {
             </p>
           </article>
 
-          <article className="rounded-[1.8rem] border border-border bg-foreground p-6 text-background shadow-sm">
+          <article className="rounded-lg border border-border bg-foreground p-6 text-background">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-background/70">
               Integration posture
             </p>
@@ -448,7 +446,7 @@ export function SettingsPage() {
 
       {activeTab === 'security' ? (
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          <article className="rounded-[1.8rem] border border-border bg-card/92 p-6 shadow-sm">
+          <article className="rounded-lg border border-border bg-card app-card-padding">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Account safety
             </p>
@@ -459,26 +457,20 @@ export function SettingsPage() {
               <InfoRow label="Last activity" value={formatDateTime(user?.last_activity_at ?? null)} />
               <InfoRow label="Current status" value={payload.user.status} />
             </div>
-            <p className="mt-5 rounded-[1.2rem] border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
+            <p className="mt-5 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
               Reset-token issuance and password replacement already run through the public auth routes. This settings tab does not invent an in-session password-change endpoint that the backend does not expose yet.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                to="/password/forgot"
-                className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-              >
-                Open password recovery
-              </Link>
-              <Link
-                to="/notifications"
-                className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-              >
-                Review security notifications
-              </Link>
+              <Button size="sm" asChild>
+                <Link to="/password/forgot">Open password recovery</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/notifications">Review security notifications</Link>
+              </Button>
             </div>
           </article>
 
-          <article className="rounded-[1.8rem] border border-border bg-foreground p-6 text-background shadow-sm">
+          <article className="rounded-lg border border-border bg-foreground p-6 text-background">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-background/70">
               Security roadmap
             </p>
@@ -493,7 +485,7 @@ export function SettingsPage() {
 
       {activeTab === 'payment' ? (
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-          <article className="rounded-[1.8rem] border border-border bg-card/92 p-6 shadow-sm">
+          <article className="rounded-lg border border-border bg-card app-card-padding">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Exchange and payout readiness
             </p>
@@ -504,26 +496,20 @@ export function SettingsPage() {
               <InfoRow label="Business currency" value={payload.business?.currency_code ?? 'Not available'} />
               <InfoRow label="Tenant timezone" value={payload.business?.timezone ?? 'Not available'} />
             </div>
-            <p className="mt-5 rounded-[1.2rem] border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
+            <p className="mt-5 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm leading-7 text-muted-foreground">
               Bank-account persistence and payout provider setup are intentionally deferred until the operator-owned payment path is finalized. This page keeps that boundary visible instead of pretending the platform can save settlement details already.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link
-                to="/payouts"
-                className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-              >
-                Open exchanges
-              </Link>
-              <Link
-                to="/commissions"
-                className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-              >
-                Review points ledger
-              </Link>
+              <Button size="sm" asChild>
+                <Link to="/payouts">Open exchanges</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/commissions">Review points ledger</Link>
+              </Button>
             </div>
           </article>
 
-          <article className="rounded-[1.8rem] border border-border bg-foreground p-6 text-background shadow-sm">
+          <article className="rounded-lg border border-border bg-foreground p-6 text-background">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-background/70">
               What still needs operator setup
             </p>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
@@ -14,15 +14,28 @@ import {
   markExchangeRequestProcessing,
   rejectExchangeRequest,
 } from '../api'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Button } from '@/components/ui/button'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { ExchangeRequestRecord, ExchangeRequestStatus } from '../../../types/exchanges'
 
 const statusPresentation: Record<ExchangeRequestStatus, { label: string; className: string }> = {
-  requested: { label: 'Requested', className: 'bg-blue-100 text-blue-700' },
-  approved: { label: 'Approved', className: 'bg-amber-100 text-amber-700' },
-  rejected: { label: 'Rejected', className: 'bg-rose-100 text-rose-700' },
-  processing: { label: 'Processing', className: 'bg-indigo-100 text-indigo-700' },
-  completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground' },
+  requested: { label: 'Requested', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
+  approved: { label: 'Approved', className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300' },
+  rejected: { label: 'Rejected', className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300' },
+  processing: { label: 'Processing', className: 'border-border bg-indigo-500/10 text-indigo-800 dark:text-indigo-300' },
+  completed: { label: 'Completed', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
+  cancelled: { label: 'Cancelled', className: 'border-border bg-muted text-muted-foreground' },
 }
 
 function formatDate(value: string | null, withTime = false) {
@@ -77,6 +90,15 @@ export function ExchangesPage() {
   const [notes, setNotes] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!canCreateReward && canCreateCash) {
+      setRequestType('cash')
+    }
+    if (!canCreateCash && canCreateReward) {
+      setRequestType('reward')
+    }
+  }, [canCreateCash, canCreateReward])
 
   const exchangesQuery = useQuery({
     queryKey: ['exchange-requests', 'list'],
@@ -222,136 +244,171 @@ export function ExchangesPage() {
   const processingCount = requests.filter((record) => record.status === 'processing').length
 
   if (exchangesQuery.isPending) {
-    return (
-      <article className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Loading exchanges...
-      </article>
-    )
+    return <article className="app-panel text-sm text-muted-foreground">Loading exchanges...</article>
   }
 
   if (exchangesQuery.isError) {
     return (
-      <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         {(exchangesQuery.error as ApiError).message}
       </article>
     )
   }
 
   return (
-    <section className="space-y-5">
-      <article className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Exchanges
-            </p>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                Requests
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Reward and cash conversion requests, with only the workflow state that matters.
-              </p>
-            </div>
-          </div>
+    <section className="app-section">
+      <PageHeader
+        title="Exchanges"
+        right={
+          <PageHeaderToolbar>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[160px]">
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Status</SelectLabel>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {Object.entries(statusPresentation).map(([key, status]) => (
+                    <SelectItem key={key} value={key}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              {filteredRequests.length} in view
+            </span>
+          </PageHeaderToolbar>
+        }
+      />
+      <p className="app-copy text-muted-foreground">
+        Reward and cash conversion requests with workflow state only.
+      </p>
 
-          <div className="grid min-w-[300px] gap-3 sm:grid-cols-3 xl:w-[420px]">
-            <MetricCard label="Scope" value={user?.primary_business?.display_name ?? 'Global'} />
-            <MetricCard label="Pending" value={pendingCount.toString()} />
-            <MetricCard label="Processing" value={processingCount.toString()} />
-          </div>
-        </div>
-      </article>
+      <div className="app-grid-tight sm:grid-cols-3">
+        <MetricCard label="Scope" value={user?.primary_business?.display_name ?? 'Global'} />
+        <MetricCard label="Pending" value={pendingCount.toString()} />
+        <MetricCard label="Processing" value={processingCount.toString()} />
+      </div>
 
       {canCreate ? (
-        <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                New request
-              </p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                Submit exchange
-              </h2>
-            </div>
-          </div>
+        <article className="rounded-lg border border-border bg-card app-card-padding">
+          <p className="app-eyebrow">New request</p>
+          <h2 className="mt-1 text-base font-semibold text-foreground">Submit exchange</h2>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <select
-              value={requestType}
-              onChange={(event) => {
-                const nextType = event.target.value as 'reward' | 'cash'
-                setRequestType(nextType)
-                setSelectedProgramId('')
-                setRewardItemId('')
-                setFeedback(null)
-              }}
-              className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-            >
-              {canCreateReward ? <option value="reward">Reward</option> : null}
-              {canCreateCash ? <option value="cash">Cash</option> : null}
-            </select>
+            <Field>
+              <FieldLabel>Type</FieldLabel>
+              <Select
+                value={requestType}
+                onValueChange={(value) => {
+                  const nextType = value as 'reward' | 'cash'
+                  setRequestType(nextType)
+                  setSelectedProgramId('')
+                  setRewardItemId('')
+                  setFeedback(null)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Request type</SelectLabel>
+                    {canCreateReward ? <SelectItem value="reward">Reward</SelectItem> : null}
+                    {canCreateCash ? <SelectItem value="cash">Cash</SelectItem> : null}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
 
-            <select
-              value={selectedProgramId}
-              onChange={(event) => {
-                setSelectedProgramId(event.target.value)
-                setRewardItemId('')
-                setFeedback(null)
-              }}
-              className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-            >
-              <option value="">Select program</option>
-              {eligiblePrograms.map((program) => (
-                <option key={program.program_id} value={program.program_id}>
-                  {program.program_name} ({program.available_points} pts)
-                </option>
-              ))}
-            </select>
+            <Field>
+              <FieldLabel>Program</FieldLabel>
+              <Select
+                value={selectedProgramId || undefined}
+                onValueChange={(value) => {
+                  setSelectedProgramId(value)
+                  setRewardItemId('')
+                  setFeedback(null)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select program" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Program</SelectLabel>
+                    {eligiblePrograms.map((program) => (
+                      <SelectItem key={program.program_id} value={program.program_id}>
+                        {program.program_name} ({program.available_points} pts)
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
 
             {requestType === 'reward' ? (
-              <select
-                value={rewardItemId}
-                onChange={(event) => {
-                  setRewardItemId(event.target.value)
-                  setFeedback(null)
-                }}
-                className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-              >
-                <option value="">Select reward</option>
-                {selectedPackItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title} ({item.points_cost} pts)
-                  </option>
-                ))}
-              </select>
+              <Field>
+                <FieldLabel>Reward</FieldLabel>
+                <Select
+                  value={rewardItemId || undefined}
+                  onValueChange={(value) => {
+                    setRewardItemId(value)
+                    setFeedback(null)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select reward" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Reward item</SelectLabel>
+                      {selectedPackItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.title} ({item.points_cost} pts)
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
             ) : (
-              <input
-                value={pointsAmount}
-                onChange={(event) => {
-                  setPointsAmount(event.target.value)
-                  setFeedback(null)
-                }}
-                type="number"
-                min={1}
-                className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                placeholder="Points amount"
-              />
+              <Field>
+                <FieldLabel>Points amount</FieldLabel>
+                <Input
+                  type="number"
+                  min={1}
+                  value={pointsAmount}
+                  onChange={(event) => {
+                    setPointsAmount(event.target.value)
+                    setFeedback(null)
+                  }}
+                  placeholder="Points amount"
+                />
+              </Field>
             )}
 
-            <input
-              value={notes}
-              onChange={(event) => {
-                setNotes(event.target.value)
-                setFeedback(null)
-              }}
-              className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-              placeholder="Internal note"
-            />
+            <Field className="md:col-span-2 xl:col-span-1">
+              <FieldLabel>Note</FieldLabel>
+              <Input
+                value={notes}
+                onChange={(event) => {
+                  setNotes(event.target.value)
+                  setFeedback(null)
+                }}
+                placeholder="Internal note"
+              />
+            </Field>
           </div>
 
           {selectedProgram ? (
-            <div className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            <div className="mt-4 rounded-lg border border-border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
               Available {selectedProgram.available_points} pts / Locked {selectedProgram.locked_points} pts / Pack{' '}
               {selectedProgram.exchange_pack_name ?? 'No active pack'}
             </div>
@@ -359,37 +416,14 @@ export function ExchangesPage() {
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">{feedback ?? ' '}</div>
-            <button
-              type="button"
-              disabled={createMutation.isPending}
-              onClick={() => createMutation.mutate()}
-              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button type="button" size="sm" disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
               {createMutation.isPending ? 'Submitting...' : 'Submit request'}
-            </button>
+            </Button>
           </div>
         </article>
       ) : null}
 
-      <article className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as 'all' | ExchangeRequestStatus)}
-            className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 lg:max-w-[240px]"
-          >
-            <option value="all">All statuses</option>
-            {Object.entries(statusPresentation).map(([key, status]) => (
-              <option key={key} value={key}>
-                {status.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-muted-foreground">{filteredRequests.length} requests in view</p>
-        </div>
-      </article>
-
-      <div className="space-y-4">
+      <div className="app-section">
         {filteredRequests.map((record) => (
           <ExchangeRequestCard
             key={record.id}
@@ -412,10 +446,8 @@ export function ExchangesPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
+    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
+      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
     </article>
   )
@@ -452,17 +484,19 @@ function ExchangeRequestCard({
     ['requested', 'approved', 'processing'].includes(record.status)
 
   return (
-    <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="rounded-lg border border-border bg-card app-card-padding">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {record.program_name ?? 'Program'}
             </span>
-            <span className={`rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${status.className}`}>
+            <span
+              className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${status.className}`}
+            >
               {status.label}
             </span>
-            <span className="rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {record.request_type}
             </span>
           </div>
@@ -489,12 +523,9 @@ function ExchangeRequestCard({
         </div>
 
         <div className="flex min-w-[220px] flex-wrap gap-2 xl:justify-end">
-          <Link
-            to={`/payouts/${record.id}`}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground"
-          >
-            Open
-          </Link>
+          <Button variant="outline" size="sm" asChild>
+            <Link to={`/payouts/${record.id}`}>Open</Link>
+          </Button>
           {record.status === 'requested' && canApprove ? (
             <ActionButton label="Approve" busy={isBusy} onClick={() => onApprove(record.id)} primary />
           ) : null}
@@ -518,8 +549,8 @@ function ExchangeRequestCard({
 
 function DataCell({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </article>
   )
@@ -537,17 +568,8 @@ function ActionButton({
   primary?: boolean
 }) {
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        primary
-          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-          : 'border border-border text-foreground hover:bg-accent hover:text-accent-foreground'
-      }`}
-    >
+    <Button type="button" size="sm" variant={primary ? 'default' : 'outline'} disabled={busy} onClick={onClick}>
       {label}
-    </button>
+    </Button>
   )
 }
