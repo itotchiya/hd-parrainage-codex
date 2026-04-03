@@ -205,11 +205,11 @@ export function ProgramsPage() {
         title="Programs"
         right={
           <PageHeaderToolbar>
-          <Field className="w-full md:w-auto">
+          <Field className="w-full sm:min-w-[180px] sm:max-w-[360px] sm:flex-1">
             <FieldLabel htmlFor="programs-search" className="sr-only">
               Search programs
             </FieldLabel>
-            <div className="relative max-w-full md:w-[360px]">
+            <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="programs-search"
@@ -222,7 +222,7 @@ export function ProgramsPage() {
           </Field>
 
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | ProgramStatus)}>
-            <SelectTrigger size="sm" className="w-full max-w-48 md:w-48">
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
               <SelectValue placeholder="All states" />
             </SelectTrigger>
             <SelectContent>
@@ -246,7 +246,7 @@ export function ProgramsPage() {
                 setEditingProgram(null)
                 setDialogOpen(true)
               }}
-              className="gap-2"
+              className="gap-2 sm:shrink-0"
             >
               <Plus className="size-4" aria-hidden />
               Create program

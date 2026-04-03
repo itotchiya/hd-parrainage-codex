@@ -32,7 +32,7 @@ export function DashboardSectionHeader({
     : null
 
   return (
-    <div className={cn('mb-3 flex items-start justify-between gap-3', className)}>
+    <div className={cn('mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3', className)}>
       <div className="min-w-0 space-y-0.5">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {description ? (
@@ -40,7 +40,7 @@ export function DashboardSectionHeader({
         ) : null}
       </div>
       {normalizedActions ? (
-        <div className="inline-flex shrink-0 items-center gap-1">{normalizedActions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">{normalizedActions}</div>
       ) : null}
     </div>
   )

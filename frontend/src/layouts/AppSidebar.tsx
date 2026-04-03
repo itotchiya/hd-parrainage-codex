@@ -20,7 +20,7 @@ interface AppSidebarProps {
   navItems: AppModuleRoute[]
   onLogout: () => Promise<void>
   logoutPending: boolean
-  isMobile: boolean
+  mode: 'drawer' | 'collapsed-desktop' | 'normal-desktop'
   mobileOpen: boolean
   onNavigate?: () => void
 }
@@ -44,27 +44,28 @@ export function AppSidebar({
   navItems,
   onLogout,
   logoutPending,
-  isMobile,
+  mode,
   mobileOpen,
   onNavigate,
 }: AppSidebarProps) {
+  const isMobile = mode === 'drawer'
+  // In drawer mode, sidebar is always visually expanded (w-64 with labels)
+  const visuallyCollapsed = isMobile ? false : collapsed
+
   return (
     <aside
       className={[
-        'z-40 flex h-screen flex-col text-foreground transition-all duration-300',
-        'bg-transparent',
+        'flex h-screen flex-col text-foreground transition-all duration-300',
+        'bg-background',
         // Soft divider like shadcn docs (no harsh border).
-        "relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gradient-to-b after:from-transparent after:via-border/70 after:to-transparent",
+        "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gradient-to-b after:from-transparent after:via-border/70 after:to-transparent",
         isMobile
-          ? [
-              'fixed inset-y-0 left-0 w-64',
-              mobileOpen ? 'translate-x-0' : '-translate-x-full',
-            ].join(' ')
-          : [collapsed ? 'w-16' : 'w-64', 'sticky top-0 shrink-0'].join(' '),
+          ? 'w-64 shrink-0'
+          : ['relative z-40', collapsed ? 'w-16' : 'w-64', 'sticky top-0 shrink-0'].join(' '),
       ].join(' ')}
     >
       <div className="flex h-16 items-center px-3">
-        {collapsed ? (
+        {visuallyCollapsed ? (
           <div className="flex w-full items-center justify-center">
             <img
               src="/Uploads/logo-mark-light.svg"
@@ -101,12 +102,12 @@ export function AppSidebar({
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                      collapsed ? 'justify-center px-2' : '',
+                      visuallyCollapsed ? 'justify-center px-2' : '',
                     ].join(' ')
                   }
                 >
                   <Icon className="h-4.5 w-4.5 shrink-0" />
-                  {!collapsed ? <span className="truncate font-medium">{item.label}</span> : null}
+                  {!visuallyCollapsed ? <span className="truncate font-medium">{item.label}</span> : null}
                 </NavLink>
               </li>
             )
@@ -120,11 +121,11 @@ export function AppSidebar({
           onClick={onLogout}
           disabled={logoutPending}
           className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 ${
-            collapsed ? 'justify-center px-2' : ''
+            visuallyCollapsed ? 'justify-center px-2' : ''
           }`}
         >
           <LogOut className="h-4.5 w-4.5 shrink-0" />
-          {!collapsed ? <span className="font-medium">{logoutPending ? 'Signing out...' : 'Deconnexion'}</span> : null}
+          {!visuallyCollapsed ? <span className="font-medium">{logoutPending ? 'Signing out...' : 'Deconnexion'}</span> : null}
         </button>
       </div>
     </aside>
