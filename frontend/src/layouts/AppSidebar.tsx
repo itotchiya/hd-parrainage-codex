@@ -21,7 +21,6 @@ interface AppSidebarProps {
   onLogout: () => Promise<void>
   logoutPending: boolean
   mode: 'drawer' | 'collapsed-desktop' | 'normal-desktop'
-  mobileOpen: boolean
   onNavigate?: () => void
 }
 
@@ -45,7 +44,6 @@ export function AppSidebar({
   onLogout,
   logoutPending,
   mode,
-  mobileOpen,
   onNavigate,
 }: AppSidebarProps) {
   const isMobile = mode === 'drawer'

@@ -417,7 +417,7 @@ export function AppShell() {
             }}
             logoutPending={logoutPending}
             mode={sidebarMode}
-            mobileOpen={mobileSidebarOpen}
+
             onNavigate={() => setMobileSidebarOpen(false)}
           />
 
@@ -448,7 +448,6 @@ export function AppShell() {
         }}
         logoutPending={logoutPending}
         mode={sidebarMode}
-        mobileOpen={mobileSidebarOpen}
         onNavigate={() => {}}
       />
 
