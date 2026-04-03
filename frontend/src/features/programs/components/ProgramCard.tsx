@@ -2,9 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Archive,
-  ArrowRight,
   Building2,
-  CirclePlus,
   ExternalLink,
   Gift,
   HandCoins,
@@ -35,14 +33,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -67,11 +63,11 @@ const statusLabel: Record<ProgramStatus, string> = {
   archived: 'Archived',
 }
 
+const VISIBLE_AVATARS = 3
 const cashBadgeClass =
   'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
 const rewardBadgeClass =
   'border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-300'
-const VISIBLE_AVATARS = 3
 
 export type ProgramCardMode = 'owner' | 'agent'
 
@@ -91,6 +87,7 @@ function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
       icon: Landmark,
       tileClass: 'bg-blue-500 text-white',
       label: 'Rewards + cash',
+      badgeClass: 'border-blue-500/25 bg-blue-500/10 text-blue-800 dark:text-blue-300',
     }
   }
   if (mode === 'cash') {
@@ -98,12 +95,14 @@ function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
       icon: HandCoins,
       tileClass: 'bg-emerald-500 text-white',
       label: 'Cash only',
+      badgeClass: cashBadgeClass,
     }
   }
   return {
     icon: Gift,
     tileClass: 'bg-amber-500 text-white',
     label: 'Rewards only',
+    badgeClass: rewardBadgeClass,
   }
 }
 
@@ -181,20 +180,33 @@ function compactDate(value: string | null | undefined) {
   })
 }
 
-function StatTile({
+function programTimelineLabel(program: ProgramRecord) {
+  if (program.status === 'suspended') {
+    return `Suspended ${compactDate(program.suspended_at)}`
+  }
+  if (program.status === 'paused') {
+    return `Paused ${compactDate(program.paused_at)}`
+  }
+  if (program.status === 'active') {
+    return `Activated ${compactDate(program.activated_at ?? program.created_at)}`
+  }
+  if (program.status === 'archived') {
+    return `Archived ${compactDate(program.updated_at)}`
+  }
+  return `Created ${compactDate(program.created_at)}`
+}
+
+function CompactMetaItem({
   label,
   value,
-  hint,
 }: {
   label: string
   value: string
-  hint?: string
 }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+    <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xs font-medium text-foreground">{value}</p>
     </div>
   )
 }
@@ -248,10 +260,6 @@ export function ProgramCard({
   const isRevenueTier = program.commission_type === 'revenue-tier'
   const isToggleDisabled = togglePending || (isPaused && isRevenueTier)
   const modeConfig = exchangeModeConfig(program.exchange_mode)
-  const pointsLabel =
-    program.points_per_transaction === null
-      ? 'Not configured'
-      : `${program.points_per_transaction.toLocaleString()} pts`
   const availability = agentAvailability(program, canSubmitProspect)
 
   const [agentsDialogOpen, setAgentsDialogOpen] = useState(false)
@@ -289,10 +297,19 @@ export function ProgramCard({
     canAssignAction ||
     canDeleteAction
   const canCreateProspect = Boolean(prospectCreateHref && canSubmitProspect && program.status === 'active')
+  const compactMeta = [
+    roleSummary(program),
+    hasCash ? `${program.points_per_euro ?? '-'} pts / EUR` : null,
+    hasRewards ? program.exchange_pack?.name ?? 'Reward path' : null,
+  ].filter((value): value is string => Boolean(value))
+  const pointsSummary =
+    program.points_per_transaction === null
+      ? 'Configured later'
+      : `${program.points_per_transaction.toLocaleString()} pts`
 
   return (
     <Card className="border shadow-none">
-      <CardHeader className="gap-3 p-4">
+      <CardHeader className="gap-2 p-3 sm:p-4">
         <div className="flex min-w-0 items-start gap-3">
           {mode === 'agent' ? (
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/30 text-sm font-semibold text-foreground">
@@ -304,12 +321,12 @@ export function ProgramCard({
 
           <div className="min-w-0 flex-1">
             {mode === 'agent' ? (
-              <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 {program.business_name ?? 'Business'}
               </p>
             ) : null}
 
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
               <CardTitle className="truncate text-sm font-semibold leading-tight sm:text-base">
                 {program.name}
               </CardTitle>
@@ -325,31 +342,43 @@ export function ProgramCard({
               </Badge>
             </div>
 
-            {mode === 'agent' ? (
-              <CardDescription className="mt-1.5 text-xs leading-relaxed">
-                {availability.helper}
-              </CardDescription>
-            ) : (
-              <CardDescription className="mt-1.5 line-clamp-2 text-xs leading-relaxed">
-                {program.description ?? 'No description available.'}
-              </CardDescription>
-            )}
+            <CardDescription className="mt-1 line-clamp-1 text-xs leading-relaxed">
+              {mode === 'agent'
+                ? availability.helper
+                : program.description ?? 'No description available.'}
+            </CardDescription>
           </div>
 
-          {mode === 'owner' ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label="Program actions"
-                >
-                  <MoreVertical className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Program actions"
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {mode === 'agent' ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to={`/programs/${program.id}`} className="flex cursor-pointer items-center gap-2">
+                      <ExternalLink className="size-4" />
+                      Open program
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild disabled={!canCreateProspect}>
+                    <Link to={prospectCreateHref ?? '#'} className="flex cursor-pointer items-center gap-2">
+                      <Zap className="size-4" />
+                      Add prospect
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
                 <DropdownMenuItem asChild>
                   <Link to={`/programs/${program.id}`} className="flex cursor-pointer items-center gap-2">
                     <ExternalLink className="size-4" />
@@ -398,7 +427,6 @@ export function ProgramCard({
                     Activate program
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuSeparator />
                 {isSuspended ? (
                   <DropdownMenuItem
                     disabled={!canLiftSuspensionAction}
@@ -449,7 +477,6 @@ export function ProgramCard({
                   <UserPlus className="size-4" />
                   Assign agents
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={!canDeleteAction}
@@ -458,257 +485,197 @@ export function ProgramCard({
                   }}
                 >
                   <Trash2 className="size-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {mode === 'agent' ? (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {mode === 'agent' ? (
             <Badge variant="outline" className={cn('font-medium', availability.toneClass)}>
               {availability.label}
             </Badge>
-            <Badge variant="secondary" className="font-medium">
-              {modeConfig.label}
+          ) : null}
+          {compactMeta.map((item) => (
+            <Badge key={item} variant="secondary" className="font-medium">
+              {item}
             </Badge>
-          </div>
-        ) : null}
+          ))}
+          <Badge variant="outline" className={cn('font-medium', modeConfig.badgeClass)}>
+            {modeConfig.label}
+          </Badge>
+          {mode === 'owner' ? (
+            <Badge variant="secondary" className="font-medium">
+              {assignedTotal} agent{assignedTotal === 1 ? '' : 's'}
+            </Badge>
+          ) : null}
+        </div>
+      </CardHeader>
 
-        <div className="grid gap-2.5 sm:grid-cols-3">
+      <CardContent className="space-y-2.5 px-3 pb-3 pt-0 sm:px-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {mode === 'agent' ? (
             <>
-              <StatTile
-                label="Business"
-                value={program.business_name ?? 'Unknown'}
-                hint="Tenant attached to this assignment"
-              />
-              <StatTile
-                label="Points rule"
-                value={roleSummary(program)}
-                hint={program.points_per_transaction === null ? 'Configured by revenue tiers' : 'Awarded on each validated transaction'}
-              />
-              <StatTile
-                label="Availability"
-                value={program.status === 'active' ? 'Open now' : statusLabel[program.status]}
-                hint={hasCash ? `${program.points_per_euro ?? '-'} pts / EUR` : 'Reward-only exchange'}
-              />
+              <CompactMetaItem label="Business" value={program.business_name ?? 'Unknown'} />
+              <CompactMetaItem label="Points" value={pointsSummary} />
+              <CompactMetaItem label="Exchange" value={modeConfig.label} />
             </>
           ) : (
             <>
-              <StatTile
-                label="Attribution"
-                value={roleSummary(program)}
-                hint={isRevenueTier ? 'Tier rules stay owner-managed' : 'Fixed earning rule'}
-              />
-              <StatTile
-                label="Points"
-                value={pointsLabel}
-                hint={hasCash ? `${program.points_per_euro ?? '-'} pts / EUR cash rule` : 'No cash conversion'}
-              />
-              <StatTile
-                label="Agents"
-                value={assignedTotal === 0 ? 'None' : `${assignedTotal}`}
-                hint={program.has_open_prospects ? 'Open prospects are still active' : 'No open prospect lock'}
+              <CompactMetaItem label="Attribution" value={roleSummary(program)} />
+              <CompactMetaItem label="Points" value={pointsSummary} />
+              <CompactMetaItem
+                label="Assignments"
+                value={`${assignedTotal} agent${assignedTotal === 1 ? '' : 's'}`}
               />
             </>
           )}
         </div>
-      </CardHeader>
 
-      <CardContent
-        className={cn(
-          'space-y-3 px-4 pb-3',
-          hasCash || hasRewards ? 'pt-1' : 'pt-0',
-        )}
-      >
         {hasCash ? (
-          <div className="min-w-0 space-y-1.5 rounded-xl border border-border/60 bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="outline" className={cn('font-medium', cashBadgeClass)}>
-                Cash path
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                Convert points into currency
-              </span>
-            </div>
-            <Badge variant="secondary" className="font-medium">
-              {program.points_per_euro ?? '-'} pts = 1 EUR
+          <div className="flex items-start gap-2">
+            <Badge variant="outline" className={cn('gap-1.5 font-medium', cashBadgeClass)}>
+              <HandCoins className="size-3.5" />
+              Cash
             </Badge>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-xs text-muted-foreground">{program.points_per_euro ?? '-'} pts = 1 EUR</p>
+            </div>
           </div>
         ) : null}
 
         {hasRewards ? (
-          <div className="min-w-0 space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="outline" className={cn('font-medium', rewardBadgeClass)}>
-                {program.exchange_pack?.name
-                  ? `Reward pack - ${program.exchange_pack.name}`
-                  : 'Reward path'}
-              </Badge>
-            </div>
+          <div className="space-y-1.5">
+            <Badge variant="outline" className={cn('gap-1.5 font-medium', rewardBadgeClass)}>
+              <Gift className="size-3.5" />
+              {`Rewards - ${program.exchange_pack?.name ?? 'Pack'}`}
+            </Badge>
             <div className="flex flex-wrap gap-1">
               {program.exchange_pack?.items.length ? (
-                program.exchange_pack.items.map((item) => (
-                  <Badge key={item.id} variant="secondary" className="font-normal">
+                program.exchange_pack.items.slice(0, 3).map((item) => (
+                  <Badge key={item.id} variant="secondary" size="sm" className="font-normal">
                     {item.title} - {item.points_cost} pts
                   </Badge>
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground">No reward pack items configured.</p>
+                <p className="text-xs text-muted-foreground">No reward items configured.</p>
               )}
+              {program.exchange_pack?.items.length && program.exchange_pack.items.length > 3 ? (
+                <Badge variant="outline" size="sm">
+                  +{program.exchange_pack.items.length - 3} more
+                </Badge>
+              ) : null}
             </div>
           </div>
         ) : null}
-      </CardContent>
 
-      <CardFooter className="flex flex-col items-stretch gap-3 border-t border-border/60 p-4">
         {mode === 'agent' ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild className="gap-2">
-                <Link to={`/programs/${program.id}`}>
-                  Open program
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-
-              {canCreateProspect ? (
-                <Button asChild variant="outline" className="gap-2">
-                  <Link to={prospectCreateHref!}>
-                    <CirclePlus className="size-4" />
-                    Add prospect
-                  </Link>
-                </Button>
+          <div className="flex items-center gap-2 py-0.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-background text-muted-foreground">
+              {program.status === 'active' ? (
+                <Building2 className="size-4" />
+              ) : isSuspended ? (
+                <OctagonAlert className="size-4" />
+              ) : isPaused ? (
+                <Pause className="size-4" />
               ) : (
-                <Button type="button" variant="outline" className="gap-2" disabled>
-                  <CirclePlus className="size-4" />
-                  Add prospect
-                </Button>
+                <Gift className="size-4" />
               )}
             </div>
-
-            <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-background text-muted-foreground">
-                <Building2 className="size-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-foreground">
-                  {program.business_name ?? 'Business'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Activated {compactDate(program.activated_at ?? program.created_at)}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">
+                {program.business_name ?? 'Business'}
+              </p>
+              <p className="text-xs text-muted-foreground">{programTimelineLabel(program)}</p>
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <div className="flex min-h-8 items-center">
-              {assignedTotal === 0 ? (
-                <span className="text-xs text-muted-foreground">No agents assigned</span>
-              ) : (
-                <Dialog open={agentsDialogOpen} onOpenChange={setAgentsDialogOpen}>
-                  <button
-                    type="button"
-                    className="rounded-md outline-none ring-offset-background transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    aria-label={`View ${assignedTotal} assigned agent${assignedTotal === 1 ? '' : 's'}`}
-                    onClick={() => setAgentsDialogOpen(true)}
-                  >
-                    <AvatarGroup>
-                      {avatarPreview.map((agent) => (
-                        <Avatar key={agent.id}>
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            {assignedTotal === 0 ? (
+              <span className="text-xs text-muted-foreground">No agents assigned</span>
+            ) : (
+              <Dialog open={agentsDialogOpen} onOpenChange={setAgentsDialogOpen}>
+                <button
+                  type="button"
+                  className="rounded-md outline-none ring-offset-background transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`View ${assignedTotal} assigned agent${assignedTotal === 1 ? '' : 's'}`}
+                  onClick={() => setAgentsDialogOpen(true)}
+                >
+                  <AvatarGroup>
+                    {avatarPreview.map((agent) => (
+                      <Avatar key={agent.id}>
+                        <AvatarImage
+                          src={agent.avatar_url ?? undefined}
+                          alt={agent.display_name ?? agent.email ?? 'Agent'}
+                        />
+                        <AgentAvatarFallback
+                          seed={avatarSeedForUser(agent)}
+                          className="text-[10px]"
+                        >
+                          {agentInitials(agent.display_name, agent.email)}
+                        </AgentAvatarFallback>
+                      </Avatar>
+                    ))}
+                    {showTotalInFourthCircle ? (
+                      <AvatarGroupCount>{assignedTotal}</AvatarGroupCount>
+                    ) : null}
+                  </AvatarGroup>
+                </button>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Assigned agents</DialogTitle>
+                    <DialogDescription>
+                      {assignedTotal} agent{assignedTotal === 1 ? '' : 's'} on "{program.name}"
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ul className="max-h-[min(50vh,320px)] space-y-2 overflow-y-auto pr-1">
+                    {assignedAgents.map((agent) => (
+                      <li
+                        key={agent.id}
+                        className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
+                      >
+                        <Avatar className="size-9">
                           <AvatarImage
                             src={agent.avatar_url ?? undefined}
                             alt={agent.display_name ?? agent.email ?? 'Agent'}
                           />
-                          <AgentAvatarFallback
-                            seed={avatarSeedForUser(agent)}
-                            className="text-[10px]"
-                          >
+                          <AgentAvatarFallback seed={avatarSeedForUser(agent)} className="text-xs">
                             {agentInitials(agent.display_name, agent.email)}
                           </AgentAvatarFallback>
                         </Avatar>
-                      ))}
-                      {showTotalInFourthCircle ? (
-                        <AvatarGroupCount>{assignedTotal}</AvatarGroupCount>
-                      ) : null}
-                    </AvatarGroup>
-                  </button>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Assigned agents</DialogTitle>
-                      <DialogDescription>
-                        {assignedTotal} agent{assignedTotal === 1 ? '' : 's'} on "{program.name}"
-                      </DialogDescription>
-                    </DialogHeader>
-                    <ul className="max-h-[min(50vh,320px)] space-y-2 overflow-y-auto pr-1">
-                      {assignedAgents.map((agent) => (
-                        <li
-                          key={agent.id}
-                          className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
-                        >
-                          <Avatar className="size-9">
-                            <AvatarImage
-                              src={agent.avatar_url ?? undefined}
-                              alt={agent.display_name ?? agent.email ?? 'Agent'}
-                            />
-                            <AgentAvatarFallback seed={avatarSeedForUser(agent)} className="text-xs">
-                              {agentInitials(agent.display_name, agent.email)}
-                            </AgentAvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {agent.display_name?.trim() || 'Agent'}
-                            </p>
-                            {agent.email ? (
-                              <p className="truncate text-xs text-muted-foreground">{agent.email}</p>
-                            ) : null}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline" className="gap-2">
-                <Link to={`/programs/${program.id}`}>
-                  <ExternalLink className="size-4" />
-                  Open program
-                </Link>
-              </Button>
-              {canAssignAction ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => onAssignAgents?.(program)}
-                >
-                  <UserPlus className="size-4" />
-                  Assign agents
-                </Button>
-              ) : null}
-              {!hasManagementActions ? (
-                <Badge variant="secondary" className="font-medium">
-                  Read only
-                </Badge>
-              ) : null}
-            </div>
-          </>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {agent.display_name?.trim() || 'Agent'}
+                          </p>
+                          {agent.email ? (
+                            <p className="truncate text-xs text-muted-foreground">{agent.email}</p>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </DialogContent>
+              </Dialog>
+            )}
+            {!hasManagementActions ? (
+              <span className="text-xs text-muted-foreground">
+                {programTimelineLabel(program)}
+              </span>
+            ) : null}
+          </div>
         )}
-      </CardFooter>
+      </CardContent>
 
       {isPaused && isRevenueTier ? (
-        <p className="px-4 pb-3 text-xs text-amber-700 dark:text-amber-400">
+        <p className="px-3 pb-3 text-xs text-amber-700 dark:text-amber-400 sm:px-4">
           Revenue-tier programs stay paused until tier rules are modeled in the backend.
         </p>
       ) : null}
       {isSuspended ? (
-        <div className="space-y-2 px-4 pb-3 text-xs text-amber-800 dark:text-amber-300">
+        <div className="space-y-1.5 px-3 pb-3 text-xs text-amber-800 dark:text-amber-300 sm:px-4">
           {program.suspension_deadline_at ? (
             <SuspensionDeadlineCountdown deadlineIso={program.suspension_deadline_at} />
           ) : null}
