@@ -18,7 +18,11 @@ import { BusinessesList } from '@/components/dashboard/BusinessesList';
 import { TopBusinesses } from '@/components/dashboard/TopBusinesses';
 import { TopAffiliatesByProspects } from '@/components/dashboard/TopAffiliatesByProspects';
 import { getAgentPointsMetrics } from '@/lib/agent-points';
-import { fetchFrontend2DashboardSummary, type LiveDashboardSummary } from '@/lib/live-data';
+import {
+  fetchBusinessDashboardSummary,
+  fetchFrontend2DashboardSummary,
+  type LiveDashboardSummary,
+} from '@/lib/live-data';
 import type { Agent, Business, ExchangeRequest, Program, Prospect, Transaction, User, UserRole } from '@/types';
 
 interface DashboardProps {
@@ -139,7 +143,10 @@ export function Dashboard({
   useEffect(() => {
     let active = true;
 
-    void fetchFrontend2DashboardSummary()
+    const loadSummary =
+      role === 'business-owner' ? fetchBusinessDashboardSummary : fetchFrontend2DashboardSummary;
+
+    void loadSummary()
       .then((summary) => {
         if (active) {
           setDashboardSummary(summary);

@@ -1191,6 +1191,11 @@ export async function fetchFrontend2DashboardSummary() {
   return response.data;
 }
 
+export async function fetchBusinessDashboardSummary() {
+  const response = await apiRequest<BusinessDashboardSummaryEnvelope>('/v1/dashboard/business-summary');
+  return response.data;
+}
+
 export async function markNotificationRead(notificationId: string) {
   await apiRequest(`/v1/notifications/${notificationId}/read`, {
     method: 'POST',
