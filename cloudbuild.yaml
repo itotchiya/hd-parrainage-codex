@@ -35,7 +35,7 @@ steps:
 substitutions:
   _REGION: europe-west1
   _REPO: hd-parrainage
-  _SERVICE: hd-parrainage-codex-backend
+  _SERVICE: hd-parrainage-api
 
 options:
   logging: CLOUD_LOGGING_ONLY
