@@ -16,7 +16,7 @@ fi
 rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 php artisan package:discover --ansi --force 2>/dev/null || true
 
-if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   php artisan migrate --force
 fi
 
