@@ -1,4 +1,5 @@
 # Build, push, and deploy backend to Cloud Run from Cloud Build trigger.
+# NOTE: Trigger this on pushes to `main`.
 # Trigger suggestion:
 # - Event: Push to branch
 # - Branch regex: ^main$
