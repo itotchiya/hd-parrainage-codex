@@ -50,10 +50,105 @@
   --sidebar-ring: oklch(0.556 0 0);
   --selection-bg: oklch(0.88 0 0);
   --selection-foreground: oklch(0.145 0 0);
+  --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 75%, transparent);
+  --scrollbar-track: transparent;
 }
 
-* {
+*,
+html {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports (overflow-y: overlay) {
+  html,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-auto {
+    overflow-y: overlay !important;
+  }
+  .overflow-x-auto {
+    overflow-x: overlay !important;
+  }
+}
+
+html.scroll-locked,
+html.scroll-locked body {
+  overflow: hidden !important;
+}
+
+/* When a modal/dialog is open, hide root scrollbar visuals so it stays "under" the overlay. */
+html.scroll-locked {
+  scrollbar-gutter: auto !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+html.scroll-locked::-webkit-scrollbar,
+html.scroll-locked body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+html.scroll-locked::-webkit-scrollbar-thumb,
+html.scroll-locked body::-webkit-scrollbar-thumb,
+html.scroll-locked::-webkit-scrollbar-track,
+html.scroll-locked body::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+/* Radix/react-remove-scroll is used by dropdown/select overlays and can inject
+   body lock styles that shift the shell. Neutralize that path when we are NOT
+   in our explicit dialog lock mode (`html.scroll-locked`). */
+html:not(.scroll-locked) body[data-scroll-locked],
+html:not(.scroll-locked) body[data-scroll-locked].with-scroll-bars-hidden {
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  position: static !important;
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+html:not(.scroll-locked) .with-scroll-bars-hidden {
+  padding-right: 0 !important;
+}
+
+html:not(.scroll-locked) .right-scroll-bar-position {
+  right: 0 !important;
+}
+
+html:not(.scroll-locked) .width-before-scroll-bar {
+  margin-right: 0 !important;
 }
 
 .theme-transition,
@@ -78,6 +173,15 @@ html,
 body,
 #root {
   min-height: 100%;
+}
+
+html {
+  scrollbar-gutter: stable;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -174,6 +278,9 @@ code {
   --sidebar-ring: oklch(0.556 0 0);
   --selection-bg: oklch(0.36 0 0);
   --selection-foreground: oklch(0.985 0 0);
+  --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 65%, transparent);
+  --scrollbar-track: transparent;
 }
 
 @layer base {

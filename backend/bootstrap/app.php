@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,6 +30,17 @@ return Application::configure(basePath: dirname(__DIR__))
                     return response()->json([
                         'message' => 'Unauthenticated.',
                     ], 401);
+                }
+            },
+        );
+
+        $exceptions->render(
+            static function (TokenMismatchException $exception, $request) {
+                if ($request->is('api/*')) {
+                    return response()->json([
+                        'code' => 'CSRF_TOKEN_MISMATCH',
+                        'message' => 'The CSRF token is invalid or expired.',
+                    ], 419);
                 }
             },
         );

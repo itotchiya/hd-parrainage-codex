@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(npx tsc:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "obsidian",
+    "pencil",
+    "context7",
+    "figma",
+    "postman",
+    "sentry",
+    "vercel",
+    "devtools",
+    "playwright",
+    "MCP_DOCKER"
+  ]
+}

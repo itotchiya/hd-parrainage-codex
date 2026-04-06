@@ -1,10 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Clock, Lock, MinusCircle, MoreHorizontal, Search, TrendingUp, Undo2, Wallet } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
-import { useAuthSession } from '../../auth/session'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
+import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
+import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPointsByProgram, fetchPointsLedger, fetchPointsSummary } from '../api'
-import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { PageHeader } from '@/components/app/PageHeader'
+import { TablePaginationBar } from '@/components/app/TablePaginationBar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -16,10 +28,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import type {
   PointsLedgerEntryStatus,
-  PointsLedgerRecord,
-  PointsProgramBalanceRecord,
 } from '../../../types/points'
 
 const statusPresentation: Record<
@@ -33,32 +51,17 @@ const statusPresentation: Record<
   reversed: { label: 'Reversed', className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300' },
 }
 
-function formatDate(value: string | null, withTime = false) {
-  if (value === null) {
-    return 'Not available'
-  }
-
-  return new Date(value).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    ...(withTime
-      ? {
-          hour: '2-digit',
-          minute: '2-digit',
-        }
-      : {}),
-  })
-}
-
 function formatSignedPoints(value: number) {
-  return `${value > 0 ? '+' : ''}${value.toLocaleString('en-GB')}`
+  return `${value > 0 ? '+' : ''}${value.toLocaleString('fr-FR')}`
 }
 
 export function PointsPage() {
-  const { user } = useAuthSession()
   const [statusFilter, setStatusFilter] = useState<'all' | PointsLedgerEntryStatus>('all')
   const [search, setSearch] = useState('')
+  const [programPage, setProgramPage] = useState(1)
+  const [programPageSize, setProgramPageSize] = useState(10)
+  const [ledgerPage, setLedgerPage] = useState(1)
+  const [ledgerPageSize, setLedgerPageSize] = useState(10)
 
   const summaryQuery = useQuery({
     queryKey: ['points', 'summary'],
@@ -96,6 +99,34 @@ export function PointsPage() {
     })
   }, [ledgerEntries, search, statusFilter])
 
+  useEffect(() => {
+    setLedgerPage(1)
+  }, [search, statusFilter])
+
+  const totalPrograms = programBalances.length
+  const totalProgramPages = Math.max(1, Math.ceil(totalPrograms / programPageSize))
+  const programPageSafe = Math.min(programPage, totalProgramPages)
+  const programSlice = useMemo(() => {
+    const start = (programPageSafe - 1) * programPageSize
+    return programBalances.slice(start, start + programPageSize)
+  }, [programBalances, programPageSafe, programPageSize])
+
+  useEffect(() => {
+    if (programPage !== programPageSafe) setProgramPage(programPageSafe)
+  }, [programPage, programPageSafe])
+
+  const totalLedger = filteredLedger.length
+  const totalLedgerPages = Math.max(1, Math.ceil(totalLedger / ledgerPageSize))
+  const ledgerPageSafe = Math.min(ledgerPage, totalLedgerPages)
+  const ledgerSlice = useMemo(() => {
+    const start = (ledgerPageSafe - 1) * ledgerPageSize
+    return filteredLedger.slice(start, start + ledgerPageSize)
+  }, [filteredLedger, ledgerPageSafe, ledgerPageSize])
+
+  useEffect(() => {
+    if (ledgerPage !== ledgerPageSafe) setLedgerPage(ledgerPageSafe)
+  }, [ledgerPage, ledgerPageSafe])
+
   if (summaryQuery.isPending || byProgramQuery.isPending || ledgerQuery.isPending) {
     return (
       <article className="app-panel text-sm text-muted-foreground">
@@ -130,255 +161,310 @@ export function PointsPage() {
 
   return (
     <section className="app-section">
-      <PageHeader
-        title="Points"
-        right={
-          <PageHeaderToolbar>
-            <Field className="w-full sm:min-w-[200px] sm:max-w-[340px] sm:flex-1">
-              <FieldLabel htmlFor="points-ledger-search" className="sr-only">
-                Search ledger
-              </FieldLabel>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="points-ledger-search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Program, prospect, agent, transaction..."
-                  className="pl-9"
-                />
-              </div>
-            </Field>
+      <PageHeader title="Commissions" />
 
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as 'all' | PointsLedgerEntryStatus)}
-            >
-              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Ledger status</SelectLabel>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {Object.entries(statusPresentation).map(([key, status]) => (
-                    <SelectItem key={key} value={key}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </PageHeaderToolbar>
-        }
-      />
-      <p className="app-copy text-muted-foreground">
-        Forecast, available balance, and immutable ledger events from live records.
-      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard
+          title="Forecast"
+          value={(summary?.forecast_points ?? 0).toLocaleString('fr-FR')}
+          description="Attributed to open prospects"
+          badge={kpiSnapshotBadge('Accrual')}
+          icon={TrendingUp}
+          tone="primary"
+        />
+        <KpiCard
+          title="Pending"
+          value={(summary?.pending_points ?? 0).toLocaleString('fr-FR')}
+          description="Not yet available"
+          badge={kpiSnapshotBadge('Hold')}
+          icon={Clock}
+          tone="warning"
+        />
+        <KpiCard
+          title="Available"
+          value={(summary?.available_points ?? 0).toLocaleString('fr-FR')}
+          description="Ready for exchange"
+          badge={kpiSnapshotBadge('Spend')}
+          icon={Wallet}
+          tone="success"
+        />
+        <KpiCard
+          title="Locked"
+          value={(summary?.locked_points ?? 0).toLocaleString('fr-FR')}
+          description="Reserved for in-flight requests"
+          badge={kpiSnapshotBadge('Reserved')}
+          icon={Lock}
+          tone="info"
+        />
+        <KpiCard
+          title="Consumed"
+          value={(summary?.consumed_points ?? 0).toLocaleString('fr-FR')}
+          description="Redeemed or settled"
+          badge={kpiSnapshotBadge('Spent')}
+          icon={MinusCircle}
+          tone="primary"
+        />
+        <KpiCard
+          title="Reversed"
+          value={(summary?.reversed_points ?? 0).toLocaleString('fr-FR')}
+          description="Adjustments and clawbacks"
+          badge={kpiSnapshotBadge('Ledger')}
+          icon={Undo2}
+          tone="warning"
+        />
+      </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_minmax(220px,280px)]">
-        <article className="rounded-lg border border-border bg-muted/15 px-4 py-3 md:px-5 md:py-4">
-          <p className="app-eyebrow">Scope</p>
-          <p className="mt-1 text-base font-semibold text-foreground">
-            {user?.primary_business?.display_name ?? 'Global platform'}
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <DashboardSectionHeader
+          title="Program balances"
+          description="Available points and usage split by program."
+        />
+        {programBalances.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-5 text-sm text-muted-foreground">
+            No program balances available.
           </p>
-          <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-            <p>Forecast prospects: {summary?.open_prospect_count ?? 0}</p>
-            <p>Ledger entries: {summary?.ledger_entry_count ?? 0}</p>
-            <p>Active exchanges: {summary?.active_exchange_request_count ?? 0}</p>
-          </div>
-        </article>
-      </div>
-
-      <div className="app-grid md:grid-cols-2 xl:grid-cols-3">
-        <BalanceCard label="Forecast" value={summary?.forecast_points ?? 0} />
-        <BalanceCard label="Pending" value={summary?.pending_points ?? 0} />
-        <BalanceCard label="Available" value={summary?.available_points ?? 0} highlight />
-        <BalanceCard label="Locked" value={summary?.locked_points ?? 0} />
-        <BalanceCard label="Consumed" value={summary?.consumed_points ?? 0} />
-        <BalanceCard label="Reversed" value={summary?.reversed_points ?? 0} />
-      </div>
-
-      <div className="grid gap-3 xl:grid-cols-[1.05fr_0.95fr]">
-        <article className="rounded-lg border border-border bg-card app-card-padding">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="app-eyebrow">Program balances</p>
-              <h2 className="mt-1 text-base font-semibold text-foreground">Available by program</h2>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10 text-center">#</TableHead>
+                    <TableHead>Program</TableHead>
+                    <TableHead className="hidden lg:table-cell">Exchange mode</TableHead>
+                    <TableHead className="text-right">Available</TableHead>
+                    <TableHead className="hidden md:table-cell text-right">Pending</TableHead>
+                    <TableHead className="hidden xl:table-cell text-right">Locked</TableHead>
+                    <TableHead className="hidden xl:table-cell text-right">Consumed</TableHead>
+                    <TableHead className="hidden md:table-cell text-right">Open prospects</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {programSlice.map((program, index) => {
+                    const rank = (programPageSafe - 1) * programPageSize + index + 1
+                    return (
+                      <TableRow key={program.program_id}>
+                        <TableCell className="text-center text-muted-foreground">{rank}</TableCell>
+                        <TableCell>
+                          <p className="truncate font-medium text-foreground">
+                            {program.program_name ?? 'Unnamed program'}
+                          </p>
+                          <p className="truncate font-mono text-[11px] text-muted-foreground">
+                            {program.program_slug ?? '—'}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground lg:hidden">
+                            {program.exchange_mode ?? 'Not configured'}
+                          </p>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <p className="truncate text-sm text-muted-foreground">
+                            {program.exchange_mode ?? 'Not configured'}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {program.exchange_pack_name ?? 'No active pack'}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums text-primary">
+                          {program.available_points.toLocaleString('fr-FR')}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {program.pending_points.toLocaleString('fr-FR')}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums xl:table-cell">
+                          {program.locked_points.toLocaleString('fr-FR')}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums xl:table-cell">
+                          {program.consumed_points.toLocaleString('fr-FR')}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {program.open_prospect_count.toLocaleString('fr-FR')}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
-            <span className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {programBalances.length} programs
-            </span>
+            <TablePaginationBar
+              page={programPageSafe}
+              pageSize={programPageSize}
+              totalItems={totalPrograms}
+              onPageChange={setProgramPage}
+              onPageSizeChange={setProgramPageSize}
+              pageSizeOptions={[10, 25, 50]}
+            />
           </div>
+        )}
+      </article>
 
-          <div className="mt-4 space-y-3">
-            {programBalances.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-5 text-sm text-muted-foreground">
-                No program balances available.
-              </div>
-            ) : (
-              programBalances.map((program) => (
-                <ProgramBalanceCard key={program.program_id} program={program} />
-              ))
-            )}
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <DashboardSectionHeader
+          title="Commission ledger"
+          actions={
+            <>
+              <Field className="w-full sm:min-w-[200px] sm:max-w-[340px] sm:flex-1">
+                <FieldLabel htmlFor="points-ledger-search" className="sr-only">
+                  Search ledger
+                </FieldLabel>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="points-ledger-search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Program, prospect, agent, transaction..."
+                    className="pl-9"
+                  />
+                </div>
+              </Field>
+
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as 'all' | PointsLedgerEntryStatus)}
+              >
+                <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Ledger status</SelectLabel>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(statusPresentation).map(([key, status]) => (
+                      <SelectItem key={key} value={key}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </>
+          }
+        />
+
+        {totalLedger === 0 ? (
+          <p className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-5 text-sm text-muted-foreground">
+            No ledger entries match the current filter.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10 text-center">#</TableHead>
+                    <TableHead>Entry</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Delta</TableHead>
+                    <TableHead className="hidden md:table-cell">Prospect</TableHead>
+                    <TableHead className="hidden lg:table-cell">Transaction</TableHead>
+                    <TableHead className="hidden xl:table-cell">Effective</TableHead>
+                    <TableHead className="w-10 pe-2 text-end">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ledgerSlice.map((entry, index) => {
+                    const status = statusPresentation[entry.entry_status]
+                    const rank = (ledgerPageSafe - 1) * ledgerPageSize + index + 1
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="text-center text-muted-foreground">{rank}</TableCell>
+                        <TableCell>
+                          <p className="truncate font-medium text-foreground">
+                            {entry.description ?? 'Ledger activity'}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {(entry.program_name ?? 'Program') + ' · ' + entry.source}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {entry.agent_name ?? 'Unknown agent'}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`w-fit text-xs capitalize ${status.className}`}>
+                            {status.label}
+                          </Badge>
+                          <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                            {entry.entry_type}
+                          </p>
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-semibold tabular-nums ${
+                            entry.points_delta >= 0
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-foreground'
+                          }`}
+                        >
+                          {formatSignedPoints(entry.points_delta)}
+                        </TableCell>
+                        <TableCell className="hidden max-w-[11rem] truncate text-muted-foreground md:table-cell">
+                          {entry.prospect_name ?? '—'}
+                        </TableCell>
+                        <TableCell className="hidden max-w-[11rem] truncate lg:table-cell">
+                          {entry.transaction_reference ? (
+                            <Link
+                              to={`/transactions/${entry.transaction_id}`}
+                              className="text-primary underline-offset-2 hover:underline"
+                            >
+                              {entry.transaction_reference}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground xl:table-cell">
+                          {formatDashboardDateFr(entry.effective_at)}
+                        </TableCell>
+                        <TableCell className="pe-2 text-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground"
+                                aria-label={`Actions for ledger entry ${entry.id}`}
+                              >
+                                <MoreHorizontal className="size-4" aria-hidden />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="min-w-[10rem]">
+                              {entry.transaction_id ? (
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/transactions/${entry.transaction_id}`}>Open transaction</Link>
+                                </DropdownMenuItem>
+                              ) : null}
+                              {entry.prospect_id ? (
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/prospects/${entry.prospect_id}`}>Open prospect</Link>
+                                </DropdownMenuItem>
+                              ) : null}
+                              {entry.exchange_request_id ? (
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/payouts/${entry.exchange_request_id}`}>Open payout request</Link>
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <TablePaginationBar
+              page={ledgerPageSafe}
+              pageSize={ledgerPageSize}
+              totalItems={totalLedger}
+              onPageChange={setLedgerPage}
+              onPageSizeChange={setLedgerPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
           </div>
-        </article>
-
-        <article className="rounded-lg border border-border bg-muted/15 app-card-padding">
-          <p className="app-eyebrow">Exchange readiness</p>
-          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-            <p>Immutable accrual — live</p>
-            <p>Lock / consume / reverse — live</p>
-            <p>Program-level balances — live</p>
-            <p className="text-foreground">Request workflow — use Exchanges (payouts)</p>
-          </div>
-        </article>
-      </div>
-
-      <div className="rounded-lg border border-border bg-muted/10 px-3 py-2 text-center text-xs text-muted-foreground md:text-left">
-        Immutable ledger history
-      </div>
-
-      {filteredLedger.length === 0 ? (
-        <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
-          <p className="app-eyebrow">Ledger history</p>
-          <h2 className="mt-2 text-lg font-semibold text-foreground">No ledger entries match the current filter.</h2>
-        </article>
-      ) : (
-        <div className="app-section">
-          {filteredLedger.map((entry) => (
-            <LedgerCard key={entry.id} entry={entry} />
-          ))}
-        </div>
-      )}
+        )}
+      </article>
     </section>
-  )
-}
-
-function BalanceCard({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string
-  value: number
-  highlight?: boolean
-}) {
-  return (
-    <article
-      className={
-        highlight
-          ? 'rounded-lg border border-foreground/20 bg-foreground px-5 py-4 text-background'
-          : 'rounded-lg border border-border bg-card px-5 py-4'
-      }
-    >
-      <p
-        className={
-          highlight
-            ? 'text-[11px] uppercase tracking-wide text-background/80'
-            : 'text-[11px] uppercase tracking-wide text-muted-foreground'
-        }
-      >
-        {label}
-      </p>
-      <p
-        className={
-          highlight
-            ? 'mt-2 text-2xl font-semibold tracking-tight text-background'
-            : 'mt-2 text-2xl font-semibold tracking-tight text-foreground'
-        }
-      >
-        {value.toLocaleString('en-GB')}
-      </p>
-    </article>
-  )
-}
-
-function ProgramBalanceCard({ program }: { program: PointsProgramBalanceRecord }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <p className="app-eyebrow">{program.program_slug ?? 'Program'}</p>
-          <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-            {program.program_name ?? 'Unnamed program'}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {program.exchange_mode ?? 'Not configured'}
-            {program.exchange_pack_name ? ` / ${program.exchange_pack_name}` : ''}
-          </p>
-        </div>
-        <span className="rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {program.open_prospect_count} prospects
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <MiniMetric label="Forecast" value={program.forecast_points.toLocaleString('en-GB')} />
-        <MiniMetric label="Pending" value={program.pending_points.toLocaleString('en-GB')} />
-        <MiniMetric label="Available" value={program.available_points.toLocaleString('en-GB')} />
-        <MiniMetric label="Locked" value={program.locked_points.toLocaleString('en-GB')} />
-        <MiniMetric label="Consumed" value={program.consumed_points.toLocaleString('en-GB')} />
-        <MiniMetric label="Reversed" value={program.reversed_points.toLocaleString('en-GB')} />
-      </div>
-    </article>
-  )
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-card p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
-    </article>
-  )
-}
-
-function LedgerCard({ entry }: { entry: PointsLedgerRecord }) {
-  const status = statusPresentation[entry.entry_status]
-
-  return (
-    <article className="rounded-lg border border-border bg-card app-card-padding">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-3">
-          <div>
-            <p className="app-eyebrow">
-              {entry.program_name ?? 'Program'} / {entry.source}
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-              {entry.description ?? 'Ledger activity'}
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span
-              className={`rounded-md border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${status.className}`}
-            >
-              {status.label}
-            </span>
-            <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {entry.entry_type}
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border bg-muted/15 px-5 py-4 text-right">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Points delta</p>
-          <p
-            className={`mt-2 text-2xl font-semibold tracking-tight ${
-              entry.points_delta >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'
-            }`}
-          >
-            {formatSignedPoints(entry.points_delta)}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <MiniMetric label="Agent" value={entry.agent_name ?? 'Not available'} />
-        <MiniMetric label="Prospect" value={entry.prospect_name ?? 'Not linked'} />
-        <MiniMetric label="Transaction" value={entry.transaction_reference ?? 'No reference'} />
-        <MiniMetric label="Effective at" value={formatDate(entry.effective_at, true)} />
-      </div>
-    </article>
   )
 }

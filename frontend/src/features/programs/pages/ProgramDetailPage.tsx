@@ -3,6 +3,16 @@ import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { fetchProgram } from '../api'
 import { useAuthSession } from '../../auth/session'
+import { Badge } from '@/components/ui/badge'
+import { programStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
+
+const programStatusLabel = {
+  active: 'Active',
+  draft: 'Draft',
+  paused: 'Paused',
+  suspended: 'Suspended',
+  archived: 'Archived',
+} as const
 
 export function ProgramDetailPage() {
   const { programId } = useParams<{ programId: string }>()
@@ -58,9 +68,12 @@ export function ProgramDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-md bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-              {program.status}
-            </span>
+            <Badge
+              variant="outline"
+              className={programStatusBadgeClass(program.status)}
+            >
+              {programStatusLabel[program.status]}
+            </Badge>
             <Link
               to="/programs"
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
@@ -101,7 +114,7 @@ export function ProgramDetailPage() {
             />
             <DataCell
               label="Cash rule"
-              value={program.points_per_euro === null ? 'No cash conversion' : `${program.points_per_euro} pts / EUR`}
+              value={program.points_per_euro === null ? 'No cash conversion' : `${program.points_per_euro} pts / €`}
             />
           </div>
 

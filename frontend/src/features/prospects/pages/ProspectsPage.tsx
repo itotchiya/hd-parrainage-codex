@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
+import { KpiCard, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
+import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
+import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPrograms } from '../../programs/api'
 import { DeleteProspectDialog } from '../components/DeleteProspectDialog'
 import { NewProspectDialog } from '../components/NewProspectDialog'
@@ -13,8 +16,17 @@ import {
   fetchDeletedProspects,
   fetchProspects,
 } from '../api'
-import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { PageHeader } from '@/components/app/PageHeader'
+import { TablePaginationBar } from '@/components/app/TablePaginationBar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -26,7 +38,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ProspectPipelineStage, ProspectRecord } from '../../../types/prospects'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import type {
+  ProspectConversionStatus,
+  ProspectPipelineStage,
+  ProspectRecord,
+  ProspectSubmissionStatus,
+} from '../../../types/prospects'
 
 const prospectsQueryKey = ['prospects', 'list']
 const deletedProspectsQueryKey = ['prospects', 'deleted']
@@ -37,28 +62,61 @@ const stagePresentation: Record<
   { label: string; className: string }
 > = {
   suspect: { label: 'Suspect', className: 'border-border bg-muted/40 text-foreground' },
-  prospect_froid: { label: 'Prospect Froid', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
-  prospect_tiede: { label: 'Prospect Tiede', className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300' },
-  prospect_chaud: { label: 'Prospect Chaud', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
+  prospect_froid: {
+    label: 'Prospect Froid',
+    className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300',
+  },
+  prospect_tiede: {
+    label: 'Prospect Tiede',
+    className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  },
+  prospect_chaud: {
+    label: 'Prospect Chaud',
+    className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
+  },
 }
 
-const submissionPresentation = {
+const submissionPresentation: Record<ProspectSubmissionStatus, string> = {
   pending_sync: 'Pending sync',
   synced: 'Synced',
   sync_failed: 'Sync failed',
   deleted: 'Deleted',
 }
 
-function formatDate(value: string | null) {
-  if (value === null) {
-    return 'Not available'
+function submissionBadgeClass(status: ProspectSubmissionStatus): string {
+  switch (status) {
+    case 'synced':
+      return 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
+    case 'pending_sync':
+      return 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300'
+    case 'sync_failed':
+      return 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300'
+    case 'deleted':
+      return 'border-transparent bg-muted text-muted-foreground'
+    default:
+      return 'border-border bg-muted/30 text-muted-foreground'
   }
+}
 
-  return new Date(value).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+const conversionPresentation: Record<ProspectConversionStatus, string> = {
+  open: 'Open',
+  converted: 'Converted',
+  lost: 'Lost',
+  locked: 'Locked',
+}
+
+const stageKpiIcons: Record<ProspectPipelineStage, typeof ScanSearch> = {
+  suspect: ScanSearch,
+  prospect_froid: Snowflake,
+  prospect_tiede: Thermometer,
+  prospect_chaud: Flame,
+}
+
+const stageKpiTones: Record<ProspectPipelineStage, KpiTone> = {
+  suspect: 'info',
+  prospect_froid: 'primary',
+  prospect_tiede: 'warning',
+  prospect_chaud: 'success',
 }
 
 export function ProspectsPage() {
@@ -69,6 +127,8 @@ export function ProspectsPage() {
   const [stageFilter, setStageFilter] = useState<'all' | ProspectPipelineStage>('all')
   const [selectedAgentId, setSelectedAgentId] = useState('all')
   const [showDeleted, setShowDeleted] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const queryWantsCreate = searchParams.get('create') === 'true'
   const queryProgramId = searchParams.get('programId')
   const [createOpen, setCreateOpen] = useState(queryWantsCreate)
@@ -166,11 +226,31 @@ export function ProspectsPage() {
         prospect.contact_name.toLowerCase().includes(normalizedSearch) ||
         (prospect.company_name ?? '').toLowerCase().includes(normalizedSearch) ||
         (prospect.program_name ?? '').toLowerCase().includes(normalizedSearch) ||
-        (prospect.agent_name ?? '').toLowerCase().includes(normalizedSearch)
+        (prospect.agent_name ?? '').toLowerCase().includes(normalizedSearch) ||
+        (prospect.contact_email ?? '').toLowerCase().includes(normalizedSearch) ||
+        (prospect.contact_phone_raw ?? '').toLowerCase().includes(normalizedSearch) ||
+        (prospect.iacrm_prospect_id ?? '').toLowerCase().includes(normalizedSearch)
 
       return matchesStage && matchesAgent && matchesSearch
     })
   }, [prospects, search, selectedAgentId, stageFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, stageFilter, selectedAgentId, showDeleted])
+
+  const totalFiltered = filteredProspects.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
+  const pageSafe = Math.min(page, totalPages)
+
+  const pageSlice = useMemo(() => {
+    const start = (pageSafe - 1) * pageSize
+    return filteredProspects.slice(start, start + pageSize)
+  }, [filteredProspects, pageSafe, pageSize])
+
+  useEffect(() => {
+    if (page !== pageSafe) setPage(pageSafe)
+  }, [page, pageSafe])
 
   const openProspects = prospects.filter((prospect) => prospect.deleted_at === null)
   const stageCards = !showDeleted
@@ -197,111 +277,24 @@ export function ProspectsPage() {
 
   return (
     <section className="app-section">
-      <PageHeader
-        title="Prospects"
-        right={
-          <PageHeaderToolbar>
-            <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
-              <FieldLabel htmlFor="prospects-search" className="sr-only">
-                Search prospects
-              </FieldLabel>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="prospects-search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Contact, company, program, agent..."
-                  className="pl-9"
-                />
-              </div>
-            </Field>
-
-            <Select
-              value={stageFilter}
-              onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
-              disabled={showDeleted}
-            >
-              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
-                <SelectValue placeholder="Stage" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Pipeline stage</SelectLabel>
-                  <SelectItem value="all">All stages</SelectItem>
-                  {Object.entries(stagePresentation).map(([key, stage]) => (
-                    <SelectItem key={key} value={key}>
-                      {stage.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-
-            {hasPermission('prospect.view') && user?.agent_profile === null ? (
-              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
-                  <SelectValue placeholder="Agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Agent</SelectLabel>
-                    <SelectItem value="all">All agents</SelectItem>
-                    {agentOptions.map((agent) => (
-                      <SelectItem key={agent.id} value={agent.id}>
-                        {agent.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            ) : null}
-
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowDeleted((c) => !c)}>
-              {showDeleted ? 'Active prospects' : 'Deleted history'}
-            </Button>
-
-            {canSubmitProspects ? (
-              <Button
-                type="button"
-                size="sm"
-                className="gap-2 sm:shrink-0"
-                onClick={() => setCreateOpen(true)}
-                disabled={eligiblePrograms.length === 0}
-              >
-                <Plus className="size-4" aria-hidden />
-                New prospect
-              </Button>
-            ) : null}
-          </PageHeaderToolbar>
-        }
-      />
-      <p className="app-copy text-muted-foreground">
-        Funnel stages, sync status, and ownership from live data.
-      </p>
-
-      <div className="grid gap-3 lg:grid-cols-[1fr_minmax(220px,280px)]">
-        <article className="rounded-lg border border-border bg-muted/15 px-4 py-3 md:px-5 md:py-4">
-          <p className="app-eyebrow">Scope</p>
-          <p className="mt-1 text-base font-semibold text-foreground">
-            {user?.primary_business?.display_name ?? 'Global platform'}
-          </p>
-          <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-            <p>Visible: {prospects.length}</p>
-            <p>Create: {hasPermission('prospect.submit') ? 'Enabled' : 'Read only'}</p>
-            <p>Deleted view: {showDeleted ? 'On' : 'Off'}</p>
-          </div>
-        </article>
-      </div>
+      <PageHeader title="Prospects" />
 
       {!showDeleted ? (
-        <div className="app-grid-tight sm:grid-cols-2 xl:grid-cols-4">
-          {stageCards.map((stage) => (
-            <article key={stage.key} className="rounded-lg border border-border bg-card px-4 py-3 md:px-5 md:py-4">
-              <p className="app-eyebrow">{stage.label}</p>
-              <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{stage.count}</p>
-            </article>
-          ))}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {stageCards.map((stage) => {
+            const stageKey = stage.key as ProspectPipelineStage
+            return (
+              <KpiCard
+                key={stage.key}
+                title={stage.label}
+                value={stage.count.toString()}
+                description="Prospects in this funnel stage"
+                badge={kpiSnapshotBadge('Pipeline')}
+                icon={stageKpiIcons[stageKey]}
+                tone={stageKpiTones[stageKey]}
+              />
+            )
+          })}
         </div>
       ) : (
         <article className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
@@ -310,80 +303,414 @@ export function ProspectsPage() {
       )}
 
       {filteredProspects.length === 0 ? (
-        <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
-          <p className="app-eyebrow">Prospect inventory</p>
-          <h2 className="mt-2 text-lg font-semibold text-foreground">No prospects match the current filter.</h2>
+        <article className="rounded-lg bg-card p-3 sm:p-4">
+          <DashboardSectionHeader
+            title={showDeleted ? 'Deleted prospects' : 'Prospect inventory'}
+            actions={
+              <>
+                <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
+                  <FieldLabel htmlFor="prospects-search" className="sr-only">
+                    Search prospects
+                  </FieldLabel>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="prospects-search"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Contact, company, program, agent, IACRM ref..."
+                      className="pl-9"
+                    />
+                  </div>
+                </Field>
+
+                <Select
+                  value={stageFilter}
+                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
+                  disabled={showDeleted}
+                >
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                    <SelectValue placeholder="Stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Pipeline stage</SelectLabel>
+                      <SelectItem value="all">All stages</SelectItem>
+                      {Object.entries(stagePresentation).map(([key, stage]) => (
+                        <SelectItem key={key} value={key}>
+                          {stage.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+
+                {hasPermission('prospect.view') && user?.agent_profile === null ? (
+                  <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                      <SelectValue placeholder="Agent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Agent</SelectLabel>
+                        <SelectItem value="all">All agents</SelectItem>
+                        {agentOptions.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : null}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDeleted((c) => !c)}
+                >
+                  {showDeleted ? 'Active prospects' : 'Deleted history'}
+                </Button>
+
+                {canSubmitProspects ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-2 sm:shrink-0"
+                    onClick={() => setCreateOpen(true)}
+                    disabled={eligiblePrograms.length === 0}
+                  >
+                    <Plus className="size-4" aria-hidden />
+                    New prospect
+                  </Button>
+                ) : null}
+              </>
+            }
+          />
+          <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
+            <p className="app-eyebrow">Prospect inventory</p>
+            <h2 className="mt-2 text-lg font-semibold text-foreground">
+              No prospects match the current filter.
+            </h2>
+          </article>
         </article>
       ) : (
-        <div className="app-section">
-          {filteredProspects.map((prospect) => {
-            const stage = stagePresentation[prospect.pipeline_stage]
-
-            return (
-              <article key={prospect.id} className="rounded-lg border border-border bg-card app-card-padding">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="app-eyebrow">
-                        {prospect.business_name ?? 'Business'} / {prospect.program_name ?? 'Program'}
-                      </p>
-                      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                        {prospect.contact_name}
-                      </h2>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-md border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${stage.className}`}
-                      >
-                        {stage.label}
-                      </span>
-                      <span className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {submissionPresentation[prospect.submission_status]}
-                      </span>
-                    </div>
-                    <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
-                      <p>Email: {prospect.contact_email ?? 'Not provided'}</p>
-                      <p>Phone: {prospect.contact_phone_raw ?? 'Not provided'}</p>
-                      <p>Agent: {prospect.agent_name ?? 'Unknown'}</p>
-                    </div>
+        <article className="rounded-lg bg-card p-3 sm:p-4">
+          <DashboardSectionHeader
+            title={showDeleted ? 'Deleted prospects' : 'Prospect inventory'}
+            actions={
+              <>
+                <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
+                  <FieldLabel htmlFor="prospects-search" className="sr-only">
+                    Search prospects
+                  </FieldLabel>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="prospects-search"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Contact, company, program, agent, IACRM ref..."
+                      className="pl-9"
+                    />
                   </div>
+                </Field>
 
-                  <div className="flex flex-wrap gap-2 xl:justify-end">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/prospects/${prospect.id}`}>Open</Link>
-                    </Button>
-                    {prospect.actions.can_delete ? (
-                      <Button type="button" size="sm" variant="destructive" onClick={() => setDeleteTarget(prospect)}>
-                        Delete
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
+                <Select
+                  value={stageFilter}
+                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
+                  disabled={showDeleted}
+                >
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                    <SelectValue placeholder="Stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Pipeline stage</SelectLabel>
+                      <SelectItem value="all">All stages</SelectItem>
+                      {Object.entries(stagePresentation).map(([key, stage]) => (
+                        <SelectItem key={key} value={key}>
+                          {stage.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-4">
-                  <MiniMetric label="Submitted" value={formatDate(prospect.submitted_at)} />
-                  <MiniMetric label="Latest sync" value={formatDate(prospect.last_synced_at)} />
-                  <MiniMetric label="IACRM ref" value={prospect.iacrm_prospect_id ?? 'Pending'} />
-                  <MiniMetric label="History" value={`${prospect.history_count ?? 0} events`} />
-                </div>
-
-                {prospect.sync_error_message ? (
-                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
-                    {prospect.sync_error_message}
-                  </p>
+                {hasPermission('prospect.view') && user?.agent_profile === null ? (
+                  <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                      <SelectValue placeholder="Agent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Agent</SelectLabel>
+                        <SelectItem value="all">All agents</SelectItem>
+                        {agentOptions.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 ) : null}
 
-                {prospect.deleted_at ? (
-                  <p className="mt-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Deleted on {formatDate(prospect.deleted_at)} by{' '}
-                    {prospect.deleted_by_user?.display_name ?? 'Unknown'}.
-                    {prospect.soft_delete_reason ? ` Reason: ${prospect.soft_delete_reason}` : ''}
-                  </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDeleted((c) => !c)}
+                >
+                  {showDeleted ? 'Active prospects' : 'Deleted history'}
+                </Button>
+
+                {canSubmitProspects ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-2 sm:shrink-0"
+                    onClick={() => setCreateOpen(true)}
+                    disabled={eligiblePrograms.length === 0}
+                  >
+                    <Plus className="size-4" aria-hidden />
+                    New prospect
+                  </Button>
                 ) : null}
-              </article>
-            )
-          })}
-        </div>
+              </>
+            }
+          />
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="overflow-x-auto">
+              <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10 text-center">#</TableHead>
+                  <TableHead className="min-w-[11rem]">Contact</TableHead>
+                  <TableHead className="hidden min-w-[9rem] sm:table-cell">Email</TableHead>
+                  <TableHead className="hidden min-w-[7rem] md:table-cell">Phone</TableHead>
+                  <TableHead className="hidden min-w-[8rem] lg:table-cell">Agent</TableHead>
+                  <TableHead className="min-w-[7.5rem]">Pipeline</TableHead>
+                  <TableHead className="min-w-[8.5rem]">Sync</TableHead>
+                  <TableHead className="hidden min-w-[8rem] md:table-cell">IACRM</TableHead>
+                  <TableHead className="hidden min-w-[7rem] xl:table-cell">Submitted</TableHead>
+                  <TableHead className="hidden min-w-[5.5rem] lg:table-cell">History</TableHead>
+                  {showDeleted ? (
+                    <TableHead className="hidden min-w-[7rem] xl:table-cell">Removed</TableHead>
+                  ) : null}
+                  <TableHead className="w-10 pe-2 text-end">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageSlice.map((prospect, index) => {
+                  const stage = stagePresentation[prospect.pipeline_stage]
+                  const rank = (pageSafe - 1) * pageSize + index + 1
+                  const busy = deleteMutation.isPending
+                  return (
+                    <TableRow
+                      key={prospect.id}
+                      className={prospect.deleted_at ? 'opacity-90' : undefined}
+                    >
+                      <TableCell className="text-center text-muted-foreground">{rank}</TableCell>
+                      <TableCell className="min-w-0">
+                        <Link
+                          to={`/prospects/${prospect.id}`}
+                          className="group -m-1 block rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                            {prospect.contact_name}
+                          </p>
+                          {prospect.company_name ? (
+                            <p className="truncate text-xs text-muted-foreground">{prospect.company_name}</p>
+                          ) : null}
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {(prospect.program_name ?? '—') +
+                              (prospect.business_name ? ` · ${prospect.business_name}` : '')}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
+                            Submitted {formatDashboardDateFr(prospect.submitted_at)}
+                          </p>
+                          {prospect.deleted_at ? (
+                            <p
+                              className="mt-1 truncate text-[11px] text-destructive"
+                              title={
+                                prospect.soft_delete_reason
+                                  ? `${prospect.deleted_by_user?.display_name ?? 'Unknown'} — ${prospect.soft_delete_reason}`
+                                  : undefined
+                              }
+                            >
+                              Deleted {formatDashboardDateFr(prospect.deleted_at)}
+                            </p>
+                          ) : null}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden max-w-[11rem] truncate text-sm sm:table-cell">
+                        {prospect.contact_email ? (
+                          <a
+                            href={`mailto:${prospect.contact_email}`}
+                            className="text-primary underline-offset-2 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {prospect.contact_email}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden max-w-[9rem] truncate text-sm md:table-cell">
+                        {prospect.contact_phone_raw ? (
+                          <a
+                            href={`tel:${prospect.contact_phone_e164 ?? prospect.contact_phone_raw}`}
+                            className="text-primary underline-offset-2 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {prospect.contact_phone_raw}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden max-w-[10rem] truncate text-sm text-muted-foreground lg:table-cell">
+                        {prospect.agent_id ? (
+                          <Link
+                            to={`/agents/${prospect.agent_id}`}
+                            className="text-primary underline-offset-2 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {prospect.agent_name ?? '—'}
+                          </Link>
+                        ) : (
+                          prospect.agent_name ?? '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={`w-fit text-xs capitalize ${stage.className}`}>
+                            {stage.label}
+                          </Badge>
+                          <span className="text-[11px] font-medium capitalize text-muted-foreground">
+                            {conversionPresentation[prospect.conversion_status]}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge
+                            variant="outline"
+                            className={`w-fit text-xs capitalize ${submissionBadgeClass(prospect.submission_status)}`}
+                          >
+                            {submissionPresentation[prospect.submission_status].replace(/_/g, ' ')}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground">
+                            {formatDashboardDateFr(prospect.last_synced_at)}
+                          </span>
+                          {prospect.sync_error_message ? (
+                            <span
+                              className="line-clamp-2 text-[11px] text-amber-700 dark:text-amber-300"
+                              title={prospect.sync_error_message}
+                            >
+                              {prospect.sync_error_message}
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden max-w-[11rem] md:table-cell">
+                        <p className="truncate font-mono text-[11px] text-foreground">
+                          {prospect.iacrm_prospect_id ?? '—'}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {prospect.iacrm_status_label ?? prospect.iacrm_status_code ?? '—'}
+                        </p>
+                      </TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground xl:table-cell">
+                        {formatDashboardDateFr(prospect.submitted_at)}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm tabular-nums text-foreground">
+                            {(prospect.history_count ?? 0).toLocaleString('fr-FR')} events
+                          </span>
+                          <Link
+                            to={`/prospects/${prospect.id}#prospect-timeline`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <History className="size-3.5 shrink-0" aria-hidden />
+                            Timeline
+                          </Link>
+                        </div>
+                      </TableCell>
+                      {showDeleted ? (
+                        <TableCell className="hidden max-w-[10rem] text-xs text-muted-foreground xl:table-cell">
+                          {formatDashboardDateFr(prospect.deleted_at)}
+                          {prospect.deleted_by_user ? (
+                            <p className="mt-1 truncate" title={prospect.soft_delete_reason ?? undefined}>
+                              {prospect.deleted_by_user.display_name}
+                            </p>
+                          ) : null}
+                        </TableCell>
+                      ) : null}
+                      <TableCell className="pe-2 text-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground"
+                              aria-label={`Actions for ${prospect.contact_name}`}
+                            >
+                              <MoreHorizontal className="size-4" aria-hidden />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-[10rem]">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/prospects/${prospect.id}`}>Open detail</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/prospects/${prospect.id}#prospect-timeline`}>
+                                View timeline
+                              </Link>
+                            </DropdownMenuItem>
+                            {prospect.agent_id ? (
+                              <DropdownMenuItem asChild>
+                                <Link to={`/agents/${prospect.agent_id}`}>Open agent</Link>
+                              </DropdownMenuItem>
+                            ) : null}
+                            {prospect.actions.can_delete ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={busy}
+                                  onClick={() => setDeleteTarget(prospect)}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+              </Table>
+            </div>
+            <TablePaginationBar
+              page={pageSafe}
+              pageSize={pageSize}
+              totalItems={totalFiltered}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
+          </div>
+        </article>
       )}
 
       <NewProspectDialog
@@ -436,14 +763,5 @@ export function ProspectsPage() {
         }}
       />
     </section>
-  )
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
-    </article>
   )
 }

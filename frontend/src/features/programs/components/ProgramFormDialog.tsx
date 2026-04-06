@@ -92,12 +92,13 @@ export function ProgramFormDialog({
   }
 
   useEffect(() => {
-    if (!open) {
-      return
-    }
-
+    if (!open) return
+    document.documentElement.classList.add('scroll-locked')
     setForm(buildFormState(packs, initialProgram))
     setClientErrors({})
+    return () => {
+      document.documentElement.classList.remove('scroll-locked')
+    }
   }, [initialProgram, open, packs])
 
   const selectedPack = useMemo(
@@ -151,7 +152,7 @@ export function ProgramFormDialog({
               form.points_per_euro.trim().length === 0
             ) {
               nextErrors.points_per_euro =
-                'Points per euro is required when cash exchange is enabled.'
+                'Points per € is required when cash exchange is enabled.'
             }
 
             if (
@@ -327,7 +328,7 @@ export function ProgramFormDialog({
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-foreground">Points per euro</span>
+              <span className="text-sm font-semibold text-foreground">Points per €</span>
               <input
                 type="number"
                 min="1"
@@ -407,7 +408,7 @@ export function ProgramFormDialog({
                 <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Cash conversion</p>
                 <p className="mt-3 text-2xl font-semibold text-foreground">
                   {form.points_per_euro.trim().length > 0
-                    ? `${form.points_per_euro} pts = 1 EUR`
+                    ? `${form.points_per_euro} pts = 1 €`
                     : 'Not configured'}
                 </p>
               </div>

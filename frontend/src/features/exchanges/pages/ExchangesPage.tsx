@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Clock, Inbox, Loader2, MoreHorizontal, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
+import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
+import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPointsByProgram } from '../../points/api'
 import {
   approveExchangeRequest,
@@ -14,8 +18,17 @@ import {
   markExchangeRequestProcessing,
   rejectExchangeRequest,
 } from '../api'
-import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { PageHeader } from '@/components/app/PageHeader'
+import { TablePaginationBar } from '@/components/app/TablePaginationBar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -27,7 +40,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ExchangeRequestRecord, ExchangeRequestStatus } from '../../../types/exchanges'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import type { ExchangeRequestStatus } from '../../../types/exchanges'
 
 const statusPresentation: Record<ExchangeRequestStatus, { label: string; className: string }> = {
   requested: { label: 'Requested', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
@@ -36,24 +57,6 @@ const statusPresentation: Record<ExchangeRequestStatus, { label: string; classNa
   processing: { label: 'Processing', className: 'border-border bg-indigo-500/10 text-indigo-800 dark:text-indigo-300' },
   completed: { label: 'Completed', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
   cancelled: { label: 'Cancelled', className: 'border-border bg-muted text-muted-foreground' },
-}
-
-function formatDate(value: string | null, withTime = false) {
-  if (!value) {
-    return 'Not available'
-  }
-
-  return new Date(value).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    ...(withTime
-      ? {
-          hour: '2-digit',
-          minute: '2-digit',
-        }
-      : {}),
-  })
 }
 
 function formatCurrency(amount: number, currencyCode: string) {
@@ -83,6 +86,7 @@ export function ExchangesPage() {
   const canCreate = canCreateReward || canCreateCash
 
   const [statusFilter, setStatusFilter] = useState<'all' | ExchangeRequestStatus>('all')
+  const [search, setSearch] = useState('')
   const [selectedProgramId, setSelectedProgramId] = useState('')
   const [requestType, setRequestType] = useState<'reward' | 'cash'>('reward')
   const [pointsAmount, setPointsAmount] = useState('100')
@@ -90,6 +94,8 @@ export function ExchangesPage() {
   const [notes, setNotes] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => {
     if (!canCreateReward && canCreateCash) {
@@ -221,10 +227,36 @@ export function ExchangesPage() {
 
   const requests = exchangesQuery.data?.data ?? []
   const programBalances = programBalancesQuery.data?.data ?? []
-  const filteredRequests = useMemo(
-    () => requests.filter((record) => statusFilter === 'all' || record.status === statusFilter),
-    [requests, statusFilter],
-  )
+  const filteredRequests = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return requests.filter((record) => {
+      const matchesStatus = statusFilter === 'all' || record.status === statusFilter
+      const matchesSearch =
+        q.length === 0 ||
+        (record.program_name ?? '').toLowerCase().includes(q) ||
+        (record.agent_name ?? '').toLowerCase().includes(q) ||
+        (record.business_name ?? '').toLowerCase().includes(q) ||
+        (record.request_type ?? '').toLowerCase().includes(q) ||
+        (record.requested_reward_title ?? '').toLowerCase().includes(q)
+      return matchesStatus && matchesSearch
+    })
+  }, [requests, search, statusFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter])
+
+  const totalFiltered = filteredRequests.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
+  const pageSafe = Math.min(page, totalPages)
+  const pageSlice = useMemo(() => {
+    const start = (pageSafe - 1) * pageSize
+    return filteredRequests.slice(start, start + pageSize)
+  }, [filteredRequests, pageSafe, pageSize])
+
+  useEffect(() => {
+    if (page !== pageSafe) setPage(pageSafe)
+  }, [page, pageSafe])
 
   const eligiblePrograms = useMemo(() => {
     return programBalances.filter((program) => {
@@ -258,42 +290,34 @@ export function ExchangesPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Exchanges"
-        right={
-          <PageHeaderToolbar>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
-            >
-              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[160px]">
-                <SelectValue placeholder="Filter status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Status</SelectLabel>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {Object.entries(statusPresentation).map(([key, status]) => (
-                    <SelectItem key={key} value={key}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {filteredRequests.length} in view
-            </span>
-          </PageHeaderToolbar>
-        }
+        title="Payouts"
       />
-      <p className="app-copy text-muted-foreground">
-        Reward and cash conversion requests with workflow state only.
-      </p>
 
-      <div className="app-grid-tight sm:grid-cols-3">
-        <MetricCard label="Scope" value={user?.primary_business?.display_name ?? 'Global'} />
-        <MetricCard label="Pending" value={pendingCount.toString()} />
-        <MetricCard label="Processing" value={processingCount.toString()} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <KpiCard
+          title="Total"
+          value={requests.length.toString()}
+          description="All exchange requests"
+          badge={kpiSnapshotBadge('Requests')}
+          icon={Inbox}
+          tone="info"
+        />
+        <KpiCard
+          title="Pending"
+          value={pendingCount.toString()}
+          description="Awaiting approval"
+          badge={kpiSnapshotBadge('Queue')}
+          icon={Clock}
+          tone="warning"
+        />
+        <KpiCard
+          title="Processing"
+          value={processingCount.toString()}
+          description="In fulfillment"
+          badge={kpiSnapshotBadge('Workflow')}
+          icon={Loader2}
+          tone="primary"
+        />
       </div>
 
       {canCreate ? (
@@ -423,153 +447,206 @@ export function ExchangesPage() {
         </article>
       ) : null}
 
-      <div className="app-section">
-        {filteredRequests.map((record) => (
-          <ExchangeRequestCard
-            key={record.id}
-            record={record}
-            currentUserId={user?.id ?? null}
-            canApprove={canApprove}
-            canReject={canReject}
-            activeActionId={activeActionId}
-            onApprove={(exchangeRequestId) => approveMutation.mutate(exchangeRequestId)}
-            onReject={(exchangeRequestId) => rejectMutation.mutate(exchangeRequestId)}
-            onProcessing={(exchangeRequestId) => processingMutation.mutate(exchangeRequestId)}
-            onComplete={(exchangeRequestId) => completeMutation.mutate(exchangeRequestId)}
-            onCancel={(exchangeRequestId) => cancelMutation.mutate(exchangeRequestId)}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <DashboardSectionHeader
+          title="Payout requests"
+          actions={
+            <>
+              <Field className="w-full sm:min-w-[200px] sm:max-w-[340px] sm:flex-1">
+                <FieldLabel htmlFor="payouts-search" className="sr-only">
+                  Search payouts
+                </FieldLabel>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="payouts-search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Program, business, agent, request type..."
+                    className="pl-9"
+                  />
+                </div>
+              </Field>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
+              >
+                <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[160px] sm:shrink-0">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Status</SelectLabel>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(statusPresentation).map(([key, status]) => (
+                      <SelectItem key={key} value={key}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </>
+          }
+        />
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
-    </article>
-  )
-}
-
-function ExchangeRequestCard({
-  record,
-  currentUserId,
-  canApprove,
-  canReject,
-  activeActionId,
-  onApprove,
-  onReject,
-  onProcessing,
-  onComplete,
-  onCancel,
-}: {
-  record: ExchangeRequestRecord
-  currentUserId: string | null
-  canApprove: boolean
-  canReject: boolean
-  activeActionId: string | null
-  onApprove: (exchangeRequestId: string) => void
-  onReject: (exchangeRequestId: string) => void
-  onProcessing: (exchangeRequestId: string) => void
-  onComplete: (exchangeRequestId: string) => void
-  onCancel: (exchangeRequestId: string) => void
-}) {
-  const status = statusPresentation[record.status]
-  const isBusy = activeActionId === record.id
-  const canCancel =
-    currentUserId !== null &&
-    record.requested_by_user_id === currentUserId &&
-    ['requested', 'approved', 'processing'].includes(record.status)
-
-  return (
-    <article className="rounded-lg border border-border bg-card app-card-padding">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {record.program_name ?? 'Program'}
-            </span>
-            <span
-              className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${status.className}`}
-            >
-              {status.label}
-            </span>
-            <span className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {record.request_type}
-            </span>
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
-              {record.request_type === 'reward'
-                ? record.requested_reward_title ?? record.exchange_pack_item_title ?? 'Reward request'
-                : 'Cash exchange request'}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {record.agent_name ?? 'Agent'} / {record.business_name ?? 'Business'}
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <DataCell label="Points" value={record.points_amount.toLocaleString('en-GB')} />
-            <DataCell
-              label="Cash"
-              value={record.cash_amount === null ? 'N/A' : formatCurrency(record.cash_amount, record.currency_code)}
+        {totalFiltered === 0 ? (
+          <p className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-5 text-sm text-muted-foreground">
+            No payout requests match the current filter.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10 text-center">#</TableHead>
+                    <TableHead>Request</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Points</TableHead>
+                    <TableHead className="hidden md:table-cell text-right">Cash</TableHead>
+                    <TableHead className="hidden lg:table-cell">Requested</TableHead>
+                    <TableHead className="hidden xl:table-cell">Owner</TableHead>
+                    <TableHead className="w-10 pe-2 text-end">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageSlice.map((record, index) => {
+                    const status = statusPresentation[record.status]
+                    const rank = (pageSafe - 1) * pageSize + index + 1
+                    const isBusy = activeActionId === record.id
+                    const canCancel =
+                      user?.id !== undefined &&
+                      user.id !== null &&
+                      record.requested_by_user_id === user.id &&
+                      ['requested', 'approved', 'processing'].includes(record.status)
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className="text-center text-muted-foreground">{rank}</TableCell>
+                        <TableCell>
+                          <Link
+                            to={`/payouts/${record.id}`}
+                            className="group -m-1 block rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          >
+                            <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                              {record.request_type === 'reward'
+                                ? record.requested_reward_title ??
+                                  record.exchange_pack_item_title ??
+                                  'Reward request'
+                                : 'Cash exchange request'}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {(record.program_name ?? 'Program') + ' · ' + (record.agent_name ?? 'Agent')}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground md:hidden">
+                              {record.points_amount.toLocaleString('fr-FR')} pts
+                            </p>
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`w-fit text-xs capitalize ${status.className}`}>
+                            {status.label}
+                          </Badge>
+                          <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                            {record.request_type}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums text-primary">
+                          {record.points_amount.toLocaleString('fr-FR')}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {record.cash_amount === null
+                            ? '—'
+                            : formatCurrency(record.cash_amount, record.currency_code)}
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground lg:table-cell">
+                          {formatDashboardDateFr(record.requested_at)}
+                        </TableCell>
+                        <TableCell className="hidden max-w-[10rem] truncate text-muted-foreground xl:table-cell">
+                          {record.approved_by_name ?? 'Pending'}
+                        </TableCell>
+                        <TableCell className="pe-2 text-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground"
+                                aria-label={`Actions for payout ${record.id}`}
+                              >
+                                <MoreHorizontal className="size-4" aria-hidden />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="min-w-[11rem]">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/payouts/${record.id}`}>Open detail</Link>
+                              </DropdownMenuItem>
+                              {(record.status === 'requested' && canApprove) ||
+                              (record.status === 'requested' && canReject) ||
+                              (record.status === 'approved' && canApprove) ||
+                              (['approved', 'processing'].includes(record.status) && canApprove) ||
+                              canCancel ? (
+                                <DropdownMenuSeparator />
+                              ) : null}
+                              {record.status === 'requested' && canApprove ? (
+                                <DropdownMenuItem disabled={isBusy} onClick={() => approveMutation.mutate(record.id)}>
+                                  Approve
+                                </DropdownMenuItem>
+                              ) : null}
+                              {record.status === 'requested' && canReject ? (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={isBusy}
+                                  onClick={() => rejectMutation.mutate(record.id)}
+                                >
+                                  Reject
+                                </DropdownMenuItem>
+                              ) : null}
+                              {record.status === 'approved' && canApprove ? (
+                                <DropdownMenuItem
+                                  disabled={isBusy}
+                                  onClick={() => processingMutation.mutate(record.id)}
+                                >
+                                  Mark processing
+                                </DropdownMenuItem>
+                              ) : null}
+                              {['approved', 'processing'].includes(record.status) && canApprove ? (
+                                <DropdownMenuItem disabled={isBusy} onClick={() => completeMutation.mutate(record.id)}>
+                                  Complete
+                                </DropdownMenuItem>
+                              ) : null}
+                              {canCancel ? (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  disabled={isBusy}
+                                  onClick={() => cancelMutation.mutate(record.id)}
+                                >
+                                  Cancel
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <TablePaginationBar
+              page={pageSafe}
+              pageSize={pageSize}
+              totalItems={totalFiltered}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
             />
-            <DataCell label="Requested" value={formatDate(record.requested_at, true)} />
-            <DataCell label="Owner" value={record.approved_by_name ?? 'Pending'} />
           </div>
-        </div>
-
-        <div className="flex min-w-[220px] flex-wrap gap-2 xl:justify-end">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`/payouts/${record.id}`}>Open</Link>
-          </Button>
-          {record.status === 'requested' && canApprove ? (
-            <ActionButton label="Approve" busy={isBusy} onClick={() => onApprove(record.id)} primary />
-          ) : null}
-          {record.status === 'requested' && canReject ? (
-            <ActionButton label="Reject" busy={isBusy} onClick={() => onReject(record.id)} />
-          ) : null}
-          {record.status === 'approved' && canApprove ? (
-            <ActionButton label="Processing" busy={isBusy} onClick={() => onProcessing(record.id)} />
-          ) : null}
-          {['approved', 'processing'].includes(record.status) && canApprove ? (
-            <ActionButton label="Complete" busy={isBusy} onClick={() => onComplete(record.id)} primary />
-          ) : null}
-          {canCancel ? (
-            <ActionButton label="Cancel" busy={isBusy} onClick={() => onCancel(record.id)} />
-          ) : null}
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function DataCell({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
-    </article>
-  )
-}
-
-function ActionButton({
-  label,
-  busy,
-  onClick,
-  primary = false,
-}: {
-  label: string
-  busy: boolean
-  onClick: () => void
-  primary?: boolean
-}) {
-  return (
-    <Button type="button" size="sm" variant={primary ? 'default' : 'outline'} disabled={busy} onClick={onClick}>
-      {label}
-    </Button>
+        )}
+      </article>
+    </section>
   )
 }

@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 210 50% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 50% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 50% 15%;
+    --primary: 210 65% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 195 75% 57%;
+    --secondary-foreground: 210 50% 15%;
+    --muted: 210 30% 96%;
+    --muted-foreground: 210 20% 45%;
+    --accent: 195 75% 57%;
+    --accent-foreground: 210 50% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 30% 90%;
+    --input: 210 30% 90%;
+    --ring: 210 65% 50%;
+    --radius: 0.625rem;
+    --sidebar-background: 210 50% 24%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 210 65% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 210 40% 25%;
+    --sidebar-ring: 195 75% 57%;
+    
+    /* Myhd Brand Colors */
+    --myhd-dark: 210 50% 24%;
+    --myhd-primary: 210 65% 50%;
+    --myhd-cyan: 195 75% 57%;
+    --myhd-secondary: 195 75% 57%;
+    --myhd-light: 210 30% 97%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .gradient-myhd {
+    background: linear-gradient(135deg, hsl(var(--myhd-dark)) 0%, hsl(var(--myhd-primary)) 50%, hsl(var(--myhd-cyan)) 100%);
+  }
+  .gradient-myhd-light {
+    background: linear-gradient(135deg, hsl(var(--myhd-primary)) 0%, hsl(var(--myhd-cyan)) 100%);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--myhd-primary)) 0%, hsl(var(--myhd-cyan)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

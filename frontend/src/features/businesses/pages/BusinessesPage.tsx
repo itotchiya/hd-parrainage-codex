@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Building2, LayoutGrid, Receipt, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { approveBusiness, fetchBusinesses, rejectBusiness } from '../api'
 import { useAuthSession } from '../../auth/session'
 import type { BusinessRecord } from '../../../types/businesses'
@@ -162,11 +164,39 @@ export function BusinessesPage() {
         </article>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-4">
-        <MetricCard label="Businesses" value={summary.total.toString()} />
-        <MetricCard label="Programs in scope" value={summary.programs.toString()} />
-        <MetricCard label="Agents in scope" value={summary.agents.toString()} />
-        <MetricCard label="Transactions linked" value={summary.transactions.toString()} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Businesses"
+          value={summary.total.toString()}
+          description="Governed tenant entities"
+          badge={kpiSnapshotBadge('Directory')}
+          icon={Building2}
+          tone="primary"
+        />
+        <KpiCard
+          title="Programs in scope"
+          value={summary.programs.toString()}
+          description="Programs across listed businesses"
+          badge={kpiSnapshotBadge('Catalog')}
+          icon={LayoutGrid}
+          tone="info"
+        />
+        <KpiCard
+          title="Agents in scope"
+          value={summary.agents.toString()}
+          description="Affiliates under governance"
+          badge={kpiSnapshotBadge('Network')}
+          icon={Users}
+          tone="warning"
+        />
+        <KpiCard
+          title="Transactions linked"
+          value={summary.transactions.toString()}
+          description="Commercial outcomes attributed"
+          badge={kpiSnapshotBadge('Revenue')}
+          icon={Receipt}
+          tone="success"
+        />
       </div>
 
       <article className="rounded-xl border border-border bg-card/90 p-4 shadow-sm">
@@ -220,15 +250,6 @@ export function BusinessesPage() {
         </div>
       )}
     </section>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-card px-5 py-4 shadow-sm">
-      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-    </article>
   )
 }
 

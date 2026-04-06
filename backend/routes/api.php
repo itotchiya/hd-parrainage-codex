@@ -92,3 +92,5 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::post('/exchange-requests/{exchangeRequestId}/complete', [ExchangeRequestController::class, 'complete']);
     Route::post('/exchange-requests/{exchangeRequestId}/cancel', [ExchangeRequestController::class, 'cancel']);
 });
+
+require __DIR__.'/api_frontend2.php';

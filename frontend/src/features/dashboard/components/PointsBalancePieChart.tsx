@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
 import type { PointsLedgerRecord } from '@/types/points'
 
@@ -202,6 +203,27 @@ export function PointsBalancePieChart({ ledgerEntries }: PointsBalancePieChartPr
           </PieChart>
         </ChartContainer>
       )}
+    </>
+  )
+}
+
+export function PointsBalancePieChartSkeleton() {
+  return (
+    <>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0 space-y-1.5">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-64 max-w-[90%]" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-8 w-[9.5rem]" />
+          <Skeleton className="h-8 w-[7.5rem]" />
+        </div>
+      </div>
+
+      <div className="mx-auto flex aspect-square max-h-[280px] w-full items-center justify-center rounded-lg bg-muted/10">
+        <Skeleton className="size-44 rounded-full" />
+      </div>
     </>
   )
 }

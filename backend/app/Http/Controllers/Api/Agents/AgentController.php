@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,89 +89,121 @@ class AgentController extends Controller
         $email = mb_strtolower(trim((string) $payload['email']));
         $plainToken = Str::upper(Str::random(12));
 
-        [$agent, $createdUser] = DB::transaction(function () use ($payload, $email, $user, $businessId, $plainToken): array {
-            $agentRole = Role::query()->where('slug', 'agent')->firstOrFail();
+        $lastException = null;
+        $agent = null;
+        $createdUser = false;
 
-            $targetUser = User::query()->where('email', $email)->first();
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                [$agent, $createdUser] = DB::transaction(function () use ($payload, $email, $user, $businessId, $plainToken): array {
+                    $agentRole = Role::query()->where('slug', 'agent')->firstOrFail();
 
-            if ($targetUser === null) {
-                $targetUser = User::query()->create([
-                    'display_name' => trim((string) $payload['display_name']),
-                    'email' => $email,
-                    'password_hash' => Str::random(32),
-                    'status' => 'invited',
-                    'invited_at' => now(),
-                    'created_by_user_id' => $user->id,
-                ]);
-                $createdUser = true;
-            } else {
-                $createdUser = false;
-                $targetUser->forceFill([
-                    'display_name' => trim((string) $payload['display_name']),
-                    'status' => $targetUser->status === 'active' ? 'active' : 'invited',
-                    'invited_at' => $targetUser->invited_at ?? now(),
-                    'updated_by_user_id' => $user->id,
-                ])->save();
+                    $targetUser = User::query()->where('email', $email)->first();
+
+                    if ($targetUser === null) {
+                        $targetUser = User::query()->create([
+                            'display_name' => trim((string) $payload['display_name']),
+                            'email' => $email,
+                            'password_hash' => Str::random(32),
+                            'status' => 'invited',
+                            'invited_at' => now(),
+                            'created_by_user_id' => $user->id,
+                        ]);
+                        $createdUser = true;
+                    } else {
+                        $createdUser = false;
+                        $targetUser->forceFill([
+                            'display_name' => trim((string) $payload['display_name']),
+                            'status' => $targetUser->status === 'active' ? 'active' : 'invited',
+                            'invited_at' => $targetUser->invited_at ?? now(),
+                            'updated_by_user_id' => $user->id,
+                        ])->save();
+                    }
+
+                    BusinessUserAssignment::query()->updateOrCreate(
+                        [
+                            'business_id' => $businessId,
+                            'user_id' => $targetUser->id,
+                            'assignment_type' => 'agent',
+                        ],
+                        [
+                            'status' => 'invited',
+                            'is_primary' => false,
+                            'assigned_by_user_id' => $user->id,
+                            'invited_at' => now(),
+                        ],
+                    );
+
+                    UserRole::query()->updateOrCreate(
+                        [
+                            'user_id' => $targetUser->id,
+                            'role_id' => $agentRole->id,
+                            'scope_type' => 'business',
+                            'business_id' => $businessId,
+                        ],
+                        [
+                            'assigned_by_user_id' => $user->id,
+                            'assigned_at' => now(),
+                            'status' => 'active',
+                        ],
+                    );
+
+                    $agent = Agent::query()
+                        ->withTrashed()
+                        ->where('business_id', $businessId)
+                        ->where('user_id', $targetUser->id)
+                        ->first();
+
+                    if ($agent === null) {
+                        $agent = new Agent([
+                            'business_id' => $businessId,
+                            'user_id' => $targetUser->id,
+                            'agent_code' => $this->nextAgentCode($businessId),
+                        ]);
+                    } elseif ($agent->agent_code === null || $agent->agent_code === '') {
+                        $agent->agent_code = $this->nextAgentCode($businessId);
+                    }
+
+                    $agent->forceFill([
+                        'status' => 'invited',
+                        'invited_by_user_id' => $user->id,
+                        'invited_at' => now(),
+                        'notes' => isset($payload['notes']) ? trim((string) $payload['notes']) : null,
+                        'suspended_at' => null,
+                        'deleted_at' => null,
+                    ])->save();
+
+                    InvitationActivationToken::query()
+                        ->where('user_id', $targetUser->id)
+                        ->whereNull('used_at')
+                        ->delete();
+
+                    InvitationActivationToken::query()->create([
+                        'user_id' => $targetUser->id,
+                        'email' => $targetUser->email,
+                        'token_digest' => hash('sha256', $plainToken),
+                        'expires_at' => now()->addDays(14),
+                        'created_by_user_id' => $user->id,
+                    ]);
+
+                    return [$agent->fresh(['user', 'business']), $createdUser];
+                });
+                $lastException = null;
+                break;
+            } catch (QueryException $exception) {
+                if ($this->isAgentCodeUniqueViolation($exception)) {
+                    $lastException = $exception;
+                    continue;
+                }
+                throw $exception;
             }
+        }
 
-            BusinessUserAssignment::query()->updateOrCreate(
-                [
-                    'business_id' => $businessId,
-                    'user_id' => $targetUser->id,
-                    'assignment_type' => 'agent',
-                ],
-                [
-                    'status' => 'invited',
-                    'is_primary' => false,
-                    'assigned_by_user_id' => $user->id,
-                    'invited_at' => now(),
-                ],
-            );
-
-            UserRole::query()->updateOrCreate(
-                [
-                    'user_id' => $targetUser->id,
-                    'role_id' => $agentRole->id,
-                    'scope_type' => 'business',
-                    'business_id' => $businessId,
-                ],
-                [
-                    'assigned_by_user_id' => $user->id,
-                    'assigned_at' => now(),
-                    'status' => 'active',
-                ],
-            );
-
-            $agent = Agent::query()->updateOrCreate(
-                [
-                    'business_id' => $businessId,
-                    'user_id' => $targetUser->id,
-                ],
-                [
-                    'agent_code' => $this->nextAgentCode($businessId),
-                    'status' => 'invited',
-                    'invited_by_user_id' => $user->id,
-                    'invited_at' => now(),
-                    'notes' => isset($payload['notes']) ? trim((string) $payload['notes']) : null,
-                    'suspended_at' => null,
-                ],
-            );
-
-            InvitationActivationToken::query()
-                ->where('user_id', $targetUser->id)
-                ->whereNull('used_at')
-                ->delete();
-
-            InvitationActivationToken::query()->create([
-                'user_id' => $targetUser->id,
-                'email' => $targetUser->email,
-                'token_digest' => hash('sha256', $plainToken),
-                'expires_at' => now()->addDays(14),
-                'created_by_user_id' => $user->id,
+        if ($lastException !== null || $agent === null) {
+            throw ValidationException::withMessages([
+                'email' => 'Impossible de finaliser l’invitation pour le moment. Veuillez réessayer.',
             ]);
-
-            return [$agent->fresh(['user', 'business']), $createdUser];
-        });
+        }
 
         $activationUrl = $this->buildActivationUrl($agent->user->email, $plainToken);
 
@@ -305,8 +338,36 @@ class AgentController extends Controller
 
     private function nextAgentCode(string $businessId): string
     {
-        $count = Agent::query()->where('business_id', $businessId)->count() + 1;
-        return 'AGT-'.str_pad((string) $count, 3, '0', STR_PAD_LEFT);
+        $codes = Agent::query()
+            ->withTrashed()
+            ->where('business_id', $businessId)
+            ->whereNotNull('agent_code')
+            ->pluck('agent_code');
+
+        $max = 0;
+        foreach ($codes as $code) {
+            if (preg_match('/^AGT-(\d+)$/', (string) $code, $matches) === 1) {
+                $max = max($max, (int) $matches[1]);
+            }
+        }
+
+        $next = $max + 1;
+        do {
+            $candidate = 'AGT-'.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+            $exists = Agent::query()
+                ->withTrashed()
+                ->where('business_id', $businessId)
+                ->where('agent_code', $candidate)
+                ->exists();
+            $next++;
+        } while ($exists);
+
+        return $candidate;
+    }
+
+    private function isAgentCodeUniqueViolation(QueryException $exception): bool
+    {
+        return str_contains((string) $exception->getMessage(), 'agents_business_id_agent_code_unique');
     }
 
     private function buildActivationUrl(string $email, string $token): string

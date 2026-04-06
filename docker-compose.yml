@@ -66,8 +66,8 @@ services:
       CACHE_STORE: redis
       SESSION_DRIVER: database
       SESSION_DOMAIN: ""
-      SANCTUM_STATEFUL_DOMAINS: "localhost:${FRONTEND_PORT:-5175},127.0.0.1:${FRONTEND_PORT:-5175},localhost:${BACKEND_PORT:-8081},127.0.0.1:${BACKEND_PORT:-8081}"
-      CORS_ALLOWED_ORIGINS: "http://localhost:${FRONTEND_PORT:-5175},http://127.0.0.1:${FRONTEND_PORT:-5175}"
+      SANCTUM_STATEFUL_DOMAINS: "localhost:${FRONTEND_PORT:-5175},127.0.0.1:${FRONTEND_PORT:-5175},localhost:5176,127.0.0.1:5176,localhost:${FRONTEND2_HOST_PORT:-5177},127.0.0.1:${FRONTEND2_HOST_PORT:-5177},localhost:${BACKEND_PORT:-8081},127.0.0.1:${BACKEND_PORT:-8081}"
+      CORS_ALLOWED_ORIGINS: "http://localhost:${FRONTEND_PORT:-5175},http://127.0.0.1:${FRONTEND_PORT:-5175},http://localhost:5176,http://127.0.0.1:5176,http://localhost:${FRONTEND2_HOST_PORT:-5177},http://127.0.0.1:${FRONTEND2_HOST_PORT:-5177}"
       FRONTEND_URL: "http://localhost:${FRONTEND_PORT:-5175}"
       COMPOSER_ALLOW_SUPERUSER: "1"
     ports:
@@ -163,8 +163,32 @@ services:
     command: >
       sh -lc "npm install && npm run dev"
 
+  frontend2:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: hd-parrainage-frontend2
+    working_dir: /workspace
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      VITE_APP_NAME: "HD Parrainage Prototype"
+      VITE_APP_ENV: local
+      VITE_APP_URL: "http://localhost:${FRONTEND2_HOST_PORT:-5177}"
+      VITE_API_BASE_URL: "http://localhost:${BACKEND_PORT:-8081}/api"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${FRONTEND2_HOST_PORT:-5177}:5176"
+    volumes:
+      - ./frontend2:/workspace
+      - frontend2_node_modules:/workspace/node_modules
+    command: >
+      sh -lc "npm install && npm run dev -- --host 0.0.0.0 --port 5176"
+
 volumes:
   postgres_data:
   redis_data:
   backend_vendor_runtime:
   frontend_node_modules:
+  frontend2_node_modules:

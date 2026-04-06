@@ -15,15 +15,59 @@ import { PerformanceProspectsClientsChart } from '../components/PerformanceProsp
 import { ProgramsOverviewTable } from '../components/ProgramsOverviewTable'
 import { RecentActivityTable } from '../components/RecentActivityTable'
 import { TopAffiliatesByProspectsTable } from '../components/TopAffiliatesByProspectsTable'
-import { KpiCard } from '../components/KpiCard'
+import { KpiCard, KpiCardSkeleton } from '../components/KpiCard'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { ProgramRecord } from '../../../types/programs'
 import type { DashboardMetricCardRecord, DashboardMetricKey } from '../../../types/dashboard'
+import { PerformanceProspectsClientsChartSkeleton } from '../components/PerformanceProspectsClientsChart'
+import { PointsBalancePieChartSkeleton } from '../components/PointsBalancePieChart'
+import { TopAffiliatesByProspectsTableSkeleton } from '../components/TopAffiliatesByProspectsTable'
+import { RecentActivityTableSkeleton } from '../components/RecentActivityTable'
+import { ProgramsOverviewTableSkeleton } from '../components/ProgramsOverviewTable'
 
 function capitalize(value: string) {
   if (!value) return value
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function DashboardPageSkeleton() {
+  return (
+    <section className="min-w-0 space-y-2.5 sm:space-y-3">
+      <div className="flex flex-col gap-2 pb-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <Skeleton className="h-6 w-52" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <KpiCardSkeleton key={index} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-2.5 md:gap-3 xl:grid-cols-5">
+        <article className="rounded-lg bg-card p-3 sm:p-4 xl:col-span-3">
+          <PerformanceProspectsClientsChartSkeleton />
+        </article>
+        <article className="rounded-lg bg-card p-3 sm:p-4 xl:col-span-2">
+          <PointsBalancePieChartSkeleton />
+        </article>
+      </div>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <TopAffiliatesByProspectsTableSkeleton />
+      </article>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <RecentActivityTableSkeleton />
+      </article>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <ProgramsOverviewTableSkeleton />
+      </article>
+    </section>
+  )
 }
 
 export function DashboardPage() {
@@ -110,7 +154,7 @@ export function DashboardPage() {
       ).values(),
     )
       .sort((a, b) => b.totalProspects - a.totalProspects || a.name.localeCompare(b.name))
-      .slice(0, 8)
+      .slice(0, 5)
   }, [prospects])
 
   const topAffiliateRows = useMemo(() => {
@@ -137,7 +181,7 @@ export function DashboardPage() {
         const right = new Date(b.occurred_at ?? b.created_at ?? 0).getTime()
         return right - left
       })
-      .slice(0, 6)
+      .slice(0, 5)
   }, [transactions])
 
   const kpiIcons: Record<DashboardMetricKey, typeof Users> = {
@@ -164,11 +208,7 @@ export function DashboardPage() {
     pointsLedgerQuery.isPending ||
     agentsQuery.isPending
   ) {
-    return (
-      <section className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Loading business dashboard...
-      </section>
-    )
+    return <DashboardPageSkeleton />
   }
 
   if (
@@ -251,7 +291,7 @@ export function DashboardPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <ProgramsOverviewTable
-          programs={sortedPrograms}
+          programs={sortedPrograms.slice(0, 5)}
           defaultBusinessName={user?.primary_business?.display_name ?? undefined}
         />
       </article>

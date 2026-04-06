@@ -53,12 +53,13 @@ export function NewProspectDialog({
   const [clientError, setClientError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) {
-      return
-    }
-
+    if (!open) return
+    document.documentElement.classList.add('scroll-locked')
     setForm(buildInitialState(programs, defaultProgramId))
     setClientError(null)
+    return () => {
+      document.documentElement.classList.remove('scroll-locked')
+    }
   }, [defaultProgramId, open, programs])
 
   if (!open) {

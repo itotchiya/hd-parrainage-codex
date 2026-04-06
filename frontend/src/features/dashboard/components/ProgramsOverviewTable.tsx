@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
 import { programStatusBadgeClass } from '../utils/semanticBadges'
 import type { ProgramRecord } from '@/types/programs'
@@ -119,6 +120,42 @@ export function ProgramsOverviewTable({ programs, defaultBusinessName }: Program
           </Table>
         </div>
       )}
+    </>
+  )
+}
+
+export function ProgramsOverviewTableSkeleton() {
+  return (
+    <>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-8 w-40" />
+      </div>
+      <div className="overflow-x-auto rounded-lg bg-muted/10">
+        <div className="space-y-3 p-3">
+          <div className="grid grid-cols-[1.4fr_1fr_130px_1fr_1fr_100px] gap-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="ml-auto h-4 w-14" />
+          </div>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="grid grid-cols-[1.4fr_1fr_130px_1fr_1fr_100px] gap-3">
+              <div className="space-y-1.5">
+                <Skeleton className="h-3.5 w-36" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-24 rounded-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="ml-auto h-9 w-14" />
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   )
 }

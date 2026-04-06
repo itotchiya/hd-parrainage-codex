@@ -194,7 +194,6 @@ export function SettingsPage() {
   return (
     <section className="app-section">
       <PageHeader title="Settings" />
-      <p className="app-copy text-muted-foreground">{activeTabMeta.description}</p>
 
       <div className="grid gap-3 xl:grid-cols-[1.08fr_0.92fr]">
         <article className="rounded-lg border border-border bg-card app-card-padding">

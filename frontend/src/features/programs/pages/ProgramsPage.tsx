@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus } from 'lucide-react'
+import { Archive, FolderKanban, Search, Plus } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import {
@@ -20,10 +21,29 @@ import {
 import { fetchAgents } from '../../agents/api'
 import { ProgramFormDialog } from '../components/ProgramFormDialog'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item'
+import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
-import { ProgramCard } from '../components/ProgramCard'
+import { ProgramCard, ProgramCardSkeleton } from '../components/ProgramCard'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -33,8 +53,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type {
   AssignedAgent,
+  ExchangePackRecord,
   ProgramMutationPayload,
   ProgramRecord,
   ProgramStatus,
@@ -44,15 +67,84 @@ import type { AgentRecord } from '../../../types/agents'
 const programQueryKey = ['programs', 'list']
 const exchangePackQueryKey = ['exchange-packs', 'list']
 
+function toProgramUpdatePayload(program: ProgramRecord, exchangePackId: string | null): ProgramMutationPayload {
+  return {
+    name: program.name,
+    description: program.description ?? '',
+    commission_type: program.commission_type,
+    exchange_mode: program.exchange_mode,
+    points_per_transaction: program.points_per_transaction,
+    points_per_euro: program.points_per_euro,
+    exchange_pack_id: exchangePackId,
+    eligibility_criteria: program.eligibility_criteria ?? '',
+    status: program.status,
+  }
+}
+
+function formatAgentAddedAt(agent: AgentRecord) {
+  const raw = agent.activated_at ?? agent.invited_at ?? agent.created_at
+  if (!raw) return 'Unknown'
+  return new Date(raw).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function agentInitials(agent: AgentRecord): string {
+  const n = agent.display_name?.trim()
+  if (n) {
+    const parts = n.split(/\s+/).filter(Boolean)
+    if (parts.length >= 2) {
+      return `${parts[0]![0] ?? ''}${parts[parts.length - 1]![0] ?? ''}`.toUpperCase()
+    }
+    return n.slice(0, 2).toUpperCase()
+  }
+  return (agent.email ?? '?').slice(0, 2).toUpperCase()
+}
+
+function ProgramsPageSkeleton() {
+  return (
+    <section className="app-section">
+      <div className="flex flex-col gap-2 pb-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <Skeleton className="h-6 w-28" />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Skeleton className="h-8 w-full sm:w-[280px]" />
+          <Skeleton className="h-8 w-full sm:w-[140px]" />
+          <Skeleton className="h-8 w-full sm:w-[130px]" />
+        </div>
+      </div>
+
+      <div className="app-grid md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <ProgramCardSkeleton key={index} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function ProgramsPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, hasPermission } = useAuthSession()
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | ProgramStatus>('all')
+  const search = searchParams.get('q') ?? ''
+  const rawStatus = (searchParams.get('status') as 'all' | ProgramStatus | null) ?? 'all'
+  const scopeFilter = searchParams.get('scope') === 'archived' ? 'archived' : 'programs'
+  const businessFilterId = searchParams.get('businessId') ?? ''
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<ProgramRecord | null>(null)
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
+  const [hasEditedAssignmentSelection, setHasEditedAssignmentSelection] = useState(false)
+  const [rewardsDialogProgram, setRewardsDialogProgram] = useState<ProgramRecord | null>(null)
+  const [selectedPackId, setSelectedPackId] = useState<string>('')
+  const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [pendingOwnerAction, setPendingOwnerAction] = useState<{
+    type: 'pause' | 'reactivate' | 'suspend' | 'archive' | 'delete'
+    program: ProgramRecord
+  } | null>(null)
 
   const programsQuery = useQuery({
     queryKey: programQueryKey,
@@ -160,37 +252,97 @@ export function ProgramsPage() {
       }
       setAssignDialogProgram(null)
       setSelectedAgentIds([])
+      setHasEditedAssignmentSelection(false)
+    },
+  })
+
+  const updateRewardsPackMutation = useMutation({
+    mutationFn: ({
+      programId,
+      payload,
+    }: {
+      programId: string
+      payload: ProgramMutationPayload
+    }) => updateProgram(programId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: programQueryKey })
+      setRewardsDialogProgram(null)
+      setSelectedPackId('')
     },
   })
 
   const programs = programsQuery.data?.data ?? []
   const packs = packsQuery.data?.data ?? []
+  const rewardPacks = packs.filter((pack) => pack.status === 'active' || pack.status === 'draft')
   const ownerCanCreate = hasPermission('program.create')
   const cardMode = user?.agent_profile !== null ? 'agent' : 'owner'
   const canSubmitProspect = hasPermission('prospect.submit')
   const mutationError = (createMutation.error ?? updateMutation.error) as ApiError | null
+  const visiblePrograms = useMemo(
+    () => (cardMode === 'agent' ? programs.filter((program) => program.status !== 'draft') : programs),
+    [cardMode, programs],
+  )
+  const businessFilterOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const program of visiblePrograms) {
+      if (!program.business_id) continue
+      map.set(program.business_id, program.business_name ?? 'Unknown business')
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [visiblePrograms])
+  const showBusinessFilter = cardMode === 'agent' && businessFilterOptions.length > 1
+  const effectiveBusinessFilterId = showBusinessFilter ? businessFilterId : ''
+  const statusFilter: 'all' | ProgramStatus =
+    cardMode === 'agent' && rawStatus === 'draft' ? 'all' : rawStatus
 
   const filteredPrograms = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
-    return programs.filter((program) => {
-      const matchesStatus = statusFilter === 'all' || program.status === statusFilter
+    return visiblePrograms.filter((program) => {
+      const matchesScope =
+        scopeFilter === 'archived' ? program.status === 'archived' : program.status !== 'archived'
+      const matchesStatus =
+        scopeFilter === 'archived' ? true : statusFilter === 'all' || program.status === statusFilter
+      const matchesBusiness =
+        effectiveBusinessFilterId.length === 0 || program.business_id === effectiveBusinessFilterId
       const matchesSearch =
         normalizedSearch.length === 0 ||
         program.name.toLowerCase().includes(normalizedSearch) ||
         (program.business_name ?? '').toLowerCase().includes(normalizedSearch) ||
         (program.description ?? '').toLowerCase().includes(normalizedSearch)
 
-      return matchesStatus && matchesSearch
+      return matchesScope && matchesStatus && matchesBusiness && matchesSearch
     })
-  }, [programs, search, statusFilter])
+  }, [visiblePrograms, search, statusFilter, scopeFilter, effectiveBusinessFilterId])
+
+  const isOwnerActionPending =
+    pauseMutation.isPending ||
+    reactivateMutation.isPending ||
+    suspendMutation.isPending ||
+    archiveMutation.isPending ||
+    deleteArchivedMutation.isPending
+  const assignmentAgentIds = useMemo(
+    () =>
+      (assignmentQuery.data?.data ?? [])
+        .map((assignment) => assignment.agent?.id)
+        .filter((value): value is string => Boolean(value)),
+    [assignmentQuery.data?.data],
+  )
+  const lockedAssignedAgentIds = useMemo(
+    () =>
+      new Set(
+        (assignmentQuery.data?.data ?? [])
+          .filter((assignment) => assignment.has_prospects_in_program)
+          .map((assignment) => assignment.agent?.id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    [assignmentQuery.data?.data],
+  )
 
   if (programsQuery.isPending) {
-    return (
-      <article className="app-panel text-sm text-muted-foreground">
-        Loading program catalog...
-      </article>
-    )
+    return <ProgramsPageSkeleton />
   }
 
   if (programsQuery.isError) {
@@ -216,14 +368,36 @@ export function ProgramsPage() {
               <Input
                 id="programs-search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  const nextParams = new URLSearchParams(searchParams)
+                  if (nextValue.trim().length > 0) {
+                    nextParams.set('q', nextValue)
+                  } else {
+                    nextParams.delete('q')
+                  }
+                  setSearchParams(nextParams, { replace: true })
+                }}
                 placeholder="Rechercher un programme..."
                 className="pl-9"
               />
             </div>
           </Field>
 
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | ProgramStatus)}>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => {
+              const nextValue = value as 'all' | ProgramStatus
+              const nextParams = new URLSearchParams(searchParams)
+              if (nextValue === 'all') {
+                nextParams.delete('status')
+              } else {
+                nextParams.set('status', nextValue)
+              }
+              setSearchParams(nextParams, { replace: true })
+            }}
+            disabled={scopeFilter === 'archived'}
+          >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
               <SelectValue placeholder="All states" />
             </SelectTrigger>
@@ -232,13 +406,43 @@ export function ProgramsPage() {
                 <SelectLabel>Status</SelectLabel>
                 <SelectItem value="all">All states</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
+                {cardMode === 'owner' ? <SelectItem value="draft">Draft</SelectItem> : null}
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
+
+          {showBusinessFilter ? (
+            <Select
+              value={businessFilterId.length > 0 ? businessFilterId : 'all'}
+              onValueChange={(value) => {
+                const nextBusinessId = value === 'all' ? '' : value
+                const nextParams = new URLSearchParams(searchParams)
+                if (nextBusinessId.length > 0) {
+                  nextParams.set('businessId', nextBusinessId)
+                } else {
+                  nextParams.delete('businessId')
+                }
+                setSearchParams(nextParams, { replace: true })
+              }}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[180px] sm:shrink-0">
+                <SelectValue placeholder="All businesses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Business</SelectLabel>
+                  <SelectItem value="all">All businesses</SelectItem>
+                  {businessFilterOptions.map((business) => (
+                    <SelectItem key={business.id} value={business.id}>
+                      {business.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          ) : null}
 
           {ownerCanCreate ? (
             <Button
@@ -254,6 +458,30 @@ export function ProgramsPage() {
               Create program
             </Button>
           ) : null}
+          <Tabs
+            value={scopeFilter}
+            onValueChange={(value) => {
+              const nextScope = value === 'archived' ? 'archived' : 'programs'
+              const nextParams = new URLSearchParams(searchParams)
+              if (nextScope === 'archived') {
+                nextParams.set('scope', 'archived')
+              } else {
+                nextParams.delete('scope')
+              }
+              setSearchParams(nextParams, { replace: true })
+            }}
+          >
+            <TabsList>
+              <TabsTrigger value="programs">
+                <FolderKanban className="size-4" />
+                Programs
+              </TabsTrigger>
+              <TabsTrigger value="archived">
+                <Archive className="size-4" />
+                Archived
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           </PageHeaderToolbar>
         }
       />
@@ -286,27 +514,50 @@ export function ProgramsPage() {
                 setDialogOpen(true)
               }}
               onTogglePause={(next) => {
+                setDeleteConfirmName('')
                 if (next.status === 'paused') {
-                  reactivateMutation.mutate(next.id)
+                  setPendingOwnerAction({ type: 'reactivate', program: next })
                   return
                 }
-                pauseMutation.mutate(next.id)
+                setPendingOwnerAction({ type: 'pause', program: next })
               }}
               onLiftSuspension={(next) => reactivateMutation.mutate(next.id)}
               onActivateDraft={(next) => activateMutation.mutate(next.id)}
-              onSuspend={(next) => suspendMutation.mutate(next.id)}
-              onArchive={(next) => archiveMutation.mutate(next.id)}
+              onSuspend={(next) => {
+                setDeleteConfirmName('')
+                setPendingOwnerAction({ type: 'suspend', program: next })
+              }}
+              onArchive={(next) => {
+                setDeleteConfirmName('')
+                setPendingOwnerAction({ type: 'archive', program: next })
+              }}
               onDeleteArchived={(next) => {
-                const confirmed = window.confirm(
-                  `Soft-delete "${next.name}"? Allowed when the program is archived, or when it has no assigned agents and no prospects.`,
-                )
-                if (!confirmed) {
-                  return
-                }
-                deleteArchivedMutation.mutate(next.id)
+                setDeleteConfirmName('')
+                setPendingOwnerAction({ type: 'delete', program: next })
               }}
               onAssignAgents={(next) => {
                 setAssignDialogProgram(next)
+                setSelectedAgentIds([])
+                setHasEditedAssignmentSelection(false)
+              }}
+              onManageRewards={(next) => {
+                setRewardsDialogProgram(next)
+                setSelectedPackId(next.exchange_pack?.id ?? '')
+              }}
+              businessPrograms={visiblePrograms.filter(
+                (candidate) => candidate.business_id === program.business_id,
+              )}
+              onViewBusinessPrograms={(next) => {
+                navigate(
+                  `/programs?status=active&businessId=${encodeURIComponent(next.business_id)}`,
+                )
+              }}
+              onEditRewardsPack={(next) => {
+                if (next.exchange_pack?.id) {
+                  navigate(`/exchange-packs?edit=${encodeURIComponent(next.exchange_pack.id)}`)
+                  return
+                }
+                navigate('/exchange-packs')
               }}
             />
           ))}
@@ -344,105 +595,318 @@ export function ProgramsPage() {
         }}
       />
 
-      {assignDialogProgram ? (
-        <section className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 py-8 backdrop-blur-sm">
-          <article className="w-full max-w-2xl rounded-lg border border-border bg-card app-card-padding">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="app-dialog-title">Assign agents to {assignDialogProgram.name}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Select active agents to attach to this program.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAssignDialogProgram(null)
-                  setSelectedAgentIds([])
-                }}
-              >
-                Close
-              </Button>
-            </div>
+      <Dialog
+        open={Boolean(assignDialogProgram)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAssignDialogProgram(null)
+            setSelectedAgentIds([])
+            setHasEditedAssignmentSelection(false)
+            syncAssignmentsMutation.reset()
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Assigner des agents{assignDialogProgram ? ` à ${assignDialogProgram.name}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Sélectionnez les agents du business à rattacher à ce programme.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="mt-5 space-y-2">
+          <div className="max-h-[56vh] space-y-2 overflow-y-auto pr-1">
+            <TooltipProvider>
               {(agentsQuery.data?.data ?? []).map((agent: AgentRecord) => {
+                const effectiveSelectedAgentIds = hasEditedAssignmentSelection
+                  ? selectedAgentIds
+                  : assignmentAgentIds
+                const isAssigned = effectiveSelectedAgentIds.includes(agent.id)
+                const isLockedAssigned = isAssigned && lockedAssignedAgentIds.has(agent.id)
+                const toggleAssignment = () => {
+                  if (isLockedAssigned) return
+                  setHasEditedAssignmentSelection(true)
+                  setSelectedAgentIds((current) => {
+                    const base = hasEditedAssignmentSelection ? current : assignmentAgentIds
+                    if (base.includes(agent.id)) {
+                      return base.filter((id) => id !== agent.id)
+                    }
+                    return [...base, agent.id]
+                  })
+                }
+
+                const checkbox = (
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-primary"
+                    checked={isAssigned}
+                    disabled={isLockedAssigned}
+                    onChange={(event) => {
+                      const checked = event.target.checked
+                      if (isLockedAssigned) return
+                      setHasEditedAssignmentSelection(true)
+                      setSelectedAgentIds((current) => {
+                        const base = hasEditedAssignmentSelection ? current : assignmentAgentIds
+                        if (checked) {
+                          if (base.includes(agent.id)) return base
+                          return [...base, agent.id]
+                        }
+                        return base.filter((id) => id !== agent.id)
+                      })
+                    }}
+                  />
+                )
+
+                return (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    className="block w-full text-left"
+                    onClick={toggleAssignment}
+                    disabled={isLockedAssigned}
+                  >
+                    <Item variant="outline" className={isLockedAssigned ? 'opacity-85' : undefined}>
+                      <ItemMedia>
+                        <Avatar className="size-10">
+                          <AgentAvatarFallback seed={agent.id}>
+                            {agentInitials(agent)}
+                          </AgentAvatarFallback>
+                        </Avatar>
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>{agent.display_name ?? agent.email ?? 'Agent'}</ItemTitle>
+                        <ItemDescription>
+                          {agent.email ?? 'Email non disponible'} • Ajouté le {formatAgentAddedAt(agent)}
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        {isLockedAssigned ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="inline-flex cursor-not-allowed opacity-70"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {checkbox}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Cet agent a déjà ajouté des prospects dans ce programme et ne peut pas être retiré.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span onClick={(event) => event.stopPropagation()}>{checkbox}</span>
+                        )}
+                      </ItemActions>
+                    </Item>
+                  </button>
+                )
+              })}
+            </TooltipProvider>
+          </div>
+
+          {syncAssignmentsMutation.isError ? (
+            <p className="text-sm text-destructive">
+              {(syncAssignmentsMutation.error as ApiError).message}
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            <DialogClose className="inline-flex">
+              <Button type="button" variant="outline">
+                Annuler
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              disabled={syncAssignmentsMutation.isPending || !assignDialogProgram}
+              onClick={() => {
+                if (!assignDialogProgram) return
                 const assignmentAgentIds = (assignmentQuery.data?.data ?? [])
                   .map((assignment) => assignment.agent?.id)
                   .filter((value): value is string => Boolean(value))
-                const isChecked =
-                  selectedAgentIds.includes(agent.id) ||
-                  (selectedAgentIds.length === 0 && assignmentAgentIds.includes(agent.id))
+                const nextAgentIds = hasEditedAssignmentSelection ? selectedAgentIds : assignmentAgentIds
+                syncAssignmentsMutation.mutate({
+                  programId: assignDialogProgram.id,
+                  agentIds: nextAgentIds,
+                })
+              }}
+            >
+              {syncAssignmentsMutation.isPending ? 'Enregistrement...' : 'Enregistrer les assignations'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                return (
-                  <label
-                    key={agent.id}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {agent.display_name ?? agent.email ?? 'Agent'}{' '}
-                      <span className="text-muted-foreground">({agent.status})</span>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(event) => {
-                        setSelectedAgentIds((current) => {
-                          const base =
-                            current.length > 0
-                              ? current
-                              : assignmentAgentIds
-                          if (event.target.checked) {
-                            if (base.includes(agent.id)) {
-                              return base
-                            }
-                            return [...base, agent.id]
-                          }
-                          return base.filter((id) => id !== agent.id)
-                        })
-                      }}
-                    />
-                  </label>
-                )
-              })}
-            </div>
+      <Dialog
+        open={Boolean(rewardsDialogProgram)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRewardsDialogProgram(null)
+            setSelectedPackId('')
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              Assigner un pack rewards{rewardsDialogProgram ? ` à ${rewardsDialogProgram.name}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Sélectionnez un pack rewards existant du business pour ce programme.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="mt-5 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAssignDialogProgram(null)
-                  setSelectedAgentIds([])
-                }}
-              >
-                Cancel
+          <div className="max-h-[56vh] space-y-2 overflow-y-auto pr-1">
+            {rewardPacks.map((pack: ExchangePackRecord) => {
+              const checked = selectedPackId === pack.id
+              return (
+                <label key={pack.id} className="block cursor-pointer">
+                  <Item variant="outline">
+                    <ItemMedia>
+                      <input
+                        type="radio"
+                        name="program-reward-pack"
+                        className="size-4 accent-primary"
+                        checked={checked}
+                        onChange={() => setSelectedPackId(pack.id)}
+                      />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{pack.name}</ItemTitle>
+                      <ItemDescription>
+                        {pack.items.length} cadeau{pack.items.length === 1 ? '' : 'x'}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                </label>
+              )
+            })}
+          </div>
+
+          <DialogFooter>
+            <DialogClose className="inline-flex">
+              <Button type="button" variant="outline">
+                Annuler
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={syncAssignmentsMutation.isPending}
-                onClick={() => {
-                  const assignmentAgentIds = (assignmentQuery.data?.data ?? [])
-                    .map((assignment) => assignment.agent?.id)
-                    .filter((value): value is string => Boolean(value))
-                  const nextAgentIds =
-                    selectedAgentIds.length > 0 ? selectedAgentIds : assignmentAgentIds
-                  syncAssignmentsMutation.mutate({
-                    programId: assignDialogProgram.id,
-                    agentIds: nextAgentIds,
-                  })
-                }}
-              >
-                {syncAssignmentsMutation.isPending ? 'Saving...' : 'Save assignments'}
-              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              disabled={!rewardsDialogProgram || !selectedPackId || updateRewardsPackMutation.isPending}
+              onClick={() => {
+                if (!rewardsDialogProgram || !selectedPackId) return
+                updateRewardsPackMutation.mutate({
+                  programId: rewardsDialogProgram.id,
+                  payload: toProgramUpdatePayload(rewardsDialogProgram, selectedPackId),
+                })
+              }}
+            >
+              {updateRewardsPackMutation.isPending ? 'Enregistrement...' : 'Assigner le pack'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingOwnerAction)}
+        onOpenChange={(open) => {
+          if (!open && !isOwnerActionPending) {
+            setPendingOwnerAction(null)
+            setDeleteConfirmName('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingOwnerAction?.type === 'pause'
+                ? 'Mettre le programme en pause ?'
+                : pendingOwnerAction?.type === 'reactivate'
+                  ? 'Réactiver le programme ?'
+                  : pendingOwnerAction?.type === 'suspend'
+                    ? 'Suspendre le programme ?'
+                    : pendingOwnerAction?.type === 'archive'
+                      ? 'Archiver le programme ?'
+                      : 'Supprimer définitivement le programme ?'}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingOwnerAction?.type === 'pause'
+                ? 'Les agents ne pourront plus ajouter de nouveaux prospects tant que le programme est en pause.'
+                : pendingOwnerAction?.type === 'reactivate'
+                  ? 'Le programme redeviendra actif, et les agents retrouveront l’accès à la soumission de prospects.'
+                  : pendingOwnerAction?.type === 'suspend'
+                    ? 'Les avantages agents liés à ce programme seront bloqués (soumission prospects, progression opérationnelle, parcours actif). Utilisez cette action pour lancer un mode d’arrêt contrôlé.'
+                    : pendingOwnerAction?.type === 'archive'
+                      ? 'Le programme sera déplacé en archive et retiré des opérations courantes.'
+                      : 'Cette action est irréversible. Pour confirmer, saisissez exactement le nom complet du programme.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingOwnerAction?.type === 'delete' ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Nom attendu: <strong>{pendingOwnerAction.program.name}</strong>
+              </p>
+              <Input
+                value={deleteConfirmName}
+                onChange={(event) => setDeleteConfirmName(event.target.value)}
+                placeholder="Saisissez le nom complet du programme"
+              />
             </div>
-          </article>
-        </section>
-      ) : null}
+          ) : null}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isOwnerActionPending}>
+                Annuler
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant={pendingOwnerAction?.type === 'delete' ? 'destructive' : 'default'}
+              disabled={
+                isOwnerActionPending ||
+                !pendingOwnerAction ||
+                (pendingOwnerAction.type === 'delete' &&
+                  deleteConfirmName.trim() !== pendingOwnerAction.program.name)
+              }
+              onClick={async () => {
+                if (!pendingOwnerAction) return
+                try {
+                  if (pendingOwnerAction.type === 'pause') {
+                    await pauseMutation.mutateAsync(pendingOwnerAction.program.id)
+                  } else if (pendingOwnerAction.type === 'reactivate') {
+                    await reactivateMutation.mutateAsync(pendingOwnerAction.program.id)
+                  } else if (pendingOwnerAction.type === 'suspend') {
+                    await suspendMutation.mutateAsync(pendingOwnerAction.program.id)
+                  } else if (pendingOwnerAction.type === 'archive') {
+                    await archiveMutation.mutateAsync(pendingOwnerAction.program.id)
+                  } else if (pendingOwnerAction.type === 'delete') {
+                    await deleteArchivedMutation.mutateAsync(pendingOwnerAction.program.id)
+                  }
+                  setPendingOwnerAction(null)
+                  setDeleteConfirmName('')
+                } catch {
+                  // Mutation errors are handled by react-query state.
+                }
+              }}
+            >
+              {isOwnerActionPending
+                ? 'Traitement...'
+                : pendingOwnerAction?.type === 'pause'
+                  ? 'Confirmer la pause'
+                  : pendingOwnerAction?.type === 'reactivate'
+                    ? 'Confirmer la réactivation'
+                    : pendingOwnerAction?.type === 'suspend'
+                      ? 'Confirmer la suspension'
+                      : pendingOwnerAction?.type === 'archive'
+                        ? 'Confirmer l’archivage'
+                        : 'Supprimer définitivement'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

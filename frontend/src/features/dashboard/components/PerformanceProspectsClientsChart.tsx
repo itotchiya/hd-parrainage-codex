@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
 import type { ProspectRecord } from '@/types/prospects'
 import type { TransactionRecord } from '@/types/transactions'
@@ -187,6 +188,29 @@ export function PerformanceProspectsClientsChart({
           />
         </BarChart>
       </ChartContainer>
+    </>
+  )
+}
+
+export function PerformanceProspectsClientsChartSkeleton() {
+  return (
+    <>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0 space-y-1.5">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-3 w-72 max-w-[92%]" />
+        </div>
+        <Skeleton className="h-8 w-32" />
+      </div>
+      <div className="flex aspect-[21/9] max-h-[280px] w-full items-end gap-2 rounded-lg bg-muted/10 p-3">
+        {Array.from({ length: 12 }).map((_, index) => (
+          <Skeleton
+            key={index}
+            className="flex-1 rounded-sm"
+            style={{ height: `${38 + ((index * 11) % 42)}%` }}
+          />
+        ))}
+      </div>
     </>
   )
 }

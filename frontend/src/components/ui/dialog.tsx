@@ -109,11 +109,10 @@ function DialogContent({
       if (e.key === 'Escape') onOpenChange(false)
     }
     document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    document.documentElement.classList.add('scroll-locked')
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
+      document.documentElement.classList.remove('scroll-locked')
     }
   }, [open, onOpenChange])
 

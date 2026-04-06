@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Programs;
 
+use App\Models\Prospect;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,10 +14,17 @@ class AssignedAgentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $hasProspectsInProgram = Prospect::query()
+            ->where('program_id', $this->program_id)
+            ->where('agent_id', $this->agent_id)
+            ->exists();
+
         return [
             'assignment_id' => $this->id,
             'status' => $this->status,
             'assigned_at' => $this->assigned_at?->toISOString(),
+            'has_prospects_in_program' => $hasProspectsInProgram,
+            'can_unassign' => ! $hasProspectsInProgram,
             'agent' => $this->agent === null ? null : [
                 'id' => $this->agent->id,
                 'user_id' => $this->agent->user_id,

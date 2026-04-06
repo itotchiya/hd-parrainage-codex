@@ -4,12 +4,18 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { IconTile } from '@/components/ui/icon-tile'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type {
   DashboardMetricBadge,
   DashboardMetricBadgeTone,
   DashboardMetricTrendDirection,
 } from '@/types/dashboard'
+
+/** Neutral badge chip for feature pages (no trend arrow). */
+export function kpiSnapshotBadge(label: string): DashboardMetricBadge {
+  return { tone: 'neutral', label, icon: null }
+}
 
 export type KpiTone = 'primary' | 'success' | 'warning' | 'info'
 
@@ -94,6 +100,23 @@ export function KpiCard({
       </Badge>
 
       <p className="truncate text-xs text-muted-foreground">{description}</p>
+    </Card>
+  )
+}
+
+export function KpiCardSkeleton() {
+  return (
+    <Card className="flex flex-col gap-3 rounded-lg border-0 bg-card shadow-none app-card-padding">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Skeleton className="size-8 shrink-0 rounded-md" />
+        <Skeleton className="h-4 w-40 max-w-[75%]" />
+      </div>
+
+      <Skeleton className="h-8 w-24" />
+
+      <Skeleton className="h-5 w-32 rounded-full" />
+
+      <Skeleton className="h-3.5 w-44 max-w-[85%]" />
     </Card>
   )
 }

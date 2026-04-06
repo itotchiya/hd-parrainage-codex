@@ -5,16 +5,19 @@ namespace App\Http\Controllers\Api\Programs;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Programs\AssignedAgentResource;
 use App\Mail\ProgramAssignmentMail;
+use App\Mail\ProgramUnassignedMail;
 use App\Models\Agent;
 use App\Models\AppNotification;
 use App\Models\Program;
 use App\Models\ProgramAgentAssignment;
+use App\Models\Prospect;
 use App\Models\User;
 use App\Services\ProgramAssignedAgentNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class ProgramAgentAssignmentController extends Controller
 {
@@ -86,6 +89,32 @@ class ProgramAgentAssignmentController extends Controller
         $newAgentIds = $agentIds->diff($previousAgentIds)->values();
         $removedAgentIds = $previousAgentIds->diff($agentIds)->values();
 
+        if ($removedAgentIds->isNotEmpty()) {
+            $blockedRemovalAgentIds = Prospect::query()
+                ->where('program_id', $program->id)
+                ->whereIn('agent_id', $removedAgentIds->all())
+                ->pluck('agent_id')
+                ->unique()
+                ->values();
+
+            if ($blockedRemovalAgentIds->isNotEmpty()) {
+                $blockedNames = Agent::query()
+                    ->whereIn('id', $blockedRemovalAgentIds->all())
+                    ->with('user')
+                    ->get()
+                    ->map(fn (Agent $agent) => $agent->user?->display_name ?? $agent->user?->email ?? $agent->id)
+                    ->values()
+                    ->all();
+
+                throw ValidationException::withMessages([
+                    'agent_ids' => sprintf(
+                        'Cannot remove agent(s) from this program because they already created prospects: %s.',
+                        implode(', ', $blockedNames)
+                    ),
+                ]);
+            }
+        }
+
         $activeAssignments
             ->reject(fn (ProgramAgentAssignment $assignment, string $agentId) => $agentIds->contains($agentId))
             ->each(function (ProgramAgentAssignment $assignment): void {
@@ -143,8 +172,12 @@ class ProgramAgentAssignmentController extends Controller
 
         if ($removedAgentIds->isNotEmpty()) {
             $removedAgents = Agent::query()
+                ->with('user')
                 ->whereIn('id', $removedAgentIds->all())
                 ->get();
+            $businessName = $program->business?->display_name ?? 'Business';
+            $programUrl = $this->buildProgramUrl($program->id);
+            $mailStaggerIndex = 0;
 
             foreach ($removedAgents as $agent) {
                 if ($agent->user_id === null) {
@@ -165,6 +198,21 @@ class ProgramAgentAssignmentController extends Controller
                     ],
                     'read_at' => null,
                 ]);
+
+                if ($agent->user?->email) {
+                    ProgramAssignedAgentNotifier::deliverProgramAgentMail(
+                        $agent->user->email,
+                        $mailStaggerIndex,
+                        new ProgramUnassignedMail($program, $businessName, $programUrl),
+                        'Program unassignment email delivery failed.',
+                        [
+                            'program_id' => $program->id,
+                            'agent_id' => $agent->id,
+                            'email' => $agent->user->email,
+                        ],
+                    );
+                    $mailStaggerIndex++;
+                }
             }
         }
 

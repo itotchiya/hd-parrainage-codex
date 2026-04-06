@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Archive, Inbox, Mail } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../api'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
 
@@ -80,14 +82,32 @@ export function NotificationsPage() {
           </PageHeaderToolbar>
         }
       />
-      <p className="app-copy text-muted-foreground">
-        Active follow-up items and audit signals from the backend.
-      </p>
 
-      <div className="app-grid-tight sm:grid-cols-3">
-        <MetricCard label="Total" value={records.length.toString()} />
-        <MetricCard label="Unread" value={unreadCount.toString()} />
-        <MetricCard label="Read" value={grouped.read.length.toString()} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <KpiCard
+          title="Total"
+          value={records.length.toString()}
+          description="Notifications in your inbox"
+          badge={kpiSnapshotBadge('Inbox')}
+          icon={Inbox}
+          tone="info"
+        />
+        <KpiCard
+          title="Unread"
+          value={unreadCount.toString()}
+          description="Awaiting action"
+          badge={kpiSnapshotBadge('Attention')}
+          icon={Mail}
+          tone="warning"
+        />
+        <KpiCard
+          title="Read"
+          value={grouped.read.length.toString()}
+          description="Archived items"
+          badge={kpiSnapshotBadge('History')}
+          icon={Archive}
+          tone="primary"
+        />
       </div>
 
       <section className="space-y-3">
@@ -135,15 +155,6 @@ export function NotificationsPage() {
         )}
       </section>
     </section>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-    </article>
   )
 }
 

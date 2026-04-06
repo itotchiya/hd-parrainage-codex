@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { FolderKanban, Receipt, UserCircle, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { fetchBusiness } from '../api'
 
 function formatDate(value: string | null, withTime = false) {
@@ -92,11 +94,39 @@ export function BusinessDetailPage() {
         </div>
       </article>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Programs" value={business.summary.program_count.toString()} />
-        <MetricCard label="Active agents" value={business.summary.active_agent_count.toString()} />
-        <MetricCard label="Prospects" value={business.summary.prospect_count.toString()} />
-        <MetricCard label="Transactions" value={business.summary.transaction_count.toString()} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Programs"
+          value={business.summary.program_count.toString()}
+          description="Programs attached to this tenant"
+          badge={kpiSnapshotBadge('Catalog')}
+          icon={FolderKanban}
+          tone="primary"
+        />
+        <KpiCard
+          title="Active agents"
+          value={business.summary.active_agent_count.toString()}
+          description="Affiliates currently active"
+          badge={kpiSnapshotBadge('Network')}
+          icon={Users}
+          tone="info"
+        />
+        <KpiCard
+          title="Prospects"
+          value={business.summary.prospect_count.toString()}
+          description="Pipeline records in scope"
+          badge={kpiSnapshotBadge('Funnel')}
+          icon={UserCircle}
+          tone="warning"
+        />
+        <KpiCard
+          title="Transactions"
+          value={business.summary.transaction_count.toString()}
+          description="Commercial outcomes linked"
+          badge={kpiSnapshotBadge('Revenue')}
+          icon={Receipt}
+          tone="success"
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
@@ -185,7 +215,7 @@ export function BusinessDetailPage() {
                 <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
                   <p>Status {program.status}</p>
                   <p>Pts / tx {program.points_per_transaction ?? 'n/a'}</p>
-                  <p>Pts / euro {program.points_per_euro ?? 'n/a'}</p>
+                  <p>Pts / € {program.points_per_euro ?? 'n/a'}</p>
                 </div>
               </article>
             ))
@@ -193,15 +223,6 @@ export function BusinessDetailPage() {
         </div>
       </article>
     </section>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-    </article>
   )
 }
 

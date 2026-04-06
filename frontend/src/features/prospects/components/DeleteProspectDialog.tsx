@@ -22,11 +22,12 @@ export function DeleteProspectDialog({
   const [reason, setReason] = useState('')
 
   useEffect(() => {
-    if (!open) {
-      return
-    }
-
+    if (!open) return
+    document.documentElement.classList.add('scroll-locked')
     setReason('')
+    return () => {
+      document.documentElement.classList.remove('scroll-locked')
+    }
   }, [open, prospect])
 
   if (!open || prospect === null) {

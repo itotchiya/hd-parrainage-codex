@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search } from 'lucide-react'
+import { Gift, Package, Search } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
-import { useAuthSession } from '../../auth/session'
 import { fetchExchangePacks } from '../../programs/api'
+import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,6 @@ function formatDate(value: string | null) {
 }
 
 export function ExchangePacksPage() {
-  const { user } = useAuthSession()
   const [search, setSearch] = useState('')
 
   const query = useQuery({
@@ -92,14 +91,24 @@ export function ExchangePacksPage() {
           </PageHeaderToolbar>
         }
       />
-      <p className="app-copy text-muted-foreground">
-        Active packs only. Descriptions stay short; item grids carry the detail.
-      </p>
 
-      <div className="app-grid-tight grid-cols-1 sm:grid-cols-3">
-        <MetricCard label="Business" value={user?.primary_business?.display_name ?? 'Global'} />
-        <MetricCard label="Packs" value={packs.length.toString()} />
-        <MetricCard label="Items" value={totalItems.toString()} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <KpiCard
+          title="Packs"
+          value={packs.length.toString()}
+          description="Active reward packs"
+          badge={kpiSnapshotBadge('Catalog')}
+          icon={Gift}
+          tone="primary"
+        />
+        <KpiCard
+          title="Items"
+          value={totalItems.toString()}
+          description="Reward line items across packs"
+          badge={kpiSnapshotBadge('Rewards')}
+          icon={Package}
+          tone="success"
+        />
       </div>
 
       {filtered.length === 0 ? (
@@ -114,15 +123,6 @@ export function ExchangePacksPage() {
         </div>
       )}
     </section>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-      <p className="app-eyebrow">{label}</p>
-      <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
-    </article>
   )
 }
 

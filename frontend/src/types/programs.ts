@@ -25,6 +25,8 @@ export interface AssignedAgent {
   assignment_id: string
   status: string
   assigned_at: string | null
+  has_prospects_in_program?: boolean
+  can_unassign?: boolean
   agent: {
     id: string
     user_id: string
