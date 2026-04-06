@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/sanctum/:path*",
+      "destination": "https://hd-parrainage-api-175380565947.europe-west1.run.app/sanctum/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://hd-parrainage-api-175380565947.europe-west1.run.app/api/:path*"
+    },
+    {
+      "source": "/((?!api|sanctum).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
