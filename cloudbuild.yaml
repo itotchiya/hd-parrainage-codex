@@ -1,8 +1,8 @@
-# Build and push API image to Artifact Registry (used by Cloud Run).
-# Run from repo root:
-#   gcloud builds submit . --config=cloudbuild.yaml
-#
-# Requires Cloud Build SA to have roles/artifactregistry.writer on the project.
+# Build, push, and deploy backend to Cloud Run from Cloud Build trigger.
+# Trigger suggestion:
+# - Event: Push to branch
+# - Branch regex: ^main$
+# - Config: cloudbuild.yaml
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -11,11 +11,29 @@ steps:
       - -f
       - docker/backend/Dockerfile.cloudrun
       - -t
-      - europe-west1-docker.pkg.dev/$PROJECT_ID/hd-parrainage/api:latest
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$COMMIT_SHA
       - .
 
-images:
-  - europe-west1-docker.pkg.dev/$PROJECT_ID/hd-parrainage/api:latest
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$COMMIT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+
+substitutions:
+  _REGION: europe-west1
+  _REPO: hd-parrainage
+  _SERVICE: hd-parrainage-codex-backend
 
 options:
   logging: CLOUD_LOGGING_ONLY
