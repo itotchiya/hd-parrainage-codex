@@ -857,7 +857,7 @@ export function ProgramsPage() {
           ) : null}
 
           <DialogFooter>
-            <DialogClose asChild>
+            <DialogClose>
               <Button type="button" variant="outline" disabled={isOwnerActionPending}>
                 Annuler
               </Button>
