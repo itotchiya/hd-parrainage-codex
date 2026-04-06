@@ -19,7 +19,7 @@ use App\Http\Controllers\Api\Sync\SyncJobController;
 use App\Http\Controllers\Api\Transactions\TransactionController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('auth')->group(function (): void {
+Route::prefix('auth')->middleware('web')->group(function (): void {
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('guest');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth:sanctum');
     Route::get('/me', CurrentUserController::class)->middleware('auth:sanctum');
