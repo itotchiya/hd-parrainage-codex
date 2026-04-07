@@ -12,6 +12,11 @@ if [ -z "${APP_KEY:-}" ]; then
   exit 1
 fi
 
+if [ "${APP_ENV:-production}" = "production" ] && [ -z "${DB_CONNECTION:-}" ]; then
+  echo "ERROR: DB_CONNECTION must be set to pgsql in Cloud Run; production must not fall back to SQLite." >&2
+  exit 1
+fi
+
 # Optional one-off bootstrap (safe if packages already discovered)
 rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 php artisan package:discover --ansi --force 2>/dev/null || true

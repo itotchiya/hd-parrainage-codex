@@ -3,12 +3,14 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
-  title: string
+  title: React.ReactNode
+  beforeTitle?: React.ReactNode
+  titleAddon?: React.ReactNode
   right?: React.ReactNode
   className?: string
 }
 
-export function PageHeader({ title, right, className }: PageHeaderProps) {
+export function PageHeader({ title, beforeTitle, titleAddon, right, className }: PageHeaderProps) {
   return (
     <div
       className={cn(
@@ -16,8 +18,12 @@ export function PageHeader({ title, right, className }: PageHeaderProps) {
         className,
       )}
     >
-      <div className="min-w-0 shrink-0">
-        <h2 className="text-base font-semibold text-foreground sm:text-lg">{title}</h2>
+      <div className="flex min-w-0 shrink-0 items-center gap-2">
+        {beforeTitle}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="truncate text-base font-semibold text-foreground sm:text-lg">{title}</h2>
+          {titleAddon}
+        </div>
       </div>
       {right ? <div className="w-full min-w-0 sm:w-auto sm:flex-1">{right}</div> : null}
     </div>
@@ -43,4 +49,3 @@ export function PageHeaderToolbar({ children, className }: PageHeaderToolbarProp
     </div>
   )
 }
-

@@ -30,7 +30,6 @@ steps:
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
-      - --set-env-vars=RUN_MIGRATIONS=false,RUN_SEED=false
 
 substitutions:
   _REGION: europe-west1
