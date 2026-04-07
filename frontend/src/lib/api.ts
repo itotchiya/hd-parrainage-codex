@@ -96,6 +96,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}) {
     headers.set('X-Requested-With', 'XMLHttpRequest')
   }
 
+  if (!headers.has('X-HD-Frontend-Origin')) {
+    headers.set('X-HD-Frontend-Origin', window.location.origin)
+  }
+
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !headers.has('X-XSRF-TOKEN')) {
     const csrfToken = readCookie('XSRF-TOKEN')
 

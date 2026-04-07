@@ -17,9 +17,14 @@ if [ "${APP_ENV:-production}" = "production" ] && [ -z "${DB_CONNECTION:-}" ]; t
   exit 1
 fi
 
+if [ "${APP_ENV:-production}" = "production" ] && [ "${DB_HOST:-}" = "postgres" ]; then
+  echo "ERROR: DB_HOST is set to the local Docker hostname 'postgres'. Cloud Run needs the hosted PostgreSQL or Cloud SQL host." >&2
+  exit 1
+fi
+
 # Optional one-off bootstrap (safe if packages already discovered)
 rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
-php artisan package:discover --ansi --force 2>/dev/null || true
+php artisan package:discover --ansi 2>/dev/null || true
 
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   php artisan migrate --force

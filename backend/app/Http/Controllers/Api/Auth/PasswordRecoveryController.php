@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Mail\PasswordResetLinkMail;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\FrontendUrlResolver;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class PasswordRecoveryController extends Controller
 
         if ($user !== null) {
             $token = Password::broker()->createToken($user);
-            $resetUrl = $this->buildResetUrl($email, $token);
+            $resetUrl = FrontendUrlResolver::passwordResetUrl($request, $email, $token);
 
             try {
                 Mail::to($user->email)->send(new PasswordResetLinkMail($user, $resetUrl));
@@ -100,10 +101,4 @@ class PasswordRecoveryController extends Controller
         ]);
     }
 
-    private function buildResetUrl(string $email, string $token): string
-    {
-        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5175'), '/');
-
-        return $frontendUrl.'/password/reset?email='.urlencode($email).'&token='.urlencode($token);
-    }
 }

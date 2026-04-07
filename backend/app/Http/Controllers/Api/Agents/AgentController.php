@@ -12,6 +12,7 @@ use App\Models\InvitationActivationToken;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Support\FrontendUrlResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -205,7 +206,7 @@ class AgentController extends Controller
             ]);
         }
 
-        $activationUrl = $this->buildActivationUrl($agent->user->email, $plainToken);
+        $activationUrl = FrontendUrlResolver::activationUrl($request, $agent->user->email, $plainToken);
 
         AppNotification::query()->create([
             'recipient_user_id' => $agent->user_id,
@@ -368,13 +369,6 @@ class AgentController extends Controller
     private function isAgentCodeUniqueViolation(QueryException $exception): bool
     {
         return str_contains((string) $exception->getMessage(), 'agents_business_id_agent_code_unique');
-    }
-
-    private function buildActivationUrl(string $email, string $token): string
-    {
-        $frontendUrl = rtrim((string) config('app.frontend_url', 'http://localhost:5175'), '/');
-
-        return $frontendUrl.'/activate-invitation?email='.urlencode($email).'&token='.urlencode($token);
     }
 
     private function scopedAgentsQuery(User $user): Builder
