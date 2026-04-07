@@ -280,6 +280,7 @@ interface ProgramCardProps {
   prospectCreateHref?: string
   businessPrograms?: ProgramRecord[]
   onEdit?: (program: ProgramRecord) => void
+  onEditCash?: (program: ProgramRecord) => void
   onTogglePause?: (program: ProgramRecord) => void
   onSuspend?: (program: ProgramRecord) => void
   onArchive?: (program: ProgramRecord) => void
@@ -318,6 +319,7 @@ export function ProgramCard({
   prospectCreateHref,
   businessPrograms = [],
   onEdit,
+  onEditCash,
   onTogglePause,
   onSuspend,
   onArchive,
@@ -358,8 +360,8 @@ export function ProgramCard({
   const showAssignmentCount = assignedTotal > VISIBLE_ASSIGNMENT_AVATARS
 
   const canEditGeneral = Boolean(canEdit && onEdit)
-  const canEditCashShortcut = Boolean(hasCash && program.actions.can_edit_cash && onEdit)
-  const canEditRewardsShortcut = Boolean(hasRewards && program.actions.can_edit_rewards && onEdit)
+  const canEditCashShortcut = Boolean(hasCash && program.actions.can_edit_cash && onEditCash)
+  const canEditRewardsShortcut = Boolean(hasRewards && program.actions.can_edit_rewards && onManageRewards)
   const canTogglePauseAction = Boolean((canPause || canReactivate) && onTogglePause)
   const pauseDisabled = !canTogglePauseAction || isToggleDisabled
   const canSuspendAction = Boolean(canSuspend && onSuspend)
@@ -635,7 +637,7 @@ export function ProgramCard({
                           <DropdownMenuItem
                             disabled={!canEditCashShortcut}
                             onSelect={() => {
-                              if (canEditCashShortcut) onEdit!(program)
+                              if (canEditCashShortcut) onEditCash!(program)
                             }}
                           >
                             <HandCoins className="size-4" />
@@ -649,7 +651,7 @@ export function ProgramCard({
                           <DropdownMenuItem
                             disabled={!canEditRewardsShortcut}
                             onSelect={() => {
-                              if (canEditRewardsShortcut) onEdit!(program)
+                              if (canEditRewardsShortcut) onManageRewards!(program)
                             }}
                           >
                             <Package className="size-4" />
@@ -961,6 +963,19 @@ export function ProgramCard({
               {activeInfoCard === 'points' ? pointsSummary : null}
               {activeInfoCard === 'exchange' ? modeConfig.label : null}
               {activeInfoCard === 'cash' ? (
+                <div className="rounded-lg border border-dashed border-emerald-500/35 bg-emerald-500/5 p-3">
+                  <p className="app-eyebrow text-emerald-800 dark:text-emerald-300">Cash</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {program.points_per_euro
+                      ? `${program.points_per_euro.toLocaleString('fr-FR')} pts = 1 €`
+                      : 'Cash non configuré'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Règle utilisée pour convertir les points du programme en euros.
+                  </p>
+                </div>
+              ) : null}
+              {false && activeInfoCard === 'cash' ? (
                 <>
                   <strong>{program.points_per_euro ?? '-'} pts</strong> = 1 €
                 </>
@@ -1033,6 +1048,23 @@ export function ProgramCard({
             </div>
 
             <DialogFooter>
+              {activeInfoCard === 'cash' && mode === 'owner'
+                ? withDisabledTooltip(
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!canEditCashShortcut}
+                      onClick={() => {
+                        if (!canEditCashShortcut) return
+                        onEditCash?.(program)
+                        setActiveInfoCard(null)
+                      }}
+                    >
+                      Modifier le cash
+                    </Button>,
+                    editCashDisabledReason,
+                  )
+                : null}
               {activeInfoCard === 'rewards' && mode === 'owner' ? (
                 <>
                   <Button
@@ -1044,31 +1076,37 @@ export function ProgramCard({
                       setActiveInfoCard(null)
                     }}
                   >
-                    Change pack
+                    Changer le pack
                   </Button>
                   <Button
                     type="button"
-                    disabled={!canEditRewardsShortcut}
+                    disabled={!canEditRewardsShortcut || !onEditRewardsPack}
                     onClick={() => {
+                      if (!canEditRewardsShortcut || !onEditRewardsPack) return
                       onEditRewardsPack?.(program)
                       setActiveInfoCard(null)
                     }}
                   >
-                    Edit pack
+                    Modifier le pack
                   </Button>
                 </>
               ) : null}
-              {activeInfoCard === 'assignments' && mode === 'owner' && canAssignAction ? (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    onAssignAgents?.(program)
-                    setActiveInfoCard(null)
-                  }}
-                >
-                  Add agents
-                </Button>
-              ) : null}
+              {activeInfoCard === 'assignments' && mode === 'owner'
+                ? withDisabledTooltip(
+                    <Button
+                      type="button"
+                      disabled={!canAssignAction}
+                      onClick={() => {
+                        if (!canAssignAction) return
+                        onAssignAgents?.(program)
+                        setActiveInfoCard(null)
+                      }}
+                    >
+                      Assigner des agents
+                    </Button>,
+                    assignDisabledReason,
+                  )
+                : null}
             </DialogFooter>
           </DialogContent>
         </Dialog>

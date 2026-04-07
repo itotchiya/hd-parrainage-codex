@@ -21,6 +21,7 @@ import {
 import { fetchAgents } from '../../agents/api'
 import { ProgramFormDialog } from '../components/ProgramFormDialog'
 import { Button } from '@/components/ui/button'
+import { Field, FieldLabel } from '@/components/ui/field'
 import {
   Dialog,
   DialogClose,
@@ -30,7 +31,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Item,
@@ -41,6 +41,13 @@ import {
   ItemTitle,
 } from '@/components/ui/item'
 import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
+import {
+  ProgramAssignmentDialog,
+  ProgramCashRulesDialog,
+  ProgramLifecycleConfirmDialog,
+  ProgramRewardPackDialog,
+  type ProgramLifecycleAction,
+} from '../components/ProgramActionDialogs'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { ProgramCard, ProgramCardSkeleton } from '../components/ProgramCard'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -117,7 +124,10 @@ function programNameComparator(a: ProgramRecord, b: ProgramRecord) {
   return a.name.localeCompare(b.name)
 }
 
-function toProgramUpdatePayload(program: ProgramRecord, exchangePackId: string | null): ProgramMutationPayload {
+function toProgramUpdatePayload(
+  program: ProgramRecord,
+  overrides: Partial<ProgramMutationPayload> = {},
+): ProgramMutationPayload {
   return {
     name: program.name,
     description: program.description ?? '',
@@ -125,9 +135,10 @@ function toProgramUpdatePayload(program: ProgramRecord, exchangePackId: string |
     exchange_mode: program.exchange_mode,
     points_per_transaction: program.points_per_transaction,
     points_per_euro: program.points_per_euro,
-    exchange_pack_id: exchangePackId,
+    exchange_pack_id: program.exchange_pack?.id ?? null,
     eligibility_criteria: program.eligibility_criteria ?? '',
     status: program.status,
+    ...overrides,
   }
 }
 
@@ -192,11 +203,12 @@ export function ProgramsPage() {
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
   const [hasEditedAssignmentSelection, setHasEditedAssignmentSelection] = useState(false)
+  const [cashDialogProgram, setCashDialogProgram] = useState<ProgramRecord | null>(null)
   const [rewardsDialogProgram, setRewardsDialogProgram] = useState<ProgramRecord | null>(null)
   const [selectedPackId, setSelectedPackId] = useState<string>('')
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
   const [pendingOwnerAction, setPendingOwnerAction] = useState<{
-    type: 'pause' | 'reactivate' | 'suspend' | 'archive' | 'delete'
+    type: ProgramLifecycleAction
     program: ProgramRecord
   } | null>(null)
 
@@ -305,8 +317,6 @@ export function ProgramsPage() {
         })
       }
       setAssignDialogProgram(null)
-      setSelectedAgentIds([])
-      setHasEditedAssignmentSelection(false)
     },
   })
 
@@ -321,7 +331,6 @@ export function ProgramsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: programQueryKey })
       setRewardsDialogProgram(null)
-      setSelectedPackId('')
     },
   })
 
@@ -714,36 +723,26 @@ export function ProgramsPage() {
                 setDialogOpen(true)
               }}
               onTogglePause={(next) => {
-                setDeleteConfirmName('')
                 if (next.status === 'paused') {
                   setPendingOwnerAction({ type: 'reactivate', program: next })
                   return
                 }
                 setPendingOwnerAction({ type: 'pause', program: next })
               }}
-              onLiftSuspension={(next) => reactivateMutation.mutate(next.id)}
-              onActivateDraft={(next) => activateMutation.mutate(next.id)}
+              onEditCash={(next) => setCashDialogProgram(next)}
+              onLiftSuspension={(next) => setPendingOwnerAction({ type: 'lift_suspension', program: next })}
+              onActivateDraft={(next) => setPendingOwnerAction({ type: 'activate', program: next })}
               onSuspend={(next) => {
-                setDeleteConfirmName('')
                 setPendingOwnerAction({ type: 'suspend', program: next })
               }}
               onArchive={(next) => {
-                setDeleteConfirmName('')
                 setPendingOwnerAction({ type: 'archive', program: next })
               }}
               onDeleteArchived={(next) => {
-                setDeleteConfirmName('')
                 setPendingOwnerAction({ type: 'delete', program: next })
               }}
-              onAssignAgents={(next) => {
-                setAssignDialogProgram(next)
-                setSelectedAgentIds([])
-                setHasEditedAssignmentSelection(false)
-              }}
-              onManageRewards={(next) => {
-                setRewardsDialogProgram(next)
-                setSelectedPackId(next.exchange_pack?.id ?? '')
-              }}
+              onAssignAgents={(next) => setAssignDialogProgram(next)}
+              onManageRewards={(next) => setRewardsDialogProgram(next)}
               businessPrograms={visiblePrograms.filter(
                 (candidate) => candidate.business_id === program.business_id,
               )}
@@ -795,8 +794,88 @@ export function ProgramsPage() {
         }}
       />
 
-      <Dialog
+      <ProgramAssignmentDialog
         open={Boolean(assignDialogProgram)}
+        program={assignDialogProgram}
+        agents={agentsQuery.data?.data ?? []}
+        assignments={assignmentQuery.data?.data ?? []}
+        isSubmitting={syncAssignmentsMutation.isPending}
+        error={(syncAssignmentsMutation.error as ApiError | null) ?? null}
+        onClose={() => {
+          setAssignDialogProgram(null)
+          syncAssignmentsMutation.reset()
+        }}
+        onSubmit={async (agentIds) => {
+          if (!assignDialogProgram) return
+          await syncAssignmentsMutation.mutateAsync({
+            programId: assignDialogProgram.id,
+            agentIds,
+          })
+        }}
+      />
+
+      <ProgramCashRulesDialog
+        open={Boolean(cashDialogProgram)}
+        program={cashDialogProgram}
+        isSubmitting={updateMutation.isPending}
+        error={(updateMutation.error as ApiError | null) ?? null}
+        onClose={() => {
+          setCashDialogProgram(null)
+          updateMutation.reset()
+        }}
+        onSubmit={async (pointsPerEuro) => {
+          if (!cashDialogProgram) return
+          await updateMutation.mutateAsync({
+            programId: cashDialogProgram.id,
+            payload: toProgramUpdatePayload(cashDialogProgram, { points_per_euro: pointsPerEuro }),
+          })
+          setCashDialogProgram(null)
+        }}
+      />
+
+      <ProgramRewardPackDialog
+        open={Boolean(rewardsDialogProgram)}
+        program={rewardsDialogProgram}
+        packs={rewardPacks}
+        isSubmitting={updateRewardsPackMutation.isPending}
+        error={(updateRewardsPackMutation.error as ApiError | null) ?? null}
+        onClose={() => {
+          setRewardsDialogProgram(null)
+          updateRewardsPackMutation.reset()
+        }}
+        onSubmit={async (exchangePackId) => {
+          if (!rewardsDialogProgram) return
+          await updateRewardsPackMutation.mutateAsync({
+            programId: rewardsDialogProgram.id,
+            payload: toProgramUpdatePayload(rewardsDialogProgram, { exchange_pack_id: exchangePackId }),
+          })
+        }}
+      />
+
+      <ProgramLifecycleConfirmDialog
+        action={pendingOwnerAction}
+        isSubmitting={isOwnerActionPending}
+        onClose={() => setPendingOwnerAction(null)}
+        onConfirm={async (type, program) => {
+          if (type === 'activate') {
+            await activateMutation.mutateAsync(program.id)
+          } else if (type === 'pause') {
+            await pauseMutation.mutateAsync(program.id)
+          } else if (type === 'reactivate' || type === 'lift_suspension') {
+            await reactivateMutation.mutateAsync(program.id)
+          } else if (type === 'suspend') {
+            await suspendMutation.mutateAsync(program.id)
+          } else if (type === 'archive') {
+            await archiveMutation.mutateAsync(program.id)
+          } else if (type === 'delete') {
+            await deleteArchivedMutation.mutateAsync(program.id)
+          }
+          setPendingOwnerAction(null)
+        }}
+      />
+
+      <Dialog
+        open={false}
         onOpenChange={(open) => {
           if (!open) {
             setAssignDialogProgram(null)
@@ -913,7 +992,7 @@ export function ProgramsPage() {
           ) : null}
 
           <DialogFooter>
-            <DialogClose className="inline-flex">
+            <DialogClose asChild>
               <Button type="button" variant="outline">
                 Annuler
               </Button>
@@ -940,7 +1019,7 @@ export function ProgramsPage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(rewardsDialogProgram)}
+        open={false}
         onOpenChange={(open) => {
           if (!open) {
             setRewardsDialogProgram(null)
@@ -986,7 +1065,7 @@ export function ProgramsPage() {
           </div>
 
           <DialogFooter>
-            <DialogClose className="inline-flex">
+            <DialogClose asChild>
               <Button type="button" variant="outline">
                 Annuler
               </Button>
@@ -998,7 +1077,7 @@ export function ProgramsPage() {
                 if (!rewardsDialogProgram || !selectedPackId) return
                 updateRewardsPackMutation.mutate({
                   programId: rewardsDialogProgram.id,
-                  payload: toProgramUpdatePayload(rewardsDialogProgram, selectedPackId),
+                  payload: toProgramUpdatePayload(rewardsDialogProgram, { exchange_pack_id: selectedPackId }),
                 })
               }}
             >
@@ -1009,7 +1088,7 @@ export function ProgramsPage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(pendingOwnerAction)}
+        open={false}
         onOpenChange={(open) => {
           if (!open && !isOwnerActionPending) {
             setPendingOwnerAction(null)
@@ -1057,7 +1136,7 @@ export function ProgramsPage() {
           ) : null}
 
           <DialogFooter>
-            <DialogClose>
+            <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isOwnerActionPending}>
                 Annuler
               </Button>

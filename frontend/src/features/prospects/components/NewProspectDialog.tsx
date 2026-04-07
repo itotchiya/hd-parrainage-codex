@@ -1,7 +1,28 @@
 import { useEffect, useState } from 'react'
+
 import { ApiError } from '../../../lib/api'
 import type { ProgramRecord } from '../../../types/programs'
 import type { ProspectCreatePayload } from '../../../types/prospects'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { AlertCircleIcon, UserPlus } from 'lucide-react'
 
 interface NewProspectDialogProps {
   open: boolean
@@ -54,47 +75,35 @@ export function NewProspectDialog({
 
   useEffect(() => {
     if (!open) return
-    document.documentElement.classList.add('scroll-locked')
     setForm(buildInitialState(programs, defaultProgramId))
     setClientError(null)
-    return () => {
-      document.documentElement.classList.remove('scroll-locked')
-    }
   }, [defaultProgramId, open, programs])
 
-  if (!open) {
-    return null
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[2rem] border border-border bg-card p-7 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">
-              Prospect submission
-            </p>
-            <h2 className="app-dialog-title mt-3">Submit a new prospect into the live funnel.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
-              The prospect is stored locally first, then prepared for the future IACRM sync contract.
-            </p>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <UserPlus className="size-5" aria-hidden />
+            </div>
+            <div>
+              <DialogTitle>Ajouter un prospect</DialogTitle>
+              <DialogDescription>
+                Renseignez un prospect pour le programme sélectionné.
+              </DialogDescription>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
-          >
-            Close
-          </button>
-        </div>
+        </DialogHeader>
 
         <form
-          className="mt-8 space-y-6"
+          id="new-prospect-form"
+          className="max-h-[62vh] space-y-5 overflow-y-auto pr-1"
           onSubmit={async (event) => {
             event.preventDefault()
 
             if (form.contact_email.trim().length === 0 && form.contact_phone_raw.trim().length === 0) {
-              setClientError('At least one contact path is required: email or phone number.')
+              setClientError('Ajoutez au moins un moyen de contact : email ou téléphone.')
               return
             }
 
@@ -109,110 +118,121 @@ export function NewProspectDialog({
             })
           }}
         >
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-foreground">Assigned program</span>
-            <select
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="prospect-program">
+              Programme assigné
+            </label>
+            <Select
               value={form.program_id}
-              onChange={(event) => setForm((current) => ({ ...current, program_id: event.target.value }))}
-              className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-              required
+              onValueChange={(value) => setForm((current) => ({ ...current, program_id: value }))}
             >
-              {programs.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="prospect-program">
+                <SelectValue placeholder="Sélectionner un programme" />
+              </SelectTrigger>
+              <SelectContent>
+                {programs.map((program) => (
+                  <SelectItem key={program.id} value={program.id}>
+                    {program.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {fieldError(error, 'program_id') ? (
-              <p className="text-sm text-red-600">{fieldError(error, 'program_id')}</p>
+              <p className="text-sm text-destructive">{fieldError(error, 'program_id')}</p>
             ) : null}
-          </label>
+          </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-foreground">Contact name</span>
-              <input
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="prospect-contact-name">
+                Nom du contact
+              </label>
+              <Input
+                id="prospect-contact-name"
                 value={form.contact_name}
                 onChange={(event) => setForm((current) => ({ ...current, contact_name: event.target.value }))}
-                className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
                 placeholder="Atelier Miro"
                 required
               />
               {fieldError(error, 'contact_name') ? (
-                <p className="text-sm text-red-600">{fieldError(error, 'contact_name')}</p>
+                <p className="text-sm text-destructive">{fieldError(error, 'contact_name')}</p>
               ) : null}
-            </label>
+            </div>
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-foreground">Company name</span>
-              <input
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="prospect-company">
+                Entreprise
+              </label>
+              <Input
+                id="prospect-company"
                 value={form.company_name}
                 onChange={(event) => setForm((current) => ({ ...current, company_name: event.target.value }))}
-                className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
                 placeholder="Atelier Miro"
               />
-            </label>
+            </div>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-foreground">Email</span>
-              <input
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="prospect-email">
+                Email
+              </label>
+              <Input
+                id="prospect-email"
                 type="email"
                 value={form.contact_email}
                 onChange={(event) => setForm((current) => ({ ...current, contact_email: event.target.value }))}
-                className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
                 placeholder="contact@atelier-miro.test"
               />
               {fieldError(error, 'contact_email') ? (
-                <p className="text-sm text-red-600">{fieldError(error, 'contact_email')}</p>
+                <p className="text-sm text-destructive">{fieldError(error, 'contact_email')}</p>
               ) : null}
-            </label>
+            </div>
 
-            <label className="space-y-2">
-              <span className="text-sm font-semibold text-foreground">Phone number</span>
-              <input
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="prospect-phone">
+                Téléphone
+              </label>
+              <Input
+                id="prospect-phone"
                 value={form.contact_phone_raw}
                 onChange={(event) => setForm((current) => ({ ...current, contact_phone_raw: event.target.value }))}
-                className="w-full rounded-[1.2rem] border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
                 placeholder="06 12 34 56 78"
               />
               {fieldError(error, 'contact_phone_raw') ? (
-                <p className="text-sm text-red-600">{fieldError(error, 'contact_phone_raw')}</p>
+                <p className="text-sm text-destructive">{fieldError(error, 'contact_phone_raw')}</p>
               ) : null}
-            </label>
+            </div>
           </div>
 
           {clientError ? (
-            <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {clientError}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertTitle>Contact requis</AlertTitle>
+              <AlertDescription>{clientError}</AlertDescription>
+            </Alert>
           ) : null}
 
           {error && !error.errors ? (
-            <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertTitle>Impossible de créer le prospect</AlertTitle>
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
           ) : null}
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit prospect'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSubmitting}>
+              Annuler
+            </Button>
+          </DialogClose>
+          <Button type="submit" form="new-prospect-form" disabled={isSubmitting || !programs.length}>
+            {isSubmitting ? 'Soumission...' : 'Soumettre le prospect'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

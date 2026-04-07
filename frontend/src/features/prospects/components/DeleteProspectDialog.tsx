@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react'
+import { AlertCircleIcon, Trash2 } from 'lucide-react'
+
 import { ApiError } from '../../../lib/api'
 import type { ProspectRecord } from '../../../types/prospects'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 
 interface DeleteProspectDialogProps {
   open: boolean
@@ -23,80 +37,80 @@ export function DeleteProspectDialog({
 
   useEffect(() => {
     if (!open) return
-    document.documentElement.classList.add('scroll-locked')
     setReason('')
-    return () => {
-      document.documentElement.classList.remove('scroll-locked')
-    }
   }, [open, prospect])
 
-  if (!open || prospect === null) {
-    return null
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 px-4 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-[2rem] border border-border bg-card p-7 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">
-          Prospect correction
-        </p>
-        <h2 className="app-dialog-title mt-3">Remove this prospect from the active funnel.</h2>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          The record remains in deleted history for auditability, but it disappears from the active pipeline.
-        </p>
+    <Dialog open={open && prospect !== null} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+              <Trash2 className="size-5" aria-hidden />
+            </div>
+            <div>
+              <DialogTitle>Retirer ce prospect du pipeline actif</DialogTitle>
+              <DialogDescription>
+                Le dossier reste dans l’historique supprimé pour audit, mais il disparaît du pipeline actif.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-        <div className="mt-6 rounded-[1.4rem] border border-border bg-muted/30 p-4">
-          <p className="text-sm font-semibold text-foreground">{prospect.contact_name}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {prospect.program_name ?? 'Program'} · {prospect.business_name ?? 'Business'}
-          </p>
-        </div>
+        {prospect ? (
+          <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-sm font-semibold text-foreground">{prospect.contact_name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {prospect.program_name ?? 'Programme'} · {prospect.business_name ?? 'Business'}
+            </p>
+          </div>
+        ) : null}
 
         <form
-          className="mt-6 space-y-5"
+          id="delete-prospect-form"
+          className="space-y-4"
           onSubmit={async (event) => {
             event.preventDefault()
             await onSubmit(reason)
           }}
         >
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-foreground">Deletion reason</span>
-            <textarea
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="delete-prospect-reason">
+              Raison de suppression
+            </label>
+            <Textarea
+              id="delete-prospect-reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="min-h-28 w-full rounded-[1.4rem] border border-input bg-background px-4 py-3 text-sm leading-7 text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-              placeholder="Wrong contact, duplicate submission, or another correction reason."
+              placeholder="Mauvais contact, doublon, ou autre correction."
               required
+              className="min-h-28"
             />
             {error?.errors?.reason?.[0] ? (
-              <p className="text-sm text-red-600">{error.errors.reason[0]}</p>
+              <p className="text-sm text-destructive">{error.errors.reason[0]}</p>
             ) : null}
-          </label>
+          </div>
 
           {error && !error.errors ? (
-            <div className="rounded-[1.2rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertTitle>Suppression impossible</AlertTitle>
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
           ) : null}
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? 'Removing...' : 'Soft delete prospect'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSubmitting}>
+              Annuler
+            </Button>
+          </DialogClose>
+          <Button type="submit" form="delete-prospect-form" variant="destructive" disabled={isSubmitting}>
+            {isSubmitting ? 'Suppression...' : 'Supprimer le prospect'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -45,6 +45,13 @@ import {
   updateProgram,
 } from '../api'
 import { ProgramFormDialog } from '../components/ProgramFormDialog'
+import {
+  ProgramAssignmentDialog,
+  ProgramCashRulesDialog,
+  ProgramLifecycleConfirmDialog,
+  ProgramRewardPackDialog,
+  type ProgramLifecycleAction,
+} from '../components/ProgramActionDialogs'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
@@ -65,7 +72,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { IconTile } from '@/components/ui/icon-tile'
 import { Input } from '@/components/ui/input'
 import {
   Item,
@@ -84,18 +90,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { avatarSeedForUser } from '@/lib/avatar-fallback'
 import { cn } from '@/lib/utils'
 import type { AgentRecord } from '@/types/agents'
-import type { AssignedAgent, ExchangePackRecord, ProgramMutationPayload, ProgramRecord, ProgramStatus } from '@/types/programs'
+import type { AssignedAgent, ProgramMutationPayload, ProgramRecord, ProgramStatus } from '@/types/programs'
 import type { ProspectPipelineStage, ProspectRecord, ProspectSubmissionStatus } from '@/types/prospects'
 
 const programStatusLabel: Record<ProgramStatus, string> = {
@@ -274,7 +273,7 @@ function ProgramDetailSkeleton() {
         ))}
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Skeleton className="h-56 rounded-lg" />
         <Skeleton className="h-56 rounded-lg" />
       </div>
@@ -293,8 +292,6 @@ export function ProgramDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [cashEditOpen, setCashEditOpen] = useState(false)
   const [rewardsEditOpen, setRewardsEditOpen] = useState(false)
-  const [cashPointsValue, setCashPointsValue] = useState('')
-  const [selectedPackId, setSelectedPackId] = useState('')
   const [createProspectOpen, setCreateProspectOpen] = useState(false)
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
@@ -307,7 +304,7 @@ export function ProgramDetailPage() {
   const [prospectTablePageSize, setProspectTablePageSize] = useState(10)
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
   const [pendingOwnerAction, setPendingOwnerAction] = useState<{
-    type: 'pause' | 'reactivate' | 'suspend' | 'archive' | 'delete'
+    type: ProgramLifecycleAction
     program: ProgramRecord
   } | null>(null)
   const canViewProspects = hasPermission('prospect.view')
@@ -500,7 +497,7 @@ export function ProgramDetailPage() {
   const exchangeConfig = exchangeModeConfig(program)
   const rewardPacks = (packsQuery.data?.data ?? []).filter((pack) => pack.status === 'active' || pack.status === 'draft')
   const canEditProgram = Boolean(program.actions.can_edit_general ?? program.actions.can_update) && hasPermission('program.update')
-  const canSubmitProspect = hasPermission('prospect.submit') && program.status === 'active'
+  const canSubmitProspect = cardMode === 'agent' && hasPermission('prospect.submit') && program.status === 'active'
   const createProspectError = createProspectMutation.error as ApiError | null
   const updateProgramError = updateMutation.error as ApiError | null
   const isPaused = program.status === 'paused'
@@ -623,14 +620,16 @@ export function ProgramDetailPage() {
   function withDisabledTooltip(item: ReactNode, reason: string | null) {
     if (!reason) return item
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="block">{item}</div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{reason}</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="block">{item}</div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{reason}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
@@ -699,7 +698,6 @@ export function ProgramDetailPage() {
                               disabled={!canEditRewardsShortcut}
                               onClick={() => {
                                 if (!canEditRewardsShortcut) return
-                                setSelectedPackId(program.exchange_pack?.id ?? '')
                                 setRewardsEditOpen(true)
                               }}
                             >
@@ -718,7 +716,6 @@ export function ProgramDetailPage() {
                               disabled={pauseDisabled}
                               onClick={() => {
                                 if (pauseDisabled) return
-                                setDeleteConfirmName('')
                                 setPendingOwnerAction({
                                   type: isPaused ? 'reactivate' : 'pause',
                                   program,
@@ -766,7 +763,6 @@ export function ProgramDetailPage() {
                             disabled={!canEditCashShortcut}
                             onSelect={() => {
                               if (!canEditCashShortcut) return
-                              setCashPointsValue(program.points_per_euro?.toString() ?? '')
                               setCashEditOpen(true)
                             }}
                           >
@@ -781,7 +777,7 @@ export function ProgramDetailPage() {
                           <DropdownMenuItem
                             disabled={!canActivateProgram}
                             onSelect={() => {
-                              if (canActivateProgram) activateMutation.mutate(program.id)
+                              if (canActivateProgram) setPendingOwnerAction({ type: 'activate', program })
                             }}
                           >
                             <Zap className="size-4" />
@@ -795,7 +791,7 @@ export function ProgramDetailPage() {
                         <DropdownMenuItem
                           disabled={!canLiftSuspensionAction}
                           onSelect={() => {
-                            if (canLiftSuspensionAction) reactivateMutation.mutate(program.id)
+                            if (canLiftSuspensionAction) setPendingOwnerAction({ type: 'lift_suspension', program })
                           }}
                         >
                           <Undo2 className="size-4" />
@@ -809,7 +805,6 @@ export function ProgramDetailPage() {
                           disabled={!canSuspendAction}
                           onSelect={() => {
                             if (!canSuspendAction) return
-                            setDeleteConfirmName('')
                             setPendingOwnerAction({ type: 'suspend', program })
                           }}
                         >
@@ -824,7 +819,6 @@ export function ProgramDetailPage() {
                         disabled={!canArchiveAction}
                         onSelect={() => {
                           if (!canArchiveAction) return
-                          setDeleteConfirmName('')
                           setPendingOwnerAction({ type: 'archive', program })
                         }}
                       >
@@ -839,7 +833,6 @@ export function ProgramDetailPage() {
                         disabled={!canDeleteAction}
                         onSelect={() => {
                           if (!canDeleteAction) return
-                          setDeleteConfirmName('')
                           setPendingOwnerAction({ type: 'delete', program })
                         }}
                       >
@@ -892,14 +885,13 @@ export function ProgramDetailPage() {
         />
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-        <article className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
           <DashboardSectionHeader
             title="Program preview"
           />
           <div className="space-y-4">
             <div className="min-w-0">
-              <p className="app-eyebrow">Program</p>
               <h3 className="mt-2 truncate text-lg font-semibold tracking-tight text-foreground">
                 {program.name}
               </h3>
@@ -913,35 +905,6 @@ export function ProgramDetailPage() {
               <PreviewMetric label="Points" value={pointsRuleLabel(program)} helper="Agent earning rule" />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <MetaBadge label="Activated" value={formatDashboardDateFr(program.activated_at)} />
-              <MetaBadge label="Updated" value={formatDashboardDateFr(program.updated_at)} />
-            </div>
-          </div>
-        </article>
-
-        <article className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
-          <DashboardSectionHeader
-            title="Exchange setup"
-            description="Redemption mode, cash conversion, and linked reward pack."
-          />
-          <div className="space-y-3">
-            <div className={cn('rounded-xl border p-4', exchangeConfig.panelClass)}>
-              <div className="flex items-start gap-3">
-                <IconTile icon={exchangeConfig.icon} size="md" className={exchangeConfig.tileClass} />
-                <div className="min-w-0 flex-1">
-                  <p className="app-eyebrow">Exchange type</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold text-foreground">{exchangeConfig.label}</h3>
-                    <Badge variant="outline" className={cn('w-fit', exchangeConfig.badgeClass)}>
-                      {program.exchange_mode}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{exchangeConfig.description}</p>
-                </div>
-              </div>
-            </div>
-
             <div className="rounded-lg border border-border bg-muted/15 px-4 py-3">
               <p className="app-eyebrow">Eligibility</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -949,38 +912,95 @@ export function ProgramDetailPage() {
               </p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <InfoCell label="Cash conversion" value={cashRuleLabel(program)} />
-              <InfoCell label="Reward items" value={`${program.exchange_pack?.items.length ?? 0} configured`} />
+            <div className="flex flex-wrap gap-2">
+              <MetaBadge label="Activated" value={formatDashboardDateFr(program.activated_at)} />
+              <MetaBadge label="Updated" value={formatDashboardDateFr(program.updated_at)} />
+            </div>
+          </div>
+        </article>
+
+        <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <DashboardSectionHeader title="Exchange setup" />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className={cn('w-fit', exchangeConfig.badgeClass)}>
+                {exchangeConfig.label}
+              </Badge>
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="app-eyebrow">Reward pack</p>
-                <span className="text-xs text-muted-foreground">
-                  {program.exchange_pack?.items.length ?? 0} items
-                </span>
-              </div>
-              <h2 className="mt-2 text-base font-semibold text-foreground">
-                {program.exchange_pack?.name ?? 'No pack linked'}
-              </h2>
-              <div className="mt-3 space-y-2">
-                {program.exchange_pack?.items.length ? (
-                  program.exchange_pack.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-sm"
+            <div className="grid gap-2">
+              {hasCash
+                ? withDisabledTooltip(
+                    <button
+                      type="button"
+                      disabled={!canEditCashShortcut}
+                      onClick={() => {
+                        if (!canEditCashShortcut) return
+                        setCashEditOpen(true)
+                      }}
+                      className="group w-full rounded-lg border border-dashed border-emerald-500/25 bg-emerald-500/5 px-4 py-3 text-left transition-colors hover:border-solid hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <span className="min-w-0 truncate font-medium text-foreground">{item.title}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                        {item.points_cost.toLocaleString('fr-FR')} pts
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <EmptyState message="No reward items are linked to this program." />
-                )}
-              </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-800 dark:text-emerald-300">
+                            Cash
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                            {cashRuleLabel(program)}
+                          </p>
+                        </div>
+                        <HandCoins className="size-4 shrink-0 text-emerald-600" aria-hidden />
+                      </div>
+                    </button>,
+                    editCashDisabledReason,
+                  )
+                : null}
+
+              {hasRewards
+                ? withDisabledTooltip(
+                    <button
+                      type="button"
+                      disabled={!canEditRewardsShortcut}
+                      onClick={() => {
+                        if (!canEditRewardsShortcut) return
+                        setRewardsEditOpen(true)
+                      }}
+                      className="group w-full rounded-lg border border-dashed border-amber-500/25 bg-amber-500/5 px-4 py-3 text-left transition-colors hover:border-solid hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-900 dark:text-amber-300">
+                            Rewards
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                            {program.exchange_pack?.name ?? 'No pack linked'}
+                          </p>
+                          <div className="mt-3 space-y-1">
+                            {program.exchange_pack?.items.length ? (
+                              program.exchange_pack.items.slice(0, 4).map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2 text-xs"
+                                >
+                                  <span className="min-w-0 truncate font-medium text-foreground">{item.title}</span>
+                                  <span className="shrink-0 font-mono text-muted-foreground">
+                                    {item.points_cost.toLocaleString('fr-FR')} pts
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+                                No reward items are linked to this program.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Gift className="size-4 shrink-0 text-amber-600" aria-hidden />
+                      </div>
+                    </button>,
+                    editRewardsDisabledReason,
+                  )
+                : null}
             </div>
           </div>
         </article>
@@ -1236,40 +1256,38 @@ export function ProgramDetailPage() {
         }}
       />
 
-      <CashRulesDialog
+      <ProgramCashRulesDialog
         open={cashEditOpen}
-        value={cashPointsValue}
+        program={program}
         isSubmitting={updateMutation.isPending}
         error={updateProgramError}
-        onValueChange={setCashPointsValue}
         onClose={() => {
           setCashEditOpen(false)
           updateMutation.reset()
         }}
-        onSubmit={async () => {
+        onSubmit={async (pointsPerEuro) => {
           await updateMutation.mutateAsync({
             payload: toProgramPayload(program, {
-              points_per_euro: cashPointsValue.trim() ? Number(cashPointsValue) : null,
+              points_per_euro: pointsPerEuro,
             }),
           })
         }}
       />
 
-      <RewardsPackDialog
+      <ProgramRewardPackDialog
         open={rewardsEditOpen}
+        program={program}
         packs={rewardPacks}
-        selectedPackId={selectedPackId || program.exchange_pack?.id || ''}
         isSubmitting={updateMutation.isPending}
         error={updateProgramError}
-        onSelectedPackIdChange={setSelectedPackId}
         onClose={() => {
           setRewardsEditOpen(false)
           updateMutation.reset()
         }}
-        onSubmit={async () => {
+        onSubmit={async (exchangePackId) => {
           await updateMutation.mutateAsync({
             payload: toProgramPayload(program, {
-              exchange_pack_id: selectedPackId || program.exchange_pack?.id || null,
+              exchange_pack_id: exchangePackId,
             }),
           })
         }}
@@ -1290,8 +1308,50 @@ export function ProgramDetailPage() {
         }}
       />
 
-      <Dialog
+      <ProgramAssignmentDialog
         open={Boolean(assignDialogProgram)}
+        program={assignDialogProgram}
+        agents={agentsQuery.data?.data ?? []}
+        assignments={assignmentQuery.data?.data ?? []}
+        isSubmitting={syncAssignmentsMutation.isPending}
+        error={(syncAssignmentsMutation.error as ApiError | null) ?? null}
+        onClose={() => {
+          setAssignDialogProgram(null)
+          syncAssignmentsMutation.reset()
+        }}
+        onSubmit={async (agentIds) => {
+          if (!assignDialogProgram) return
+          await syncAssignmentsMutation.mutateAsync({
+            nextProgramId: assignDialogProgram.id,
+            agentIds,
+          })
+        }}
+      />
+
+      <ProgramLifecycleConfirmDialog
+        action={pendingOwnerAction}
+        isSubmitting={isOwnerActionPending}
+        onClose={() => setPendingOwnerAction(null)}
+        onConfirm={async (type, nextProgram) => {
+          if (type === 'activate') {
+            await activateMutation.mutateAsync(nextProgram.id)
+          } else if (type === 'pause') {
+            await pauseMutation.mutateAsync(nextProgram.id)
+          } else if (type === 'reactivate' || type === 'lift_suspension') {
+            await reactivateMutation.mutateAsync(nextProgram.id)
+          } else if (type === 'suspend') {
+            await suspendMutation.mutateAsync(nextProgram.id)
+          } else if (type === 'archive') {
+            await archiveMutation.mutateAsync(nextProgram.id)
+          } else if (type === 'delete') {
+            await deleteArchivedMutation.mutateAsync(nextProgram.id)
+          }
+          setPendingOwnerAction(null)
+        }}
+      />
+
+      <Dialog
+        open={false}
         onOpenChange={(open) => {
           if (!open) {
             setAssignDialogProgram(null)
@@ -1407,7 +1467,7 @@ export function ProgramDetailPage() {
           ) : null}
 
           <DialogFooter>
-            <DialogClose className="inline-flex">
+            <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel
               </Button>
@@ -1431,7 +1491,7 @@ export function ProgramDetailPage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(pendingOwnerAction)}
+        open={false}
         onOpenChange={(open) => {
           if (!open && !isOwnerActionPending) {
             setPendingOwnerAction(null)
@@ -1479,7 +1539,7 @@ export function ProgramDetailPage() {
           ) : null}
 
           <DialogFooter>
-            <DialogClose>
+            <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isOwnerActionPending}>
                 Cancel
               </Button>
@@ -1533,15 +1593,6 @@ export function ProgramDetailPage() {
   )
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-      <p className="app-eyebrow">{label}</p>
-      <p className="mt-2 truncate text-sm font-semibold text-foreground">{value}</p>
-    </article>
-  )
-}
-
 function PreviewMetric({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
     <article className="rounded-lg border border-border bg-background px-4 py-3">
@@ -1558,165 +1609,6 @@ function MetaBadge({ label, value }: { label: string; value: string }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="text-foreground">{value}</span>
     </Badge>
-  )
-}
-
-function CashRulesDialog({
-  open,
-  value,
-  isSubmitting,
-  error,
-  onValueChange,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  value: string
-  isSubmitting: boolean
-  error: ApiError | null
-  onValueChange: (value: string) => void
-  onClose: () => void
-  onSubmit: () => Promise<void>
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit cash conversion</DialogTitle>
-          <DialogDescription>
-            Update only the points-to-cash rule for this program.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-          <div className="flex items-center gap-3">
-            <IconTile icon={HandCoins} size="sm" className="bg-emerald-500 text-white" />
-            <div>
-              <p className="app-eyebrow">Cash conversion</p>
-              <p className="mt-1 text-sm text-muted-foreground">Number of points required for 1 EUR.</p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="text-sm font-medium text-foreground" htmlFor="program-cash-points">
-              Points per EUR
-            </label>
-            <Input
-              id="program-cash-points"
-              type="number"
-              min="1"
-              value={value}
-              onChange={(event) => onValueChange(event.target.value)}
-              placeholder="Example: 100"
-              className="mt-2"
-            />
-          </div>
-        </div>
-
-        {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
-
-        <DialogFooter>
-          <DialogClose className="inline-flex">
-            <Button type="button" variant="outline" disabled={isSubmitting}>
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button type="button" disabled={isSubmitting || !value.trim()} onClick={() => void onSubmit()}>
-            {isSubmitting ? 'Saving...' : 'Save cash rule'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function RewardsPackDialog({
-  open,
-  packs,
-  selectedPackId,
-  isSubmitting,
-  error,
-  onSelectedPackIdChange,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  packs: ExchangePackRecord[]
-  selectedPackId: string
-  isSubmitting: boolean
-  error: ApiError | null
-  onSelectedPackIdChange: (value: string) => void
-  onClose: () => void
-  onSubmit: () => Promise<void>
-}) {
-  const selectedPack = packs.find((pack) => pack.id === selectedPackId) ?? null
-
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Manage reward pack</DialogTitle>
-          <DialogDescription>
-            Update only the rewards pack linked to this program.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
-          <div className="flex items-center gap-3">
-            <IconTile icon={Gift} size="sm" className="bg-amber-500 text-white" />
-            <div className="min-w-0">
-              <p className="app-eyebrow">Reward pack</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose the catalog agents can redeem with points.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <label className="text-sm font-medium text-foreground" htmlFor="program-reward-pack">
-              Active pack
-            </label>
-            <Select value={selectedPackId} onValueChange={onSelectedPackIdChange}>
-              <SelectTrigger id="program-reward-pack" className="mt-2">
-                <SelectValue placeholder="Select a reward pack" />
-              </SelectTrigger>
-              <SelectContent>
-                {packs.map((pack) => (
-                  <SelectItem key={pack.id} value={pack.id}>
-                    {pack.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="mt-4 rounded-md bg-background px-3 py-2 text-sm">
-            {selectedPack ? (
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-medium text-foreground">{selectedPack.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {selectedPack.items.length} items
-                </span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">No reward pack selected.</span>
-            )}
-          </div>
-        </div>
-
-        {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
-
-        <DialogFooter>
-          <DialogClose className="inline-flex">
-            <Button type="button" variant="outline" disabled={isSubmitting}>
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button type="button" disabled={isSubmitting || !selectedPackId} onClick={() => void onSubmit()}>
-            {isSubmitting ? 'Saving...' : 'Save rewards'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

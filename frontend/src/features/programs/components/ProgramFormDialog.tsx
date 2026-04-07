@@ -9,6 +9,7 @@ import type {
 } from '../../../types/programs'
 import { useIacrmServices } from '../../iacrm/hooks'
 import { getIacrmConfig } from '../../iacrm/api'
+import { IacrmConfigGate } from '@/components/app/IacrmConfigGate'
 import {
   Dialog,
   DialogContent,
@@ -331,6 +332,12 @@ export function ProgramFormDialog({
                 : 'Vérifiez les informations avant de créer le programme.'}
           </DialogDescription>
         </DialogHeader>
+
+        {/* ── IACRM gate ────────────────────────────────────────────── */}
+        {!iacrmConfigured ? (
+          <IacrmConfigGate action="créer un programme" onClose={onClose} />
+        ) : (
+        <>
 
         <StepIndicator current={step} />
 
@@ -728,6 +735,9 @@ export function ProgramFormDialog({
             </Button>
           )}
         </DialogFooter>
+
+        </> /* end iacrmConfigured */
+        )}
       </DialogContent>
     </Dialog>
   )

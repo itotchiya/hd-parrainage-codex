@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import type { ApiError } from '../../../lib/api'
 import { useIacrmClients } from '../../iacrm/hooks'
 import { getIacrmConfig } from '../../iacrm/api'
+import { IacrmConfigGate } from '@/components/app/IacrmConfigGate'
 import {
   Dialog,
   DialogContent,
@@ -104,20 +105,20 @@ export function AddAgentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {step === 'select' ? (
+        {!iacrmConfigured ? (
+          <IacrmConfigGate action="ajouter un affilié" onClose={handleClose} />
+        ) : step === 'select' ? (
           <>
             <div className="grid grid-cols-2 gap-3 py-1">
               {/* Existing IACRM client */}
               <Card
                 role="button"
-                tabIndex={iacrmConfigured ? 0 : -1}
+                tabIndex={0}
                 aria-pressed={mode === 'existing'}
-                aria-disabled={!iacrmConfigured}
-                onClick={() => iacrmConfigured && setMode('existing')}
-                onKeyDown={(e) => e.key === 'Enter' && iacrmConfigured && setMode('existing')}
+                onClick={() => setMode('existing')}
+                onKeyDown={(e) => e.key === 'Enter' && setMode('existing')}
                 className={cn(
                   'cursor-pointer border-2 transition-colors select-none',
-                  !iacrmConfigured && 'cursor-not-allowed opacity-40',
                   mode === 'existing'
                     ? 'border-primary bg-primary/5'
                     : 'border-border hover:border-primary/40',
@@ -135,11 +136,6 @@ export function AddAgentDialog({
                       Convertir un contact déjà présent dans votre base synchronisée.
                     </p>
                   </div>
-                  {!iacrmConfigured ? (
-                    <p className="text-[10px] font-medium text-amber-600">
-                      IACRM non configuré — Paramètres → API
-                    </p>
-                  ) : null}
                 </CardContent>
               </Card>
 

@@ -191,6 +191,8 @@ export function ProspectsPage() {
   const queryProgramId = searchParams.get('programId')
   const [createOpen, setCreateOpen] = useState(queryWantsCreate)
   const [deleteTarget, setDeleteTarget] = useState<ProspectRecord | null>(null)
+  const isAgentView = user?.agent_profile !== null && user?.agent_profile !== undefined
+  const canSubmitProspects = isAgentView && hasPermission('prospect.submit')
 
   const prospectsQuery = useQuery({
     queryKey: prospectsQueryKey,
@@ -206,7 +208,7 @@ export function ProspectsPage() {
   const assignedProgramsQuery = useQuery({
     queryKey: assignedProgramsQueryKey,
     queryFn: fetchPrograms,
-    enabled: hasPermission('prospect.submit'),
+    enabled: canSubmitProspects,
   })
 
   const createMutation = useMutation({
@@ -251,10 +253,8 @@ export function ProspectsPage() {
   const prospects = sourceQuery.data?.data ?? []
   const assignedPrograms = assignedProgramsQuery.data?.data ?? []
   const eligiblePrograms = assignedPrograms.filter((program) => program.status === 'active')
-  const canSubmitProspects = hasPermission('prospect.submit')
   const createError = createMutation.error as ApiError | null
   const deleteError = deleteMutation.error as ApiError | null
-  const isAgentView = user?.agent_profile !== null && user?.agent_profile !== undefined
 
   useEffect(() => {
     if (!queryWantsCreate) {
