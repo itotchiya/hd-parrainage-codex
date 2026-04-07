@@ -19,6 +19,7 @@ import {
   rejectExchangeRequest,
 } from '../api'
 import { PageHeader } from '@/components/app/PageHeader'
+import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,7 +49,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { ExchangeRequestStatus } from '../../../types/exchanges'
+import type { ExchangeRequestRecord, ExchangeRequestStatus } from '../../../types/exchanges'
+
+type ExchangeSortKey = 'request' | 'status' | 'points' | 'cash' | 'requested' | 'owner'
 
 const statusPresentation: Record<ExchangeRequestStatus, { label: string; className: string }> = {
   requested: { label: 'Requested', className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300' },
@@ -59,12 +62,56 @@ const statusPresentation: Record<ExchangeRequestStatus, { label: string; classNa
   cancelled: { label: 'Cancelled', className: 'border-border bg-muted text-muted-foreground' },
 }
 
+const statusSortOrder: Record<ExchangeRequestStatus, number> = {
+  requested: 0,
+  approved: 1,
+  processing: 2,
+  completed: 3,
+  rejected: 4,
+  cancelled: 5,
+}
+
 function formatCurrency(amount: number, currencyCode: string) {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: currencyCode,
     maximumFractionDigits: 2,
   }).format(amount)
+}
+
+function requestTime(value: string | null) {
+  return new Date(value ?? 0).getTime()
+}
+
+function exchangeRequestTitle(record: ExchangeRequestRecord) {
+  return record.request_type === 'reward'
+    ? record.requested_reward_title ?? record.exchange_pack_item_title ?? 'Reward request'
+    : 'Cash exchange request'
+}
+
+function compareExchangeRequests(
+  left: ExchangeRequestRecord,
+  right: ExchangeRequestRecord,
+  key: ExchangeSortKey,
+  direction: SortDirection,
+) {
+  const modifier = direction === 'asc' ? 1 : -1
+  const result =
+    key === 'requested'
+      ? requestTime(left.requested_at) - requestTime(right.requested_at)
+      : key === 'cash'
+        ? (left.cash_amount ?? 0) - (right.cash_amount ?? 0)
+        : key === 'points'
+          ? left.points_amount - right.points_amount
+          : key === 'status'
+            ? statusSortOrder[left.status] - statusSortOrder[right.status]
+            : key === 'owner'
+              ? (left.approved_by_name ?? '').localeCompare(right.approved_by_name ?? '')
+              : `${exchangeRequestTitle(left)} ${left.program_name ?? ''} ${left.agent_name ?? ''}`.localeCompare(
+                  `${exchangeRequestTitle(right)} ${right.program_name ?? ''} ${right.agent_name ?? ''}`,
+                )
+
+  return result * modifier
 }
 
 function invalidateExchangeQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -96,6 +143,8 @@ export function ExchangesPage() {
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [sortKey, setSortKey] = useState<ExchangeSortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
     if (!canCreateReward && canCreateCash) {
@@ -242,17 +291,34 @@ export function ExchangesPage() {
     })
   }, [requests, search, statusFilter])
 
+  const sortedRequests = useMemo(() => {
+    if (!sortKey) return filteredRequests
+    return [...filteredRequests].sort((left, right) =>
+      compareExchangeRequests(left, right, sortKey, sortDirection),
+    )
+  }, [filteredRequests, sortDirection, sortKey])
+
+  function handleSort(nextKey: ExchangeSortKey) {
+    setPage(1)
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(nextKey)
+    setSortDirection(['points', 'cash', 'requested'].includes(nextKey) ? 'desc' : 'asc')
+  }
+
   useEffect(() => {
     setPage(1)
   }, [search, statusFilter])
 
-  const totalFiltered = filteredRequests.length
+  const totalFiltered = sortedRequests.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
   const pageSafe = Math.min(page, totalPages)
   const pageSlice = useMemo(() => {
     const start = (pageSafe - 1) * pageSize
-    return filteredRequests.slice(start, start + pageSize)
-  }, [filteredRequests, pageSafe, pageSize])
+    return sortedRequests.slice(start, start + pageSize)
+  }, [sortedRequests, pageSafe, pageSize])
 
   useEffect(() => {
     if (page !== pageSafe) setPage(pageSafe)
@@ -501,12 +567,60 @@ export function ExchangesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10 text-center">#</TableHead>
-                    <TableHead>Request</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Points</TableHead>
-                    <TableHead className="hidden md:table-cell text-right">Cash</TableHead>
-                    <TableHead className="hidden lg:table-cell">Requested</TableHead>
-                    <TableHead className="hidden xl:table-cell">Owner</TableHead>
+                    <SortableTableHead
+                      sortKey="request"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    >
+                      Request
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="status"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    >
+                      Status
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="points"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="text-right"
+                      align="right"
+                    >
+                      Points
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="cash"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden md:table-cell text-right"
+                      align="right"
+                    >
+                      Cash
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="requested"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden lg:table-cell"
+                    >
+                      Requested
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="owner"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden xl:table-cell"
+                    >
+                      Owner
+                    </SortableTableHead>
                     <TableHead className="w-10 pe-2 text-end">
                       <span className="sr-only">Actions</span>
                     </TableHead>

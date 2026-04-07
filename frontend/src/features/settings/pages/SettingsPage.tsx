@@ -7,8 +7,9 @@ import { fetchSettings, fetchSyncOverview, updateBusinessSettings, updateOwnSett
 import { PageHeader } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { IacrmApiSettingsTab } from '../components/IacrmApiSettingsTab'
 
-type SettingsTabId = 'profile' | 'notifications' | 'security' | 'payment'
+type SettingsTabId = 'profile' | 'notifications' | 'security' | 'payment' | 'api'
 
 const settingsTabs: Array<{
   id: SettingsTabId
@@ -39,6 +40,12 @@ const settingsTabs: Array<{
     label: 'Payment',
     eyebrow: 'Payout readiness',
     description: 'Exchange and cash-out readiness is visible here before bank-data persistence is introduced.',
+  },
+  {
+    id: 'api',
+    label: 'API',
+    eyebrow: 'External integration',
+    description: 'IACRM API connection, sync configuration, and external service connectivity.',
   },
 ]
 
@@ -220,24 +227,26 @@ export function SettingsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {settingsTabs.map((tab) => {
-          const isActive = tab.id === activeTab
+        {settingsTabs
+          .filter((tab) => tab.id !== 'api' || canViewSync)
+          .map((tab) => {
+            const isActive = tab.id === activeTab
 
-          return (
-            <Button
-              key={tab.id}
-              type="button"
-              size="sm"
-              variant={isActive ? 'default' : 'outline'}
-              onClick={() => {
-                setActiveTab(tab.id)
-                setFeedback(null)
-              }}
-            >
-              {tab.label}
-            </Button>
-          )
-        })}
+            return (
+              <Button
+                key={tab.id}
+                type="button"
+                size="sm"
+                variant={isActive ? 'default' : 'outline'}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setFeedback(null)
+                }}
+              >
+                {tab.label}
+              </Button>
+            )
+          })}
       </div>
 
       {activeTab === 'profile' ? (
@@ -519,6 +528,13 @@ export function SettingsPage() {
             </div>
           </article>
         </div>
+      ) : null}
+
+      {activeTab === 'api' ? (
+        <IacrmApiSettingsTab
+          syncAlertsValue={syncAlertsValue}
+          failedJobsValue={`${syncOverview?.failed_jobs_total ?? 0} active issue(s)`}
+        />
       ) : null}
 
       {feedback ? (

@@ -8,6 +8,7 @@ import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { PageHeader } from '@/components/app/PageHeader'
+import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,7 +37,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { TransactionStatus } from '../../../types/transactions'
+import type { TransactionRecord, TransactionStatus } from '../../../types/transactions'
+
+type TransactionSortKey =
+  | 'transaction'
+  | 'prospect'
+  | 'program'
+  | 'status'
+  | 'amount'
+  | 'points'
+  | 'occurred'
 
 const statusPresentation: Record<TransactionStatus, { label: string; className: string }> = {
   detected: { label: 'Detected', className: 'border-border bg-muted/40 text-foreground' },
@@ -44,6 +54,14 @@ const statusPresentation: Record<TransactionStatus, { label: string; className: 
   validated: { label: 'Validated', className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300' },
   rejected: { label: 'Rejected', className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300' },
   paid: { label: 'Paid', className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' },
+}
+
+const statusSortOrder: Record<TransactionStatus, number> = {
+  detected: 0,
+  pending: 1,
+  validated: 2,
+  rejected: 3,
+  paid: 4,
 }
 
 function formatCurrency(amount: number, currencyCode: string) {
@@ -54,11 +72,46 @@ function formatCurrency(amount: number, currencyCode: string) {
   }).format(amount)
 }
 
+function transactionTime(value: string | null) {
+  return new Date(value ?? 0).getTime()
+}
+
+function compareTransactions(
+  left: TransactionRecord,
+  right: TransactionRecord,
+  key: TransactionSortKey,
+  direction: SortDirection,
+) {
+  const modifier = direction === 'asc' ? 1 : -1
+  const result =
+    key === 'occurred'
+      ? transactionTime(left.occurred_at) - transactionTime(right.occurred_at)
+      : key === 'points'
+        ? (left.points_awarded ?? 0) - (right.points_awarded ?? 0)
+        : key === 'amount'
+          ? left.amount - right.amount
+          : key === 'status'
+            ? statusSortOrder[left.status] - statusSortOrder[right.status]
+            : key === 'program'
+              ? (left.program_name ?? '').localeCompare(right.program_name ?? '')
+              : key === 'prospect'
+                ? (left.prospect_name ?? left.prospect_company_name ?? '').localeCompare(
+                    right.prospect_name ?? right.prospect_company_name ?? '',
+                  )
+                : `${left.product_name} ${left.transaction_reference}`.localeCompare(
+                    `${right.product_name} ${right.transaction_reference}`,
+                  )
+
+  return result * modifier
+}
+
 export function TransactionsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | TransactionStatus>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [sortKey, setSortKey] = useState<TransactionSortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const transactionsQuery = useQuery({
     queryKey: ['transactions', 'list'],
@@ -91,17 +144,34 @@ export function TransactionsPage() {
     })
   }, [transactions, search, statusFilter])
 
+  const sortedTransactions = useMemo(() => {
+    if (!sortKey) return filteredTransactions
+    return [...filteredTransactions].sort((left, right) =>
+      compareTransactions(left, right, sortKey, sortDirection),
+    )
+  }, [filteredTransactions, sortDirection, sortKey])
+
+  function handleSort(nextKey: TransactionSortKey) {
+    setPage(1)
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(nextKey)
+    setSortDirection(['amount', 'points', 'occurred'].includes(nextKey) ? 'desc' : 'asc')
+  }
+
   useEffect(() => {
     setPage(1)
   }, [search, statusFilter])
 
-  const totalFiltered = filteredTransactions.length
+  const totalFiltered = sortedTransactions.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
   const pageSafe = Math.min(page, totalPages)
   const pageSlice = useMemo(() => {
     const start = (pageSafe - 1) * pageSize
-    return filteredTransactions.slice(start, start + pageSize)
-  }, [filteredTransactions, pageSafe, pageSize])
+    return sortedTransactions.slice(start, start + pageSize)
+  }, [sortedTransactions, pageSafe, pageSize])
 
   useEffect(() => {
     if (page !== pageSafe) setPage(pageSafe)
@@ -268,13 +338,70 @@ export function TransactionsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10 text-center">#</TableHead>
-                    <TableHead className="min-w-[11rem]">Transaction</TableHead>
-                    <TableHead className="hidden md:table-cell">Prospect</TableHead>
-                    <TableHead className="hidden lg:table-cell">Program</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell text-right">Amount</TableHead>
-                    <TableHead className="hidden xl:table-cell text-right">Points</TableHead>
-                    <TableHead className="hidden lg:table-cell">Occurred</TableHead>
+                    <SortableTableHead
+                      sortKey="transaction"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="min-w-[11rem]"
+                    >
+                      Transaction
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="prospect"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden md:table-cell"
+                    >
+                      Prospect
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="program"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden lg:table-cell"
+                    >
+                      Program
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="status"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    >
+                      Status
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="amount"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden sm:table-cell text-right"
+                      align="right"
+                    >
+                      Amount
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="points"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden xl:table-cell text-right"
+                      align="right"
+                    >
+                      Points
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="occurred"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden lg:table-cell"
+                    >
+                      Occurred
+                    </SortableTableHead>
                     <TableHead className="w-10 pe-2 text-end">
                       <span className="sr-only">Actions</span>
                     </TableHead>

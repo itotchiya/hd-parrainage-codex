@@ -2,11 +2,11 @@ import { type ReactNode, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Archive,
+  Briefcase,
   Building2,
   ExternalLink,
   Gift,
   HandCoins,
-  Landmark,
   MoreVertical,
   OctagonAlert,
   Package,
@@ -107,7 +107,7 @@ function roleSummary(program: ProgramRecord) {
 function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
   if (mode === 'both') {
     return {
-      icon: Landmark,
+      icon: Briefcase,
       tileClass: 'bg-blue-500 text-white',
       label: 'Rewards + cash',
       badgeClass: 'border-blue-500/25 bg-blue-500/10 text-blue-800 dark:text-blue-300',

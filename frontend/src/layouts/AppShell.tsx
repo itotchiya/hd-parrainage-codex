@@ -78,6 +78,7 @@ export function AppShell() {
         location.pathname === route.path ||
         location.pathname.startsWith(`${route.path}/`),
     ) ?? authenticatedNavigation[0]
+  const isProgramDocsRoute = location.pathname === '/programs/docs'
   const isDashboardRoute =
     location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/')
   const dashboardSurfaceClass = 'bg-background'
@@ -218,6 +219,14 @@ export function AppShell() {
                     <BreadcrumbLink to="/dashboard">Dashboard</BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block" />
+                  {isProgramDocsRoute ? (
+                    <>
+                      <BreadcrumbItem className="hidden md:block">
+                        <BreadcrumbLink to="/programs">Programs</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                    </>
+                  ) : null}
                   {shouldShowEllipsis ? (
                     <>
                       <BreadcrumbItem className="hidden md:block">
@@ -227,7 +236,9 @@ export function AppShell() {
                     </>
                   ) : null}
                   <BreadcrumbItem>
-                    <BreadcrumbPage>{activeRoute.title}</BreadcrumbPage>
+                    <BreadcrumbPage>
+                      {isProgramDocsRoute ? 'Documentation' : activeRoute.title}
+                    </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>

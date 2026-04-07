@@ -6,6 +6,7 @@ import {
   FileText,
   Gift,
   LayoutDashboard,
+  Link2,
   LogOut,
   Settings,
   TrendingUp,
@@ -36,6 +37,7 @@ const routeIcons: Record<NavigationIconKey, React.ComponentType<{ className?: st
   exchanges: FileText,
   notifications: Bell,
   settings: Settings,
+  iacrm: Link2,
 }
 
 export function AppSidebar({

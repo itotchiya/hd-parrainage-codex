@@ -5,24 +5,18 @@ import { Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'luc
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents, inviteAgent, reactivateAgent, suspendAgent } from '../api'
+import { AddAgentDialog } from '../components/AddAgentDialog'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import { agentStatusBadgeClass, formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
 import { PageHeader } from '@/components/app/PageHeader'
+import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -38,6 +32,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { AgentRecord } from '@/types/agents'
+
+type AgentSortKey = 'agent' | 'status' | 'joined'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -60,6 +57,22 @@ function normalizeAgentStatus(status: string) {
   return status.toLowerCase().replace(/\s+/g, '_')
 }
 
+function agentJoinedTime(agent: AgentRecord) {
+  return new Date(agent.activated_at ?? agent.invited_at ?? agent.created_at ?? 0).getTime()
+}
+
+function compareAgents(left: AgentRecord, right: AgentRecord, key: AgentSortKey, direction: SortDirection) {
+  const modifier = direction === 'asc' ? 1 : -1
+  const result =
+    key === 'joined'
+      ? agentJoinedTime(left) - agentJoinedTime(right)
+      : key === 'status'
+        ? normalizeAgentStatus(left.status).localeCompare(normalizeAgentStatus(right.status))
+        : (left.display_name ?? left.email ?? '').localeCompare(right.display_name ?? right.email ?? '')
+
+  return result * modifier
+}
+
 export function AgentsPage() {
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthSession()
@@ -68,11 +81,10 @@ export function AgentsPage() {
   const canReactivate = hasPermission('agent.reactivate')
   const [search, setSearch] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [displayName, setDisplayName] = useState('')
-  const [email, setEmail] = useState('')
-  const [notes, setNotes] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [sortKey, setSortKey] = useState<AgentSortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const listQuery = useQuery({
     queryKey: ['agents', 'list'],
@@ -82,9 +94,6 @@ export function AgentsPage() {
   const inviteMutation = useMutation({
     mutationFn: inviteAgent,
     onSuccess: async () => {
-      setDisplayName('')
-      setEmail('')
-      setNotes('')
       setInviteOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['agents'] })
     },
@@ -134,17 +143,32 @@ export function AgentsPage() {
     )
   }, [records, search])
 
+  const sortedAgents = useMemo(() => {
+    if (!sortKey) return filtered
+    return [...filtered].sort((left, right) => compareAgents(left, right, sortKey, sortDirection))
+  }, [filtered, sortDirection, sortKey])
+
+  function handleSort(nextKey: AgentSortKey) {
+    setPage(1)
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(nextKey)
+    setSortDirection(nextKey === 'joined' ? 'desc' : 'asc')
+  }
+
   useEffect(() => {
     setPage(1)
   }, [search])
 
-  const totalFiltered = filtered.length
+  const totalFiltered = sortedAgents.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
   const pageSafe = Math.min(page, totalPages)
   const pageSlice = useMemo(() => {
     const start = (pageSafe - 1) * pageSize
-    return filtered.slice(start, start + pageSize)
-  }, [filtered, pageSafe, pageSize])
+    return sortedAgents.slice(start, start + pageSize)
+  }, [sortedAgents, pageSafe, pageSize])
 
   useEffect(() => {
     if (page !== pageSafe) setPage(pageSafe)
@@ -163,13 +187,17 @@ export function AgentsPage() {
   }
 
   return (
-    <Dialog
-      open={inviteOpen}
-      onOpenChange={(open) => {
-        setInviteOpen(open)
-        inviteMutation.reset()
-      }}
-    >
+    <>
+      <AddAgentDialog
+        open={inviteOpen}
+        isPending={inviteMutation.isPending}
+        error={inviteMutation.isError ? (inviteMutation.error as ApiError) : null}
+        onClose={() => {
+          setInviteOpen(false)
+          inviteMutation.reset()
+        }}
+        onSubmit={(payload) => inviteMutation.mutate(payload)}
+      />
       <section className="app-section">
         <PageHeader
           title="Agents"
@@ -209,78 +237,6 @@ export function AgentsPage() {
             tone="warning"
           />
         </div>
-
-        <DialogContent className="sm:max-w-md" showCloseButton>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              inviteMutation.mutate({
-                display_name: displayName.trim(),
-                email: email.trim(),
-                notes: notes.trim() || undefined,
-              })
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>Invite agent</DialogTitle>
-              <DialogDescription>
-                Send an invitation email. The recipient will receive steps to activate their affiliate account.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <Field>
-                <FieldLabel htmlFor="invite-display-name">Display name</FieldLabel>
-                <Input
-                  id="invite-display-name"
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder="Display name"
-                  autoComplete="name"
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="invite-email">Email</FieldLabel>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Email"
-                  autoComplete="email"
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="invite-notes">Optional notes</FieldLabel>
-                <Input
-                  id="invite-notes"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Internal note"
-                />
-              </Field>
-              {inviteMutation.isError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {(inviteMutation.error as ApiError).message}
-                </p>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setInviteOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={inviteMutation.isPending}>
-                {inviteMutation.isPending ? 'Sending...' : 'Send invite'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
 
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
@@ -328,10 +284,32 @@ export function AgentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10 text-center">#</TableHead>
-                  <TableHead>Affilié</TableHead>
+                  <SortableTableHead
+                    sortKey="agent"
+                    activeKey={sortKey}
+                    direction={sortDirection}
+                    onSort={handleSort}
+                  >
+                    Affilié
+                  </SortableTableHead>
                   <TableHead className="hidden sm:table-cell">Email</TableHead>
-                  <TableHead className="hidden md:table-cell">Statut</TableHead>
-                  <TableHead>Adhésion</TableHead>
+                  <SortableTableHead
+                    sortKey="status"
+                    activeKey={sortKey}
+                    direction={sortDirection}
+                    onSort={handleSort}
+                    className="hidden md:table-cell"
+                  >
+                    Statut
+                  </SortableTableHead>
+                  <SortableTableHead
+                    sortKey="joined"
+                    activeKey={sortKey}
+                    direction={sortDirection}
+                    onSort={handleSort}
+                  >
+                    Adhésion
+                  </SortableTableHead>
                   <TableHead className="w-10 pe-2 text-end">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -445,6 +423,6 @@ export function AgentsPage() {
           )}
         </article>
       </section>
-    </Dialog>
+    </>
   )
 }

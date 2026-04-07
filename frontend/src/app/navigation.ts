@@ -20,6 +20,7 @@ export type NavigationIconKey =
   | 'exchanges'
   | 'notifications'
   | 'settings'
+  | 'iacrm'
 
 export const dashboardPermissionIds = [
   'dashboard.view-platform',
@@ -144,6 +145,16 @@ export const appModuleRoutes: AppModuleRoute[] = [
     description:
       'Profile, security, business preferences, and integration-facing configuration will collect here.',
     permissions: settingsPermissionIds,
+  },
+  {
+    path: '/iacrm',
+    label: 'IACRM',
+    icon: 'iacrm',
+    title: 'IACRM',
+    eyebrow: 'External CRM',
+    description:
+      'IACRM integration dashboard showing services, clients, pipeline, and invoicing from the external CRM system.',
+    permissions: ['iacrm.sync-view'],
   },
 ]
 

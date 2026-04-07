@@ -23,10 +23,12 @@ import { NotificationsPage } from '../features/notifications/pages/Notifications
 import { PointsPage } from '../features/points/pages/PointsPage.tsx'
 import { ProspectDetailPage } from '../features/prospects/pages/ProspectDetailPage.tsx'
 import { ProspectsPage } from '../features/prospects/pages/ProspectsPage.tsx'
+import { ProgramDocsPage } from '../features/programs/pages/ProgramDocsPage.tsx'
 import { ProgramDetailPage } from '../features/programs/pages/ProgramDetailPage.tsx'
 import { ProgramsPage } from '../features/programs/pages/ProgramsPage.tsx'
 import { TransactionsPage } from '../features/transactions/pages/TransactionsPage.tsx'
 import { SettingsPage } from '../features/settings/pages/SettingsPage.tsx'
+import { IacrmDashboardPage } from '../features/iacrm/pages/IacrmDashboardPage.tsx'
 import { ForbiddenPage } from '../features/system/pages/ForbiddenPage'
 import { NotFoundPage } from '../features/system/pages/NotFoundPage'
 import { SessionExpiredPage } from '../features/system/pages/SessionExpiredPage'
@@ -133,6 +135,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/programs/docs',
+        element: (
+          <PermissionBoundary anyOf={['program.view']}>
+            <ProgramDocsPage />
+          </PermissionBoundary>
+        ),
+      },
+      {
         path: '/programs/:programId',
         element: (
           <PermissionBoundary anyOf={['program.view']}>
@@ -212,6 +222,14 @@ export const router = createBrowserRouter([
           </PermissionBoundary>
         ),
       },
+      {
+        path: '/iacrm',
+        element: (
+          <PermissionBoundary anyOf={['iacrm.sync-view']}>
+            <IacrmDashboardPage />
+          </PermissionBoundary>
+        ),
+      },
       ...appModuleRoutes
         .filter(
           (route) =>
@@ -224,7 +242,8 @@ export const router = createBrowserRouter([
             route.path !== '/payouts' &&
             route.path !== '/exchange-packs' &&
             route.path !== '/notifications' &&
-            route.path !== '/settings',
+            route.path !== '/settings' &&
+            route.path !== '/iacrm',
         )
         .map((route) => ({
         path: route.path,

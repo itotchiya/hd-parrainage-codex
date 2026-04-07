@@ -8,6 +8,7 @@ import { DashboardSectionHeader } from '../../dashboard/components/DashboardSect
 import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPointsByProgram, fetchPointsLedger, fetchPointsSummary } from '../api'
 import { PageHeader } from '@/components/app/PageHeader'
+import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,7 +39,26 @@ import {
 } from '@/components/ui/table'
 import type {
   PointsLedgerEntryStatus,
+  PointsLedgerRecord,
+  PointsProgramBalanceRecord,
 } from '../../../types/points'
+
+type ProgramBalanceSortKey =
+  | 'program'
+  | 'exchange'
+  | 'available'
+  | 'pending'
+  | 'locked'
+  | 'consumed'
+  | 'open-prospects'
+
+type LedgerSortKey =
+  | 'entry'
+  | 'status'
+  | 'delta'
+  | 'prospect'
+  | 'transaction'
+  | 'effective'
 
 const statusPresentation: Record<
   PointsLedgerEntryStatus,
@@ -51,8 +71,72 @@ const statusPresentation: Record<
   reversed: { label: 'Reversed', className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300' },
 }
 
+const ledgerStatusSortOrder: Record<PointsLedgerEntryStatus, number> = {
+  pending: 0,
+  available: 1,
+  locked: 2,
+  consumed: 3,
+  reversed: 4,
+}
+
 function formatSignedPoints(value: number) {
   return `${value > 0 ? '+' : ''}${value.toLocaleString('fr-FR')}`
+}
+
+function pointsTime(value: string | null) {
+  return new Date(value ?? 0).getTime()
+}
+
+function compareProgramBalances(
+  left: PointsProgramBalanceRecord,
+  right: PointsProgramBalanceRecord,
+  key: ProgramBalanceSortKey,
+  direction: SortDirection,
+) {
+  const modifier = direction === 'asc' ? 1 : -1
+  const result =
+    key === 'available'
+      ? left.available_points - right.available_points
+      : key === 'pending'
+        ? left.pending_points - right.pending_points
+        : key === 'locked'
+          ? left.locked_points - right.locked_points
+          : key === 'consumed'
+            ? left.consumed_points - right.consumed_points
+            : key === 'open-prospects'
+              ? left.open_prospect_count - right.open_prospect_count
+              : key === 'exchange'
+                ? (left.exchange_mode ?? '').localeCompare(right.exchange_mode ?? '')
+                : (left.program_name ?? left.program_slug ?? '').localeCompare(
+                    right.program_name ?? right.program_slug ?? '',
+                  )
+
+  return result * modifier
+}
+
+function compareLedgerEntries(
+  left: PointsLedgerRecord,
+  right: PointsLedgerRecord,
+  key: LedgerSortKey,
+  direction: SortDirection,
+) {
+  const modifier = direction === 'asc' ? 1 : -1
+  const result =
+    key === 'effective'
+      ? pointsTime(left.effective_at) - pointsTime(right.effective_at)
+      : key === 'delta'
+        ? left.points_delta - right.points_delta
+        : key === 'status'
+          ? ledgerStatusSortOrder[left.entry_status] - ledgerStatusSortOrder[right.entry_status]
+          : key === 'prospect'
+            ? (left.prospect_name ?? '').localeCompare(right.prospect_name ?? '')
+            : key === 'transaction'
+              ? (left.transaction_reference ?? '').localeCompare(right.transaction_reference ?? '')
+              : (left.description ?? left.program_name ?? left.source).localeCompare(
+                  right.description ?? right.program_name ?? right.source,
+                )
+
+  return result * modifier
 }
 
 export function PointsPage() {
@@ -62,6 +146,10 @@ export function PointsPage() {
   const [programPageSize, setProgramPageSize] = useState(10)
   const [ledgerPage, setLedgerPage] = useState(1)
   const [ledgerPageSize, setLedgerPageSize] = useState(10)
+  const [programSortKey, setProgramSortKey] = useState<ProgramBalanceSortKey | null>(null)
+  const [programSortDirection, setProgramSortDirection] = useState<SortDirection>('asc')
+  const [ledgerSortKey, setLedgerSortKey] = useState<LedgerSortKey | null>(null)
+  const [ledgerSortDirection, setLedgerSortDirection] = useState<SortDirection>('asc')
 
   const summaryQuery = useQuery({
     queryKey: ['points', 'summary'],
@@ -99,29 +187,67 @@ export function PointsPage() {
     })
   }, [ledgerEntries, search, statusFilter])
 
+  const sortedProgramBalances = useMemo(() => {
+    if (!programSortKey) return programBalances
+    return [...programBalances].sort((left, right) =>
+      compareProgramBalances(left, right, programSortKey, programSortDirection),
+    )
+  }, [programBalances, programSortDirection, programSortKey])
+
+  const sortedLedger = useMemo(() => {
+    if (!ledgerSortKey) return filteredLedger
+    return [...filteredLedger].sort((left, right) =>
+      compareLedgerEntries(left, right, ledgerSortKey, ledgerSortDirection),
+    )
+  }, [filteredLedger, ledgerSortDirection, ledgerSortKey])
+
+  function handleProgramSort(nextKey: ProgramBalanceSortKey) {
+    setProgramPage(1)
+    if (programSortKey === nextKey) {
+      setProgramSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setProgramSortKey(nextKey)
+    setProgramSortDirection(
+      ['available', 'pending', 'locked', 'consumed', 'open-prospects'].includes(nextKey)
+        ? 'desc'
+        : 'asc',
+    )
+  }
+
+  function handleLedgerSort(nextKey: LedgerSortKey) {
+    setLedgerPage(1)
+    if (ledgerSortKey === nextKey) {
+      setLedgerSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setLedgerSortKey(nextKey)
+    setLedgerSortDirection(['delta', 'effective'].includes(nextKey) ? 'desc' : 'asc')
+  }
+
   useEffect(() => {
     setLedgerPage(1)
   }, [search, statusFilter])
 
-  const totalPrograms = programBalances.length
+  const totalPrograms = sortedProgramBalances.length
   const totalProgramPages = Math.max(1, Math.ceil(totalPrograms / programPageSize))
   const programPageSafe = Math.min(programPage, totalProgramPages)
   const programSlice = useMemo(() => {
     const start = (programPageSafe - 1) * programPageSize
-    return programBalances.slice(start, start + programPageSize)
-  }, [programBalances, programPageSafe, programPageSize])
+    return sortedProgramBalances.slice(start, start + programPageSize)
+  }, [programPageSafe, programPageSize, sortedProgramBalances])
 
   useEffect(() => {
     if (programPage !== programPageSafe) setProgramPage(programPageSafe)
   }, [programPage, programPageSafe])
 
-  const totalLedger = filteredLedger.length
+  const totalLedger = sortedLedger.length
   const totalLedgerPages = Math.max(1, Math.ceil(totalLedger / ledgerPageSize))
   const ledgerPageSafe = Math.min(ledgerPage, totalLedgerPages)
   const ledgerSlice = useMemo(() => {
     const start = (ledgerPageSafe - 1) * ledgerPageSize
-    return filteredLedger.slice(start, start + ledgerPageSize)
-  }, [filteredLedger, ledgerPageSafe, ledgerPageSize])
+    return sortedLedger.slice(start, start + ledgerPageSize)
+  }, [ledgerPageSafe, ledgerPageSize, sortedLedger])
 
   useEffect(() => {
     if (ledgerPage !== ledgerPageSafe) setLedgerPage(ledgerPageSafe)
@@ -230,13 +356,73 @@ export function PointsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10 text-center">#</TableHead>
-                    <TableHead>Program</TableHead>
-                    <TableHead className="hidden lg:table-cell">Exchange mode</TableHead>
-                    <TableHead className="text-right">Available</TableHead>
-                    <TableHead className="hidden md:table-cell text-right">Pending</TableHead>
-                    <TableHead className="hidden xl:table-cell text-right">Locked</TableHead>
-                    <TableHead className="hidden xl:table-cell text-right">Consumed</TableHead>
-                    <TableHead className="hidden md:table-cell text-right">Open prospects</TableHead>
+                    <SortableTableHead
+                      sortKey="program"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                    >
+                      Program
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="exchange"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="hidden lg:table-cell"
+                    >
+                      Exchange mode
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="available"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="text-right"
+                      align="right"
+                    >
+                      Available
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="pending"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="hidden md:table-cell text-right"
+                      align="right"
+                    >
+                      Pending
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="locked"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="hidden xl:table-cell text-right"
+                      align="right"
+                    >
+                      Locked
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="consumed"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="hidden xl:table-cell text-right"
+                      align="right"
+                    >
+                      Consumed
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="open-prospects"
+                      activeKey={programSortKey}
+                      direction={programSortDirection}
+                      onSort={handleProgramSort}
+                      className="hidden md:table-cell text-right"
+                      align="right"
+                    >
+                      Open prospects
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -352,12 +538,59 @@ export function PointsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10 text-center">#</TableHead>
-                    <TableHead>Entry</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Delta</TableHead>
-                    <TableHead className="hidden md:table-cell">Prospect</TableHead>
-                    <TableHead className="hidden lg:table-cell">Transaction</TableHead>
-                    <TableHead className="hidden xl:table-cell">Effective</TableHead>
+                    <SortableTableHead
+                      sortKey="entry"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                    >
+                      Entry
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="status"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                    >
+                      Status
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="delta"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                      className="text-right"
+                      align="right"
+                    >
+                      Delta
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="prospect"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                      className="hidden md:table-cell"
+                    >
+                      Prospect
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="transaction"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                      className="hidden lg:table-cell"
+                    >
+                      Transaction
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="effective"
+                      activeKey={ledgerSortKey}
+                      direction={ledgerSortDirection}
+                      onSort={handleLedgerSort}
+                      className="hidden xl:table-cell"
+                    >
+                      Effective
+                    </SortableTableHead>
                     <TableHead className="w-10 pe-2 text-end">
                       <span className="sr-only">Actions</span>
                     </TableHead>

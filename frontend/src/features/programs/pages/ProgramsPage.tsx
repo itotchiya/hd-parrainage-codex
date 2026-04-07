@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, FolderKanban, Search, Plus } from 'lucide-react'
+import { Archive, ArrowUpDown, FileText, FolderKanban, Search, Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
@@ -58,6 +58,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type {
   AssignedAgent,
   ExchangePackRecord,
+  ProgramExchangeMode,
   ProgramMutationPayload,
   ProgramRecord,
   ProgramStatus,
@@ -66,6 +67,55 @@ import type { AgentRecord } from '../../../types/agents'
 
 const programQueryKey = ['programs', 'list']
 const exchangePackQueryKey = ['exchange-packs', 'list']
+const statusSortOrder: Record<ProgramStatus, number> = {
+  active: 0,
+  draft: 1,
+  paused: 2,
+  suspended: 3,
+  archived: 4,
+}
+
+type ProgramExchangeModeFilter = 'all' | ProgramExchangeMode
+type ProgramSortOption =
+  | 'newest'
+  | 'oldest'
+  | 'status'
+  | 'points-high'
+  | 'points-low'
+  | 'agents-high'
+  | 'agents-low'
+
+function isProgramExchangeModeFilter(value: string | null): value is ProgramExchangeModeFilter {
+  return value === 'all' || value === 'cash' || value === 'reward' || value === 'both'
+}
+
+function isProgramSortOption(value: string | null): value is ProgramSortOption {
+  return (
+    value === 'newest' ||
+    value === 'oldest' ||
+    value === 'status' ||
+    value === 'points-high' ||
+    value === 'points-low' ||
+    value === 'agents-high' ||
+    value === 'agents-low'
+  )
+}
+
+function programCreatedTime(program: ProgramRecord) {
+  return new Date(program.created_at ?? program.updated_at ?? 0).getTime()
+}
+
+function programPointsValue(program: ProgramRecord) {
+  return program.points_per_transaction ?? 0
+}
+
+function programAssignedAgentsValue(program: ProgramRecord) {
+  return program.assigned_agents_count ?? program.assigned_agents?.length ?? 0
+}
+
+function programNameComparator(a: ProgramRecord, b: ProgramRecord) {
+  return a.name.localeCompare(b.name)
+}
 
 function toProgramUpdatePayload(program: ProgramRecord, exchangePackId: string | null): ProgramMutationPayload {
   return {
@@ -111,6 +161,8 @@ function ProgramsPageSkeleton() {
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Skeleton className="h-8 w-full sm:w-[280px]" />
           <Skeleton className="h-8 w-full sm:w-[140px]" />
+          <Skeleton className="h-8 w-full sm:w-[150px]" />
+          <Skeleton className="h-8 w-full sm:w-[170px]" />
           <Skeleton className="h-8 w-full sm:w-[130px]" />
         </div>
       </div>
@@ -133,6 +185,8 @@ export function ProgramsPage() {
   const rawStatus = (searchParams.get('status') as 'all' | ProgramStatus | null) ?? 'all'
   const scopeFilter = searchParams.get('scope') === 'archived' ? 'archived' : 'programs'
   const businessFilterId = searchParams.get('businessId') ?? ''
+  const rawModeFilter = searchParams.get('mode')
+  const rawSort = searchParams.get('sort')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<ProgramRecord | null>(null)
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
@@ -296,26 +350,100 @@ export function ProgramsPage() {
   const effectiveBusinessFilterId = showBusinessFilter ? businessFilterId : ''
   const statusFilter: 'all' | ProgramStatus =
     cardMode === 'agent' && rawStatus === 'draft' ? 'all' : rawStatus
+  const exchangeModeFilter: ProgramExchangeModeFilter = isProgramExchangeModeFilter(rawModeFilter)
+    ? rawModeFilter
+    : 'all'
+  const ownerSortOptions: ProgramSortOption[] = [
+    'newest',
+    'oldest',
+    'status',
+    'points-high',
+    'points-low',
+    'agents-high',
+    'agents-low',
+  ]
+  const agentSortOptions: ProgramSortOption[] = [
+    'newest',
+    'oldest',
+    'status',
+    'points-high',
+    'points-low',
+  ]
+  const availableSortOptions = cardMode === 'owner' ? ownerSortOptions : agentSortOptions
+  const sortOption: ProgramSortOption =
+    isProgramSortOption(rawSort) && availableSortOptions.includes(rawSort) ? rawSort : 'newest'
 
   const filteredPrograms = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
-    return visiblePrograms.filter((program) => {
-      const matchesScope =
-        scopeFilter === 'archived' ? program.status === 'archived' : program.status !== 'archived'
-      const matchesStatus =
-        scopeFilter === 'archived' ? true : statusFilter === 'all' || program.status === statusFilter
-      const matchesBusiness =
-        effectiveBusinessFilterId.length === 0 || program.business_id === effectiveBusinessFilterId
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        program.name.toLowerCase().includes(normalizedSearch) ||
-        (program.business_name ?? '').toLowerCase().includes(normalizedSearch) ||
-        (program.description ?? '').toLowerCase().includes(normalizedSearch)
+    return visiblePrograms
+      .filter((program) => {
+        const matchesScope =
+          scopeFilter === 'archived' ? program.status === 'archived' : program.status !== 'archived'
+        const matchesStatus =
+          scopeFilter === 'archived' ? true : statusFilter === 'all' || program.status === statusFilter
+        const matchesBusiness =
+          effectiveBusinessFilterId.length === 0 || program.business_id === effectiveBusinessFilterId
+        const matchesExchangeMode =
+          exchangeModeFilter === 'all' || program.exchange_mode === exchangeModeFilter
+        const matchesSearch =
+          normalizedSearch.length === 0 ||
+          program.name.toLowerCase().includes(normalizedSearch) ||
+          (program.business_name ?? '').toLowerCase().includes(normalizedSearch) ||
+          (program.description ?? '').toLowerCase().includes(normalizedSearch)
 
-      return matchesScope && matchesStatus && matchesBusiness && matchesSearch
-    })
-  }, [visiblePrograms, search, statusFilter, scopeFilter, effectiveBusinessFilterId])
+        return matchesScope && matchesStatus && matchesBusiness && matchesExchangeMode && matchesSearch
+      })
+      .sort((a, b) => {
+        if (sortOption === 'oldest') {
+          return programCreatedTime(a) - programCreatedTime(b) || programNameComparator(a, b)
+        }
+        if (sortOption === 'status') {
+          return (
+            statusSortOrder[a.status] - statusSortOrder[b.status] ||
+            programCreatedTime(b) - programCreatedTime(a) ||
+            programNameComparator(a, b)
+          )
+        }
+        if (sortOption === 'points-high') {
+          return (
+            programPointsValue(b) - programPointsValue(a) ||
+            programCreatedTime(b) - programCreatedTime(a) ||
+            programNameComparator(a, b)
+          )
+        }
+        if (sortOption === 'points-low') {
+          return (
+            programPointsValue(a) - programPointsValue(b) ||
+            programCreatedTime(b) - programCreatedTime(a) ||
+            programNameComparator(a, b)
+          )
+        }
+        if (sortOption === 'agents-high') {
+          return (
+            programAssignedAgentsValue(b) - programAssignedAgentsValue(a) ||
+            programCreatedTime(b) - programCreatedTime(a) ||
+            programNameComparator(a, b)
+          )
+        }
+        if (sortOption === 'agents-low') {
+          return (
+            programAssignedAgentsValue(a) - programAssignedAgentsValue(b) ||
+            programCreatedTime(b) - programCreatedTime(a) ||
+            programNameComparator(a, b)
+          )
+        }
+        return programCreatedTime(b) - programCreatedTime(a) || programNameComparator(a, b)
+      })
+  }, [
+    visiblePrograms,
+    search,
+    statusFilter,
+    scopeFilter,
+    effectiveBusinessFilterId,
+    exchangeModeFilter,
+    sortOption,
+  ])
 
   const isOwnerActionPending =
     pauseMutation.isPending ||
@@ -443,6 +571,78 @@ export function ProgramsPage() {
               </SelectContent>
             </Select>
           ) : null}
+
+          <Select
+            value={exchangeModeFilter}
+            onValueChange={(value) => {
+              const nextValue = value as ProgramExchangeModeFilter
+              const nextParams = new URLSearchParams(searchParams)
+              if (nextValue === 'all') {
+                nextParams.delete('mode')
+              } else {
+                nextParams.set('mode', nextValue)
+              }
+              setSearchParams(nextParams, { replace: true })
+            }}
+          >
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[150px] sm:shrink-0">
+              <SelectValue placeholder="All exchange modes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Exchange mode</SelectLabel>
+                <SelectItem value="all">All exchange modes</SelectItem>
+                <SelectItem value="cash">Cash only</SelectItem>
+                <SelectItem value="reward">Rewards only</SelectItem>
+                <SelectItem value="both">Rewards + cash</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={sortOption}
+            onValueChange={(value) => {
+              const nextValue = value as ProgramSortOption
+              const nextParams = new URLSearchParams(searchParams)
+              if (nextValue === 'newest') {
+                nextParams.delete('sort')
+              } else {
+                nextParams.set('sort', nextValue)
+              }
+              setSearchParams(nextParams, { replace: true })
+            }}
+          >
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[170px] sm:shrink-0">
+              <ArrowUpDown className="size-4 text-muted-foreground" aria-hidden />
+              <SelectValue placeholder="Sort by newest" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Sort programs</SelectLabel>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+                <SelectItem value="status">By status</SelectItem>
+                <SelectItem value="points-high">Points high to low</SelectItem>
+                <SelectItem value="points-low">Points low to high</SelectItem>
+                {cardMode === 'owner' ? (
+                  <>
+                    <SelectItem value="agents-high">Agents high to low</SelectItem>
+                    <SelectItem value="agents-low">Agents low to high</SelectItem>
+                  </>
+                ) : null}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="button"
+            variant="secondary"
+            className="gap-2 sm:shrink-0"
+            onClick={() => navigate('/programs/docs')}
+          >
+            <FileText className="size-4" aria-hidden />
+            Docs
+          </Button>
 
           {ownerCanCreate ? (
             <Button
