@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { transactionStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
+import { buildProspectDetailPath } from '@/features/prospects/paths'
 import { ApiError } from '@/lib/api'
 
 import { fetchTransaction } from '../api'
@@ -110,7 +111,14 @@ export function TransactionDetailPage() {
           <PageHeaderToolbar>
             {transaction.prospect ? (
               <Button asChild variant="outline">
-                <Link to={`/prospects/${transaction.prospect.id}`}>Ouvrir le prospect</Link>
+                <Link
+                  to={buildProspectDetailPath({
+                    prospectId: transaction.prospect.id,
+                    agentId: transaction.agent_id,
+                  })}
+                >
+                  Ouvrir le prospect
+                </Link>
               </Button>
             ) : null}
             <Button asChild variant="outline">
@@ -225,7 +233,12 @@ export function TransactionDetailPage() {
               </div>
               {transaction.prospect ? (
                 <Button asChild variant="outline" size="sm">
-                  <Link to={`/prospects/${transaction.prospect.id}`}>
+                  <Link
+                    to={buildProspectDetailPath({
+                      prospectId: transaction.prospect.id,
+                      agentId: transaction.agent_id,
+                    })}
+                  >
                     <Link2 className="mr-2 h-4 w-4" />
                     Ouvrir
                   </Link>

@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BadgeCheck, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
-import { KpiCard, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPrograms } from '../../programs/api'
@@ -17,6 +17,7 @@ import {
   fetchDeletedProspects,
   fetchProspects,
 } from '../api'
+import { buildProspectDetailPath } from '../paths'
 import { addLocalIacrmProspect } from '../../iacrm/prospectStore'
 import { getIacrmConfig } from '../../iacrm/api'
 import { PageHeader } from '@/components/app/PageHeader'
@@ -50,6 +51,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import type {
   ProspectPipelineStage,
   ProspectRecord,
@@ -174,6 +176,45 @@ function compareProspects(left: ProspectRecord, right: ProspectRecord, key: Pros
                 : left.contact_name.localeCompare(right.contact_name)
 
   return result * modifier
+}
+
+function ProspectsPageSkeleton() {
+  return (
+    <section className="app-section">
+      <PageHeader
+        title={<Skeleton className="h-6 w-24" />}
+        right={<Skeleton className="h-9 w-28 rounded-md" />}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <KpiCardSkeleton key={index} />
+        ))}
+      </div>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-72 max-w-full" />
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+            <Skeleton className="h-9 w-full sm:w-[240px]" />
+            <Skeleton className="h-9 w-full sm:w-[170px]" />
+            <Skeleton className="h-9 w-full sm:w-[170px]" />
+            <Skeleton className="h-9 w-full sm:w-[170px]" />
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg bg-background/40">
+          <div className="h-11 bg-muted/30" />
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={index} className="h-16 border-t border-border/50 bg-card/70 first:border-t-0" />
+          ))}
+        </div>
+      </article>
+    </section>
+  )
 }
 
 export function ProspectsPage() {
@@ -365,9 +406,7 @@ export function ProspectsPage() {
     : []
 
   if (sourceQuery.isPending) {
-    return (
-      <article className="app-panel text-sm text-muted-foreground">Loading prospects...</article>
-    )
+    return <ProspectsPageSkeleton />
   }
 
   if (sourceQuery.isError) {
@@ -682,7 +721,10 @@ export function ProspectsPage() {
                       <TableCell className="text-center text-muted-foreground">{rank}</TableCell>
                       <TableCell className="min-w-0">
                         <Link
-                          to={`/prospects/${prospect.id}`}
+                          to={buildProspectDetailPath({
+                            prospectId: prospect.id,
+                            agentId: prospect.agent_id,
+                          })}
                           className="group -m-1 block rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
@@ -788,7 +830,11 @@ export function ProspectsPage() {
                             {(prospect.history_count ?? 0).toLocaleString('fr-FR')} events
                           </span>
                           <Link
-                            to={`/prospects/${prospect.id}#prospect-timeline`}
+                            to={buildProspectDetailPath({
+                              prospectId: prospect.id,
+                              agentId: prospect.agent_id,
+                              hash: '#prospect-history',
+                            })}
                             className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -822,10 +868,23 @@ export function ProspectsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-[10rem]">
                             <DropdownMenuItem asChild>
-                              <Link to={`/prospects/${prospect.id}`}>Open detail</Link>
+                              <Link
+                                to={buildProspectDetailPath({
+                                  prospectId: prospect.id,
+                                  agentId: prospect.agent_id,
+                                })}
+                              >
+                                Open detail
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/prospects/${prospect.id}#prospect-timeline`}>
+                              <Link
+                                to={buildProspectDetailPath({
+                                  prospectId: prospect.id,
+                                  agentId: prospect.agent_id,
+                                  hash: '#prospect-history',
+                                })}
+                              >
                                 View timeline
                               </Link>
                             </DropdownMenuItem>

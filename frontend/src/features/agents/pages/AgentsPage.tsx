@@ -9,7 +9,7 @@ import { AddAgentDialog } from '../components/AddAgentDialog'
 import { AgentLifecycleConfirmDialog, type AgentLifecycleAction } from '../components/AgentActionDialogs'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import {
   agentStatusBadgeClass,
@@ -45,6 +45,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { AgentRecord } from '@/types/agents'
 
 type AgentSortKey = 'agent' | 'status' | 'joined'
@@ -84,6 +85,43 @@ function compareAgents(left: AgentRecord, right: AgentRecord, key: AgentSortKey,
         : (left.display_name ?? left.email ?? '').localeCompare(right.display_name ?? right.email ?? '')
 
   return result * modifier
+}
+
+function AgentsPageSkeleton() {
+  return (
+    <section className="app-section">
+      <PageHeader
+        title={<Skeleton className="h-6 w-24" />}
+        right={<Skeleton className="h-9 w-28 rounded-md" />}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <KpiCardSkeleton key={index} />
+        ))}
+      </div>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Skeleton className="h-9 w-full sm:w-[260px]" />
+            <Skeleton className="h-9 w-full sm:w-[150px]" />
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg bg-background/40">
+          <div className="h-11 bg-muted/30" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-16 border-t border-border/50 bg-card/70 first:border-t-0" />
+          ))}
+        </div>
+      </article>
+    </section>
+  )
 }
 
 export function AgentsPage() {
@@ -196,7 +234,7 @@ export function AgentsPage() {
   }, [page, pageSafe])
 
   if (listQuery.isPending) {
-    return <article className="app-panel text-sm text-muted-foreground">Loading agents...</article>
+    return <AgentsPageSkeleton />
   }
 
   if (listQuery.isError) {

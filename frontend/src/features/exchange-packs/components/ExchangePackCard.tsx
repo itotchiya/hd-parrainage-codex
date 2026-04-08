@@ -121,7 +121,7 @@ export function ExchangePackCard({
       : 'Vous n’avez pas la permission de supprimer ce pack.'
 
   return (
-    <Card className="rounded-lg border shadow-none">
+    <Card className="rounded-lg border-0 shadow-none">
       <div className="flex flex-col gap-1.5 p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <Link to={`/exchange-packs/${pack.id}`} className="group flex min-w-0 flex-1 cursor-pointer items-start">
@@ -378,7 +378,7 @@ export function ExchangePackCard({
 
 export function ExchangePackCardSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn('rounded-lg border shadow-none', className)}>
+    <Card className={cn('rounded-lg border-0 shadow-none', className)}>
       <div className="flex flex-col gap-1.5 p-3 sm:p-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1 space-y-2">

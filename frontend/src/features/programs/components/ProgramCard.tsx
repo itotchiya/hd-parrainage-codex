@@ -546,7 +546,7 @@ export function ProgramCard({
   }
 
   return (
-    <Card className="rounded-lg border shadow-none">
+    <Card className="rounded-lg border-0 shadow-none">
       <div className="flex flex-col gap-1.5 p-3 sm:p-4">
         <div className="flex min-w-0 items-start gap-2.5">
           <Link to={`/programs/${program.id}`} className="group flex min-w-0 flex-1 cursor-pointer items-start">

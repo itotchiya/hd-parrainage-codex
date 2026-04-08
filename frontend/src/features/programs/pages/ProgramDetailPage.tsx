@@ -29,6 +29,7 @@ import { fetchAgents } from '../../agents/api'
 import { fetchProspects, createProspect } from '../../prospects/api'
 import { NewProspectDialog } from '../../prospects/components/NewProspectDialog'
 import { AddProspectMethodDialog } from '../../prospects/components/AddProspectMethodDialog'
+import { buildProspectDetailPath } from '../../prospects/paths'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr, programStatusBadgeClass } from '../../dashboard/utils/semanticBadges'
@@ -55,6 +56,7 @@ import {
 } from '../components/ProgramActionDialogs'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
+import { useAppBreadcrumbTrail } from '@/layouts/AppShell'
 import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -432,6 +434,15 @@ export function ProgramDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ['prospects'] })
     },
   })
+
+  useAppBreadcrumbTrail(
+    programQuery.data?.data
+      ? [
+          { label: 'Programs', to: '/programs' },
+          { label: programQuery.data.data.name },
+        ]
+      : null,
+  )
 
   if (!programId) {
     return (
@@ -888,7 +899,7 @@ export function ProgramDetailPage() {
       </div>
 
       <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <article className="min-w-0 rounded-lg border-0 bg-card p-4 shadow-sm sm:p-5">
           <DashboardSectionHeader
             title="Program preview"
           />
@@ -921,7 +932,7 @@ export function ProgramDetailPage() {
           </div>
         </article>
 
-        <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <article className="min-w-0 rounded-lg border-0 bg-card p-4 shadow-sm sm:p-5">
           <DashboardSectionHeader title="Exchange setup" />
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -1175,7 +1186,10 @@ export function ProgramDetailPage() {
                         </TableCell>
                         <TableCell>
                           <Link
-                            to={`/prospects/${prospect.id}`}
+                            to={buildProspectDetailPath({
+                              prospectId: prospect.id,
+                              agentId: prospect.agent_id,
+                            })}
                             className="group -m-1 block min-w-0 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           >
                             <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">

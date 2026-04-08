@@ -38,10 +38,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { agentStatusBadgeClass, programStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
+import { buildProspectDetailPath } from '@/features/prospects/paths'
+import { useAppBreadcrumbTrail } from '@/layouts/AppShell'
 import { ApiError } from '@/lib/api'
 import { avatarSeedForUser } from '@/lib/avatar-fallback'
 import { cn } from '@/lib/utils'
 import type { AgentProspectSummary, AgentRecord } from '@/types/agents'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { useAuthSession } from '../../auth/session'
 import { fetchAgent, reactivateAgent, suspendAgent } from '../api'
@@ -185,51 +188,51 @@ function AgentDetailSkeleton() {
     <section className="app-section">
       <div className="flex flex-col gap-2 pb-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-muted/50" />
-          <div className="h-6 w-40 rounded-md bg-muted/50" />
-          <div className="h-5 w-16 rounded-full bg-muted/50" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <Skeleton className="h-6 w-40 rounded-md" />
+          <Skeleton className="h-5 w-16 rounded-full" />
         </div>
-        <div className="h-8 w-28 rounded-md bg-muted/50" />
+        <Skeleton className="h-9 w-28 rounded-md" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="rounded-xl border-0 bg-card p-5">
           <div className="flex items-start gap-4">
-            <div className="size-16 rounded-2xl bg-muted/50" />
+            <Skeleton className="size-16 rounded-2xl" />
             <div className="space-y-2">
-              <div className="h-6 w-40 rounded-md bg-muted/50" />
-              <div className="h-4 w-28 rounded-md bg-muted/40" />
-              <div className="h-4 w-52 rounded-md bg-muted/40" />
+              <Skeleton className="h-6 w-40 rounded-md" />
+              <Skeleton className="h-4 w-28 rounded-md" />
+              <Skeleton className="h-4 w-52 rounded-md" />
             </div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-[74px] rounded-lg border border-border bg-muted/30" />
+              <Skeleton key={index} className="h-[74px] rounded-lg" />
             ))}
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="h-5 w-36 rounded-md bg-muted/50" />
+        <div className="rounded-xl border-0 bg-card p-5">
+          <Skeleton className="h-5 w-36 rounded-md" />
           <div className="mt-4 space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-14 rounded-lg border border-dashed border-border bg-muted/20" />
+              <Skeleton key={index} className="h-14 rounded-lg" />
             ))}
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl border-0 bg-card p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="h-5 w-40 rounded-md bg-muted/50" />
+          <Skeleton className="h-5 w-40 rounded-md" />
           <div className="flex gap-2">
-            <div className="h-8 w-44 rounded-md bg-muted/50" />
-            <div className="h-8 w-32 rounded-md bg-muted/50" />
+            <Skeleton className="h-8 w-44 rounded-md" />
+            <Skeleton className="h-8 w-32 rounded-md" />
           </div>
         </div>
-        <div className="mt-4 overflow-hidden rounded-lg border border-border">
-          <div className="h-11 border-b border-border bg-muted/20" />
+        <div className="mt-4 overflow-hidden rounded-lg bg-background/40">
+          <div className="h-11 bg-muted/30" />
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="h-16 border-b border-border bg-card last:border-b-0" />
+            <div key={index} className="h-16 border-t border-border/50 bg-card/70 first:border-t-0" />
           ))}
         </div>
       </div>
@@ -297,6 +300,15 @@ export function AgentDetailPage() {
   const visiblePrograms = assignedPrograms.slice(0, 2)
   const hasMorePrograms = assignedPrograms.length > visiblePrograms.length
   const prospects = agent?.prospects ?? []
+
+  useAppBreadcrumbTrail(
+    agent
+      ? [
+          { label: 'Agents', to: '/agents' },
+          { label: agent.display_name ?? 'Affilié' },
+        ]
+      : null,
+  )
   const actionsBusy = suspendMutation.isPending || reactivateMutation.isPending
 
   const filteredProspects = useMemo(() => {
@@ -508,7 +520,7 @@ export function AgentDetailPage() {
             {agent.actions?.can_suspend && canSuspend ? (
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
                 className="cursor-pointer"
                 disabled={actionsBusy}
                 onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
@@ -520,6 +532,7 @@ export function AgentDetailPage() {
             {agent.actions?.can_reactivate && canReactivate ? (
               <Button
                 type="button"
+                variant="outline"
                 className="cursor-pointer"
                 disabled={actionsBusy}
                 onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
@@ -533,7 +546,7 @@ export function AgentDetailPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
-        <DetailSectionCard title="Profil affilié" className="h-full">
+        <DetailSectionCard title="Profil affilié" className="h-full border-0">
           <div className="space-y-3">
             <EntityCardIdentity
               leading={
@@ -567,7 +580,7 @@ export function AgentDetailPage() {
         <DetailSectionCard
           title="Programmes assignés"
           description="Programmes actuellement rattachés à cet affilié."
-          className="h-full"
+          className="h-full border-0"
         >
           {assignedPrograms.length === 0 ? (
             <DetailEmptyState message="Aucun programme n’est encore assigné à cet affilié." />
@@ -619,6 +632,7 @@ export function AgentDetailPage() {
       <DetailSectionCard
         title="Prospects de l’affilié"
         description="Tous les prospects créés par cet affilié, avec filtres et pagination."
+        className="border-0"
         right={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <div className="relative w-full sm:w-[260px]">
@@ -705,7 +719,10 @@ export function AgentDetailPage() {
                     <TableRow key={prospect.id}>
                       <TableCell>
                         <Link
-                          to={`/prospects/${prospect.id}`}
+                          to={buildProspectDetailPath({
+                            prospectId: prospect.id,
+                            agentId,
+                          })}
                           className="block cursor-pointer rounded-md px-1 py-0.5 text-left transition hover:bg-muted/40"
                         >
                           <p className="font-medium text-foreground">{prospect.contact_name}</p>

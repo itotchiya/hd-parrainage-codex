@@ -31,6 +31,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 const BreadcrumbDetailTitleContext = createContext<Dispatch<SetStateAction<string | null>> | null>(null)
+type AppBreadcrumbItem = {
+  label: string
+  to?: string | null
+}
+const BreadcrumbTrailContext = createContext<Dispatch<SetStateAction<AppBreadcrumbItem[] | null>> | null>(null)
 
 export function useAppBreadcrumbDetailTitle(title: string | null) {
   const setBreadcrumbDetailTitle = useContext(BreadcrumbDetailTitleContext)
@@ -44,6 +49,20 @@ export function useAppBreadcrumbDetailTitle(title: string | null) {
       setBreadcrumbDetailTitle(null)
     }
   }, [setBreadcrumbDetailTitle, title])
+}
+
+export function useAppBreadcrumbTrail(trail: AppBreadcrumbItem[] | null) {
+  const setBreadcrumbTrail = useContext(BreadcrumbTrailContext)
+
+  useEffect(() => {
+    if (!setBreadcrumbTrail) return
+
+    setBreadcrumbTrail(trail)
+
+    return () => {
+      setBreadcrumbTrail(null)
+    }
+  }, [setBreadcrumbTrail, trail])
 }
 
 export function AppShell() {
@@ -79,6 +98,7 @@ export function AppShell() {
   })
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
   const [breadcrumbDetailTitle, setBreadcrumbDetailTitle] = useState<string | null>(null)
+  const [breadcrumbTrail, setBreadcrumbTrail] = useState<AppBreadcrumbItem[] | null>(null)
   const [iacrmConfigured, setIacrmConfigured] = useState(() => {
     if (typeof window === 'undefined') return true
     return Boolean(getIacrmConfig()?.base_url)
@@ -129,6 +149,26 @@ export function AppShell() {
     !isExchangePackDetailRoute && (
       hasDeepPath || pathSegments.some((segment, index) => index > 0 && isIdLike(segment))
     )
+  const defaultBreadcrumbTrail: AppBreadcrumbItem[] = isProgramDocsRoute
+    ? [
+        { label: 'Programs', to: '/programs' },
+        { label: 'Documentation' },
+      ]
+    : isExchangePackDetailRoute
+      ? [
+          { label: 'Exchange packs', to: '/exchange-packs' },
+          { label: breadcrumbDetailTitle ?? activeRoute.title },
+        ]
+      : [{ label: activeRoute.title }]
+  const effectiveBreadcrumbTrail = breadcrumbTrail ?? defaultBreadcrumbTrail
+  const visibleBreadcrumbTrail =
+    effectiveBreadcrumbTrail.length > 2
+      ? effectiveBreadcrumbTrail.slice(-2)
+      : effectiveBreadcrumbTrail
+  const collapsedBreadcrumbTrail =
+    effectiveBreadcrumbTrail.length > 2
+      ? effectiveBreadcrumbTrail.slice(0, -2)
+      : []
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -269,39 +309,62 @@ export function AppShell() {
                     <BreadcrumbLink to="/dashboard">Dashboard</BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block" />
-                  {isProgramDocsRoute ? (
+                  {collapsedBreadcrumbTrail.length > 0 || shouldShowEllipsis ? (
                     <>
                       <BreadcrumbItem className="hidden md:block">
-                        <BreadcrumbLink to="/programs">Programs</BreadcrumbLink>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 cursor-pointer rounded-md"
+                              aria-label="Afficher le chemin complet"
+                            >
+                              <BreadcrumbEllipsis className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="min-w-[12rem]">
+                            {collapsedBreadcrumbTrail.length > 0 ? (
+                              collapsedBreadcrumbTrail.map((item, index) =>
+                                item.to ? (
+                                  <DropdownMenuItem
+                                    key={`${item.label}-${index}`}
+                                    className="cursor-pointer"
+                                    onClick={() => navigate(item.to!)}
+                                  >
+                                    {item.label}
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuLabel key={`${item.label}-${index}`}>
+                                    {item.label}
+                                  </DropdownMenuLabel>
+                                ),
+                              )
+                            ) : (
+                              <DropdownMenuLabel>{activeRoute.title}</DropdownMenuLabel>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </BreadcrumbItem>
                       <BreadcrumbSeparator className="hidden md:block" />
                     </>
                   ) : null}
-                  {isExchangePackDetailRoute ? (
-                    <>
-                      <BreadcrumbItem className="hidden md:block">
-                        <BreadcrumbLink to="/exchange-packs">Exchange packs</BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator className="hidden md:block" />
-                    </>
-                  ) : null}
-                  {shouldShowEllipsis ? (
-                    <>
-                      <BreadcrumbItem className="hidden md:block">
-                        <BreadcrumbEllipsis />
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator className="hidden md:block" />
-                    </>
-                  ) : null}
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>
-                      {isProgramDocsRoute
-                        ? 'Documentation'
-                        : isExchangePackDetailRoute
-                          ? breadcrumbDetailTitle ?? activeRoute.title
-                          : activeRoute.title}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
+                  {visibleBreadcrumbTrail.map((item, index) => {
+                    const isLast = index === visibleBreadcrumbTrail.length - 1
+                    return (
+                      <span key={`${item.label}-${index}`} className="contents">
+                        <BreadcrumbItem>
+                          {isLast || !item.to ? (
+                            <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink to={item.to}>{item.label}</BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                        {!isLast ? <BreadcrumbSeparator className="hidden md:block" /> : null}
+                      </span>
+                    )
+                  })}
                 </BreadcrumbList>
               </Breadcrumb>
             )}
@@ -476,7 +539,9 @@ export function AppShell() {
 
       <div className="w-full px-4 py-4 md:px-6 md:py-6">
         <BreadcrumbDetailTitleContext.Provider value={setBreadcrumbDetailTitle}>
-          <Outlet />
+          <BreadcrumbTrailContext.Provider value={setBreadcrumbTrail}>
+            <Outlet />
+          </BreadcrumbTrailContext.Provider>
         </BreadcrumbDetailTitleContext.Provider>
       </div>
     </>
