@@ -110,7 +110,9 @@ class PointsDemoSeeder extends Seeder
                     'completed_at' => now()->subHours(18),
                 ]);
 
-                PointsLedger::query()->create([
+                PointsLedger::query()->updateOrCreate(
+                    ['idempotency_key' => "exchange-{$completedRewardRequest->id}-consumed"],
+                    [
                     'business_id' => $transaction->business_id,
                     'program_id' => $siteProgram->id,
                     'agent_id' => $transaction->agent_id,
@@ -123,9 +125,9 @@ class PointsDemoSeeder extends Seeder
                     'points_delta' => -1 * $starterItem->points_cost,
                     'source' => 'exchange_reward_completed',
                     'description' => 'Completed reward redemption consumed available points.',
-                    'idempotency_key' => "exchange-{$completedRewardRequest->id}-consumed",
                     'effective_at' => $completedRewardRequest->completed_at ?? now(),
-                ]);
+                    ],
+                );
             }
         }
 
@@ -153,7 +155,9 @@ class PointsDemoSeeder extends Seeder
                     'approved_at' => now()->subHours(24),
                 ]);
 
-                PointsLedger::query()->create([
+                PointsLedger::query()->updateOrCreate(
+                    ['idempotency_key' => "exchange-{$cashRequest->id}-locked"],
+                    [
                     'business_id' => $transaction->business_id,
                     'program_id' => $saasProgram->id,
                     'agent_id' => $transaction->agent_id,
@@ -166,9 +170,9 @@ class PointsDemoSeeder extends Seeder
                     'points_delta' => -400,
                     'source' => 'exchange_cash_approved',
                     'description' => 'Approved cash exchange request locked points pending payout.',
-                    'idempotency_key' => "exchange-{$cashRequest->id}-locked",
                     'effective_at' => $cashRequest->approved_at ?? now(),
-                ]);
+                    ],
+                );
             }
 
             if ($rewardPreviewItem !== null) {
@@ -200,7 +204,9 @@ class PointsDemoSeeder extends Seeder
         string $source,
         string $description,
     ): void {
-        PointsLedger::query()->create([
+        PointsLedger::query()->updateOrCreate(
+            ['idempotency_key' => "transaction-{$transaction->id}-points"],
+            [
             'business_id' => $transaction->business_id,
             'program_id' => $transaction->program_id,
             'agent_id' => $transaction->agent_id,
@@ -213,14 +219,14 @@ class PointsDemoSeeder extends Seeder
             'points_delta' => $pointsDelta,
             'source' => $source,
             'description' => $description,
-            'idempotency_key' => "{$transaction->transaction_reference}-{$entryStatus}",
             'effective_at' => $transaction->paid_at
                 ?? $transaction->validated_at
                 ?? $transaction->rejected_at
                 ?? $transaction->recognized_at
                 ?? $transaction->occurred_at
                 ?? now(),
-        ]);
+            ],
+        );
     }
 
     private function resolvePointsValue(Transaction $transaction, Program $program): ?int

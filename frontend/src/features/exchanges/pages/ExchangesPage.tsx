@@ -162,7 +162,7 @@ export function ExchangesPage() {
 
   const programBalancesQuery = useQuery({
     queryKey: ['points', 'by-program', 'exchanges-form'],
-    queryFn: fetchPointsByProgram,
+    queryFn: () => fetchPointsByProgram(),
     enabled: canCreate,
   })
 

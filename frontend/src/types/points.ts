@@ -16,6 +16,7 @@ export type PointsLedgerEntryType =
 
 export interface PointsSummaryRecord {
   forecast_points: number
+  projected_points?: number
   pending_points: number
   available_points: number
   locked_points: number
@@ -39,6 +40,7 @@ export interface PointsProgramBalanceRecord {
     status: string
   }>
   forecast_points: number
+  projected_points?: number
   pending_points: number
   available_points: number
   locked_points: number
@@ -90,4 +92,13 @@ export interface PointsByProgramEnvelope {
 
 export interface PointsLedgerEnvelope {
   data: PointsLedgerRecord[]
+}
+
+export interface PointsQueryParams {
+  search?: string
+  entryStatus?: PointsLedgerEntryStatus | 'all'
+  programId?: string
+  agentId?: string
+  dateFrom?: string
+  dateTo?: string
 }

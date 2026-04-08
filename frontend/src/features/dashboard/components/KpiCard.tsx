@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react'
-import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, CircleHelp, Minus } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { IconTile } from '@/components/ui/icon-tile'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type {
   DashboardMetricBadge,
@@ -26,6 +27,7 @@ interface KpiCardProps {
   badge: DashboardMetricBadge
   icon: ComponentType<{ className?: string }>
   tone: KpiTone
+  help?: string
 }
 
 const toneStyles: Record<
@@ -75,6 +77,7 @@ export function KpiCard({
   badge,
   icon,
   tone,
+  help,
 }: KpiCardProps) {
   const styles = toneStyles[tone]
   const TrendIcon = badge.icon ? trendIcons[badge.icon] : null
@@ -84,7 +87,27 @@ export function KpiCard({
     <Card className="flex flex-col gap-3 rounded-lg border-0 bg-card shadow-none app-card-padding">
       <div className="flex min-w-0 items-center gap-2.5">
         <IconTile icon={icon} className={styles.icon} />
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</p>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <p className="min-w-0 truncate text-sm font-medium text-foreground">{title}</p>
+          {help ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label={`Explain ${title}`}
+                  >
+                    <CircleHelp className="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-pretty">
+                  {help}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </div>
       </div>
 
       <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.04em] text-foreground md:text-[2rem]">

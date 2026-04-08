@@ -25,9 +25,12 @@ class PointsController extends Controller
         $ledgerEntries = $this->filteredLedgerEntries($request, $user);
         $openProspects = $this->filteredOpenProspects($request, $user);
 
+        $projectedPoints = $this->forecastPointsForProspects($openProspects);
+
         return response()->json([
             'data' => [
-                'forecast_points' => $this->forecastPointsForProspects($openProspects),
+                'forecast_points' => $projectedPoints,
+                'projected_points' => $projectedPoints,
                 'pending_points' => $this->sumLedgerPointsByStatus($ledgerEntries, 'pending'),
                 'available_points' => $this->sumLedgerPointsByStatus($ledgerEntries, 'available'),
                 'locked_points' => $this->sumAbsoluteLedgerPointsByStatus($ledgerEntries, 'locked'),
@@ -62,16 +65,31 @@ class PointsController extends Controller
                 'exchangeRequest',
             ]);
 
+        $this->applyScopedFilters($entries, $request, 'effective_at');
+
         if ($request->filled('entry_status')) {
             $entries->where('entry_status', (string) $request->string('entry_status'));
         }
 
-        if ($request->filled('program_id')) {
-            $entries->where('program_id', (string) $request->string('program_id'));
-        }
+        if ($request->filled('search')) {
+            $search = trim((string) $request->string('search'));
 
-        if ($request->filled('agent_id')) {
-            $entries->where('agent_id', (string) $request->string('agent_id'));
+            $entries->where(function (Builder $query) use ($search): void {
+                $query
+                    ->where('source', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('program', fn (Builder $programQuery) => $programQuery->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('agent.user', fn (Builder $agentUserQuery) => $agentUserQuery
+                        ->where('display_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%"))
+                    ->orWhereHas('prospect', fn (Builder $prospectQuery) => $prospectQuery
+                        ->where('contact_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('contact_email', 'like', "%{$search}%"))
+                    ->orWhereHas('transaction', fn (Builder $transactionQuery) => $transactionQuery
+                        ->where('transaction_reference', 'like', "%{$search}%")
+                        ->orWhere('product_name', 'like', "%{$search}%"));
+            });
         }
 
         $data = $entries
@@ -115,6 +133,8 @@ class PointsController extends Controller
             $entries = $groupedLedger->get($programId, collect());
             $prospects = $groupedProspects->get($programId, collect());
 
+            $projectedPoints = $this->forecastPointsForProspects($prospects);
+
             return [
                 'program_id' => $programId,
                 'program_name' => $program?->name,
@@ -131,7 +151,8 @@ class PointsController extends Controller
                         'status' => $item->status,
                     ])
                     ->all() ?? [],
-                'forecast_points' => $this->forecastPointsForProspects($prospects),
+                'forecast_points' => $projectedPoints,
+                'projected_points' => $projectedPoints,
                 'pending_points' => $this->sumLedgerPointsByStatus($entries, 'pending'),
                 'available_points' => $this->sumLedgerPointsByStatus($entries, 'available'),
                 'locked_points' => $this->sumAbsoluteLedgerPointsByStatus($entries, 'locked'),
@@ -150,14 +171,7 @@ class PointsController extends Controller
     private function filteredLedgerEntries(Request $request, User $user): Collection
     {
         $query = $this->ledgerQuery($user);
-
-        if ($request->filled('program_id')) {
-            $query->where('program_id', (string) $request->string('program_id'));
-        }
-
-        if ($request->filled('agent_id')) {
-            $query->where('agent_id', (string) $request->string('agent_id'));
-        }
+        $this->applyScopedFilters($query, $request, 'effective_at');
 
         return $query->get();
     }
@@ -165,7 +179,15 @@ class PointsController extends Controller
     private function filteredOpenProspects(Request $request, User $user): Collection
     {
         $query = $this->openProspectsQuery($user);
+        $this->applyScopedFilters($query, $request, 'submitted_at');
 
+        return $query
+            ->with(['program', 'transactions'])
+            ->get();
+    }
+
+    private function applyScopedFilters(Builder $query, Request $request, string $dateColumn): void
+    {
         if ($request->filled('program_id')) {
             $query->where('program_id', (string) $request->string('program_id'));
         }
@@ -174,9 +196,13 @@ class PointsController extends Controller
             $query->where('agent_id', (string) $request->string('agent_id'));
         }
 
-        return $query
-            ->with(['program', 'transactions'])
-            ->get();
+        if ($request->filled('date_from')) {
+            $query->whereDate($dateColumn, '>=', (string) $request->string('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate($dateColumn, '<=', (string) $request->string('date_to'));
+        }
     }
 
     private function ledgerQuery(User $user): Builder

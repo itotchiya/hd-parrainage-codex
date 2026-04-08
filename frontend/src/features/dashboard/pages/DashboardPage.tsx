@@ -99,7 +99,7 @@ export function DashboardPage() {
   })
   const pointsLedgerQuery = useQuery({
     queryKey: ['dashboard', 'points-ledger'],
-    queryFn: fetchPointsLedger,
+    queryFn: () => fetchPointsLedger(),
     enabled: isBusinessOwner,
   })
   const agentsQuery = useQuery({
