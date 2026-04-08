@@ -1,3 +1,6 @@
+# IACRM simulator — lives in its own separate repo
+/mock/
+
 # --- Local-only workspace (not pushed to public remote) ---
 # Leading `/` = repository root only (so we do NOT ignore frontend/src/app or backend/app).
 /.agents/
