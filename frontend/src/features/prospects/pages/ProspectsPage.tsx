@@ -438,13 +438,13 @@ export function ProspectsPage() {
                   onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
                   disabled={showDeleted}
                 >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                     <SelectValue placeholder="Stage" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Pipeline stage</SelectLabel>
-                      <SelectItem value="all">All stages</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       {Object.entries(stagePresentation).map(([key, stage]) => (
                         <SelectItem key={key} value={key}>
                           {stage.label}
@@ -456,13 +456,13 @@ export function ProspectsPage() {
 
                 {hasPermission('prospect.view') && user?.agent_profile === null ? (
                   <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                       <SelectValue placeholder="Agent" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>Agent</SelectLabel>
-                        <SelectItem value="all">All agents</SelectItem>
+                        <SelectItem value="all">All</SelectItem>
                         {agentOptions.map((agent) => (
                           <SelectItem key={agent.id} value={agent.id}>
                             {agent.name}
@@ -531,13 +531,13 @@ export function ProspectsPage() {
                   onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
                   disabled={showDeleted}
                 >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                     <SelectValue placeholder="Stage" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Pipeline stage</SelectLabel>
-                      <SelectItem value="all">All stages</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       {Object.entries(stagePresentation).map(([key, stage]) => (
                         <SelectItem key={key} value={key}>
                           {stage.label}
@@ -549,13 +549,13 @@ export function ProspectsPage() {
 
                 {hasPermission('prospect.view') && user?.agent_profile === null ? (
                   <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                       <SelectValue placeholder="Agent" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         <SelectLabel>Agent</SelectLabel>
-                        <SelectItem value="all">All agents</SelectItem>
+                        <SelectItem value="all">All</SelectItem>
                         {agentOptions.map((agent) => (
                           <SelectItem key={agent.id} value={agent.id}>
                             {agent.name}

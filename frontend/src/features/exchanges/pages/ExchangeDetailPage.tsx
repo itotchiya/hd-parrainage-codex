@@ -1,6 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  BadgeCheck,
+  Banknote,
+  CircleDashed,
+  Coins,
+  Gift,
+  WalletCards,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError } from '../../../lib/api'
+
+import {
+  DetailEmptyState,
+  DetailMetaGrid,
+  DetailMetaItem,
+  DetailSectionCard,
+} from '@/components/app/DetailPageKit'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
 import { useAuthSession } from '../../auth/session'
 import {
   approveExchangeRequest,
@@ -12,21 +33,47 @@ import {
 } from '../api'
 import type { ExchangeRequestStatus } from '../../../types/exchanges'
 
-const statusPresentation: Record<ExchangeRequestStatus, { label: string; className: string }> = {
-  requested: { label: 'Requested', className: 'bg-blue-100 text-blue-700' },
-  approved: { label: 'Approved', className: 'bg-amber-100 text-amber-700' },
-  rejected: { label: 'Rejected', className: 'bg-rose-100 text-rose-700' },
-  processing: { label: 'Processing', className: 'bg-indigo-100 text-indigo-700' },
-  completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-700' },
+const statusPresentation: Record<
+  ExchangeRequestStatus,
+  { label: string; className: string }
+> = {
+  requested: {
+    label: 'Demandée',
+    className:
+      'border-transparent bg-blue-500/15 text-blue-900 dark:bg-blue-500/20 dark:text-blue-300',
+  },
+  approved: {
+    label: 'Approuvée',
+    className:
+      'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+  },
+  rejected: {
+    label: 'Refusée',
+    className:
+      'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+  },
+  processing: {
+    label: 'Traitement',
+    className:
+      'border-transparent bg-indigo-500/15 text-indigo-900 dark:bg-indigo-500/20 dark:text-indigo-300',
+  },
+  completed: {
+    label: 'Terminée',
+    className:
+      'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+  },
+  cancelled: {
+    label: 'Annulée',
+    className: 'border-transparent bg-muted text-muted-foreground',
+  },
 }
 
 function formatDate(value: string | null, withTime = false) {
   if (!value) {
-    return 'Not available'
+    return 'Indisponible'
   }
 
-  return new Date(value).toLocaleString('en-GB', {
+  return new Date(value).toLocaleString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -97,15 +144,15 @@ export function ExchangeDetailPage() {
   if (!exchangeRequestId) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Exchange request identifier is missing from the current route.
+        Identifiant de demande manquant.
       </article>
     )
   }
 
   if (exchangeQuery.isPending) {
     return (
-      <article className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        Loading exchange detail...
+      <article className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        Chargement du payout...
       </article>
     )
   }
@@ -130,176 +177,227 @@ export function ExchangeDetailPage() {
     cancelMutation.isPending
 
   return (
-    <section className="space-y-5">
-      <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Exchange
-            </p>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-                {exchange.request_type === 'reward'
-                  ? exchange.requested_reward_title ?? exchange.exchange_pack_item_title ?? 'Reward request'
-                  : 'Cash exchange request'}
-              </h1>
-              <p className="mt-2 text-sm text-slate-600">
-                {exchange.agent_name ?? 'Agent'} / {exchange.program_name ?? 'Program'} /{' '}
-                {exchange.business_name ?? 'Business'}
-              </p>
-            </div>
-          </div>
+    <section className="app-section">
+      <PageHeader
+        title={
+          exchange.request_type === 'reward'
+            ? exchange.requested_reward_title ??
+              exchange.exchange_pack_item_title ??
+              'Demande de récompense'
+            : 'Demande de cash'
+        }
+        titleAddon={
+          <>
+            <Badge className={status.className}>{status.label}</Badge>
+            <Badge variant="secondary">
+              {exchange.request_type === 'reward' ? 'Récompense' : 'Cash'}
+            </Badge>
+          </>
+        }
+        right={
+          <PageHeaderToolbar>
+            {exchange.status === 'requested' && canApprove ? (
+              <ActionButton
+                label="Approuver"
+                busy={hasPendingMutation}
+                onClick={() => approveMutation.mutate()}
+                primary
+              />
+            ) : null}
+            {exchange.status === 'requested' && canReject ? (
+              <ActionButton
+                label="Refuser"
+                busy={hasPendingMutation}
+                onClick={() => rejectMutation.mutate()}
+              />
+            ) : null}
+            {exchange.status === 'approved' && canApprove ? (
+              <ActionButton
+                label="En traitement"
+                busy={hasPendingMutation}
+                onClick={() => processingMutation.mutate()}
+              />
+            ) : null}
+            {['approved', 'processing'].includes(exchange.status) && canApprove ? (
+              <ActionButton
+                label="Terminer"
+                busy={hasPendingMutation}
+                onClick={() => completeMutation.mutate()}
+                primary
+              />
+            ) : null}
+            {canCancel ? (
+              <ActionButton
+                label="Annuler"
+                busy={hasPendingMutation}
+                onClick={() => cancelMutation.mutate()}
+              />
+            ) : null}
+            <Button asChild variant="outline">
+              <Link to="/payouts">Retour</Link>
+            </Button>
+          </PageHeaderToolbar>
+        }
+      />
 
-          <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${status.className}`}>
-              {status.label}
-            </span>
-            <span className="rounded-md bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-              {exchange.request_type}
-            </span>
-            <Link
-              to="/payouts"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-            >
-              Back
-            </Link>
-          </div>
-        </div>
-      </article>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Points demandés"
+          value={`${exchange.points_amount.toLocaleString('fr-FR')} pts`}
+          description="Montant débité du solde affilié"
+          badge={kpiSnapshotBadge(exchange.agent_name ?? 'Sans affilié')}
+          icon={Coins}
+          tone="warning"
+        />
+        <KpiCard
+          title="Valeur cash"
+          value={
+            exchange.cash_amount === null
+              ? 'N/A'
+              : formatCurrency(exchange.cash_amount, exchange.currency_code)
+          }
+          description="Seulement pour les demandes cash"
+          badge={kpiSnapshotBadge(exchange.program_name ?? 'Sans programme')}
+          icon={Banknote}
+          tone="success"
+        />
+        <KpiCard
+          title="Demandée le"
+          value={formatDate(exchange.requested_at)}
+          description="Date de création de la demande"
+          badge={kpiSnapshotBadge(exchange.requested_by_name ?? 'Utilisateur')}
+          icon={CircleDashed}
+          tone="info"
+        />
+        <KpiCard
+          title="Pack lié"
+          value={exchange.program_exchange_pack?.name ?? 'Aucun pack'}
+          description="Catalogue utilisé par le programme"
+          badge={kpiSnapshotBadge(`${exchange.ledger_entries.length} écritures`)}
+          icon={WalletCards}
+          tone="primary"
+        />
+      </div>
 
-      <div className="grid gap-4 xl:grid-cols-[0.98fr_1.02fr]">
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Request data
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DataCell label="Points" value={exchange.points_amount.toLocaleString('en-GB')} />
-            <DataCell
-              label="Cash"
-              value={
-                exchange.cash_amount === null
-                  ? 'Not applicable'
-                  : formatCurrency(exchange.cash_amount, exchange.currency_code)
-              }
+      <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
+        <DetailSectionCard
+          title="Vue d’ensemble"
+          description="Informations métier et responsables de validation."
+        >
+          <DetailMetaGrid className="xl:grid-cols-3">
+            <DetailMetaItem label="Affilié" value={exchange.agent_name ?? 'Aucun affilié'} />
+            <DetailMetaItem label="Programme" value={exchange.program_name ?? 'Aucun programme'} />
+            <DetailMetaItem label="Business" value={exchange.business_name ?? 'Plateforme'} />
+            <DetailMetaItem label="Demandée par" value={exchange.requested_by_name ?? 'Utilisateur inconnu'} />
+            <DetailMetaItem label="Décideur" value={exchange.approved_by_name ?? 'En attente'} />
+            <DetailMetaItem
+              label="Récompense"
+              value={exchange.exchange_pack_item_title ?? exchange.requested_reward_title ?? 'Non applicable'}
             />
-            <DataCell label="Requested" value={formatDate(exchange.requested_at, true)} />
-            <DataCell label="Approved" value={formatDate(exchange.approved_at, true)} />
-            <DataCell label="Processing" value={formatDate(exchange.processed_at, true)} />
-            <DataCell label="Completed" value={formatDate(exchange.completed_at, true)} />
-            <DataCell label="Requested by" value={exchange.requested_by_name ?? 'Unknown user'} />
-            <DataCell label="Decision owner" value={exchange.approved_by_name ?? 'Pending'} />
-          </div>
+            <DetailMetaItem label="Demandée le" value={formatDate(exchange.requested_at, true)} />
+            <DetailMetaItem label="Approuvée le" value={formatDate(exchange.approved_at, true)} />
+            <DetailMetaItem label="Terminée le" value={formatDate(exchange.completed_at, true)} />
+          </DetailMetaGrid>
+
           {exchange.notes ? (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
+            <div className="mt-4 rounded-lg border border-border bg-muted/25 px-4 py-4 text-sm leading-6 text-muted-foreground">
               {exchange.notes}
             </div>
           ) : null}
-        </article>
+        </DetailSectionCard>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Actions
-            </p>
-            <span className="text-xs text-slate-500">
-              {exchange.ledger_entries.length} ledger entries
+        <DetailSectionCard
+          title="Pack du programme"
+          description="Récompenses visibles pour cette demande."
+          right={
+            <span className="text-xs text-muted-foreground">
+              {exchange.ledger_entries.length} écritures
             </span>
-          </div>
+          }
+        >
+          {exchange.program_exchange_pack ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/25 px-4 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-md bg-amber-500/15 p-2 text-amber-700 dark:text-amber-300">
+                    <Gift className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {exchange.program_exchange_pack.name}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {exchange.program_exchange_pack.items.length} cadeaux disponibles
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {exchange.status === 'requested' && canApprove ? (
-              <ActionButton label="Approve" busy={hasPendingMutation} onClick={() => approveMutation.mutate()} primary />
-            ) : null}
-            {exchange.status === 'requested' && canReject ? (
-              <ActionButton label="Reject" busy={hasPendingMutation} onClick={() => rejectMutation.mutate()} />
-            ) : null}
-            {exchange.status === 'approved' && canApprove ? (
-              <ActionButton label="Processing" busy={hasPendingMutation} onClick={() => processingMutation.mutate()} />
-            ) : null}
-            {['approved', 'processing'].includes(exchange.status) && canApprove ? (
-              <ActionButton label="Complete" busy={hasPendingMutation} onClick={() => completeMutation.mutate()} primary />
-            ) : null}
-            {canCancel ? (
-              <ActionButton label="Cancel" busy={hasPendingMutation} onClick={() => cancelMutation.mutate()} />
-            ) : null}
-          </div>
-
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Program exchange pack
-            </p>
-            {exchange.program_exchange_pack ? (
-              <div className="mt-3 space-y-3">
-                <h2 className="text-base font-semibold text-slate-950">
-                  {exchange.program_exchange_pack.name}
-                </h2>
+              <div className="space-y-2">
                 {exchange.program_exchange_pack.items.map((item) => (
-                  <article key={item.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <p className="text-sm font-semibold text-slate-950">{item.title}</p>
-                    <p className="mt-1 text-sm text-slate-600">{item.points_cost} pts</p>
+                  <article
+                    key={item.id}
+                    className="rounded-lg border border-border bg-muted/20 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-sm font-semibold text-muted-foreground">
+                        {item.points_cost.toLocaleString('fr-FR')} pts
+                      </p>
+                    </div>
                   </article>
                 ))}
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-slate-600">
-                No active exchange pack. Cash conversion can still apply if the program allows it.
-              </p>
-            )}
-          </div>
-        </article>
+            </div>
+          ) : (
+            <DetailEmptyState message="Aucun pack actif n’est rattaché à ce programme. Le mode cash peut toutefois rester utilisable." />
+          )}
+        </DetailSectionCard>
       </div>
 
-      <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Ledger
-          </p>
-          <span className="text-xs text-slate-500">{exchange.ledger_entries.length} entries</span>
-        </div>
-        <div className="mt-4 space-y-3">
+      <DetailSectionCard
+        title="Journal comptable"
+        description="Historique complet des écritures générées par cette demande."
+        right={<span className="text-xs text-muted-foreground">{exchange.ledger_entries.length} entrées</span>}
+      >
+        <div className="space-y-3">
           {exchange.ledger_entries.length === 0 ? (
-            <EmptyState message="No ledger mutation has been written for this request yet." />
+            <DetailEmptyState message="Aucune écriture n’a encore été enregistrée pour ce payout." />
           ) : (
             exchange.ledger_entries.map((entry) => (
-              <article key={entry.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <article key={entry.id} className="rounded-lg border border-border bg-muted/20 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
-                      {entry.entry_type} / {entry.entry_status}
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      {entry.source}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {entry.entry_type} / {entry.entry_status}
+                      </p>
+                      <Badge variant="secondary">{entry.source}</Badge>
+                    </div>
+                    {entry.description ? (
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{entry.description}</p>
+                    ) : null}
                   </div>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {formatDate(entry.effective_at ?? entry.created_at, true)}
                   </p>
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <DataCell label="Points delta" value={entry.points_delta.toString()} />
-                  <DataCell
-                    label="Status snapshot"
-                    value={entry.exchange_request_status ?? 'Not available'}
+                <DetailMetaGrid className="mt-4">
+                  <DetailMetaItem
+                    label="Delta points"
+                    value={`${entry.points_delta.toLocaleString('fr-FR')} pts`}
                   />
-                </div>
-                {entry.description ? (
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{entry.description}</p>
-                ) : null}
+                  <DetailMetaItem
+                    label="État de la demande"
+                    value={entry.exchange_request_status ?? 'Indisponible'}
+                  />
+                </DetailMetaGrid>
               </article>
             ))
           )}
         </div>
-      </article>
+      </DetailSectionCard>
     </section>
-  )
-}
-
-function DataCell({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
-    </article>
   )
 }
 
@@ -315,25 +413,15 @@ function ActionButton({
   primary?: boolean
 }) {
   return (
-    <button
+    <Button
       type="button"
       disabled={busy}
       onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        primary
-          ? 'bg-slate-950 text-white hover:bg-slate-800'
-          : 'border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-950'
-      }`}
+      variant={primary ? 'default' : 'outline'}
+      className={cn(primary ? '' : 'bg-transparent')}
     >
+      {primary ? <BadgeCheck className="mr-2 h-4 w-4" /> : null}
       {label}
-    </button>
-  )
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <article className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600">
-      {message}
-    </article>
+    </Button>
   )
 }

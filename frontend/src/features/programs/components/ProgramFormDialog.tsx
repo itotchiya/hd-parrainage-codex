@@ -114,7 +114,7 @@ function buildFormState(packs: ExchangePackRecord[], initial?: ProgramRecord | n
     exchange_mode: initial?.exchange_mode ?? 'both',
     points_per_transaction: initial?.points_per_transaction?.toString() ?? '',
     points_per_euro: initial?.points_per_euro?.toString() ?? '',
-    exchange_pack_id: initial?.exchange_pack?.id ?? packs[0]?.id ?? '',
+    exchange_pack_id: initial?.exchange_pack?.id ?? firstAssignablePackId(packs),
     eligibility_criteria: initial?.eligibility_criteria ?? '',
     status: initial?.status ?? 'active',
   }
@@ -141,6 +141,26 @@ function statusBadgeClass(status: string) {
   if (status === 'paused') return 'border-amber-500/25 bg-amber-500/10 text-amber-800'
   return 'border-border bg-muted/40 text-muted-foreground'
 }
+
+function normalizeIacrmText(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function activeRewardItemCount(pack: ExchangePackRecord | null | undefined) {
+  if (!pack) return 0
+  return pack.active_items_count ?? pack.items.filter((item) => item.status === 'active').length
+}
+
+function isRewardPackAssignable(pack: ExchangePackRecord | null | undefined) {
+  return activeRewardItemCount(pack) > 0
+}
+
+function firstAssignablePackId(packs: ExchangePackRecord[]) {
+  return packs.find(isRewardPackAssignable)?.id ?? ''
+}
+
+const EMPTY_REWARD_PACK_MESSAGE =
+  "Ce pack ne contient aucun cadeau actif. Ajoutez au moins un cadeau avant de l'utiliser dans un programme."
 
 // Textarea styled to match Input
 function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
@@ -232,7 +252,7 @@ export function ProgramFormDialog({
     () => (iacrmServicesQuery.data?.data ?? []).filter((s) => s.is_active),
     [iacrmServicesQuery.data],
   )
-  const showServicePicker = iacrmConfigured && activeIacrmServices.length > 0 && !initialProgram
+  const showServicePicker = iacrmConfigured && activeIacrmServices.length > 0
 
   function patchForm(next: Partial<FormState>) {
     setForm((f) => ({ ...f, ...next }))
@@ -254,6 +274,26 @@ export function ProgramFormDialog({
     setStepErrors({})
     setSelectedServiceId('')
   }, [open, packs, initialProgram])
+
+  useEffect(() => {
+    if (!open || selectedServiceId || !initialProgram || !activeIacrmServices.length) return
+
+    const programName = normalizeIacrmText(initialProgram.name)
+    const programDescription = normalizeIacrmText(initialProgram.description)
+    const matchedService = activeIacrmServices.find((service) => {
+      const serviceName = normalizeIacrmText(service.name)
+      const serviceDescription = normalizeIacrmText(service.description)
+
+      return (
+        serviceName === programName &&
+        (!programDescription || !serviceDescription || serviceDescription === programDescription)
+      )
+    })
+
+    if (matchedService) {
+      setSelectedServiceId(matchedService.iacrm_id)
+    }
+  }, [activeIacrmServices, initialProgram, open, selectedServiceId])
 
   const selectedPack = useMemo(
     () => packs.find((p) => p.id === form.exchange_pack_id) ?? null,
@@ -284,6 +324,9 @@ export function ProgramFormDialog({
     }
     if (hasReward && !form.exchange_pack_id) {
       errs.exchange_pack_id = 'Un pack récompenses est requis.'
+    }
+    if (hasReward && form.exchange_pack_id && !isRewardPackAssignable(selectedPack)) {
+      errs.exchange_pack_id = EMPTY_REWARD_PACK_MESSAGE
     }
     return errs
   }
@@ -512,7 +555,7 @@ export function ProgramFormDialog({
                         patchForm({
                           exchange_mode: mode.value,
                           exchange_pack_id:
-                            mode.value === 'cash' ? '' : form.exchange_pack_id || packs[0]?.id || '',
+                            mode.value === 'cash' ? '' : form.exchange_pack_id || firstAssignablePackId(packs),
                         })
                         clearError('exchange_mode')
                         clearError('points_per_euro')
@@ -594,8 +637,8 @@ export function ProgramFormDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {packs.map((pack) => (
-                        <SelectItem key={pack.id} value={pack.id}>
-                          {pack.name}
+                        <SelectItem key={pack.id} value={pack.id} disabled={!isRewardPackAssignable(pack)}>
+                          {isRewardPackAssignable(pack) ? pack.name : `${pack.name} (aucun cadeau actif)`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -672,9 +715,9 @@ export function ProgramFormDialog({
                 {selectedPack ? (
                   <>
                     <p className="text-sm font-semibold text-foreground">{selectedPack.name}</p>
-                    {selectedPack.items.length > 0 ? (
+                    {isRewardPackAssignable(selectedPack) ? (
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {selectedPack.items.map((item) => (
+                        {selectedPack.items.filter((item) => item.status === 'active').map((item) => (
                           <span
                             key={item.id}
                             className="rounded-full border border-amber-200 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-900"
@@ -683,7 +726,11 @@ export function ProgramFormDialog({
                           </span>
                         ))}
                       </div>
-                    ) : null}
+                    ) : (
+                      <p className="mt-2 rounded-lg border border-amber-200 bg-amber-500/10 p-3 text-xs text-amber-900">
+                        {EMPTY_REWARD_PACK_MESSAGE}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">Aucun pack sélectionné</p>

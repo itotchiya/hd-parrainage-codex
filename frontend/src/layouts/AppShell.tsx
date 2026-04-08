@@ -1,9 +1,10 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, ChevronDown, LogOut, Monitor, Moon, PanelLeft, Search, Settings, Sun, User } from 'lucide-react'
+import { AlertTriangle, Bell, ChevronDown, LogOut, Monitor, Moon, PanelLeft, Settings, Sun, User } from 'lucide-react'
 import { authenticatedNavigation } from '../app/navigation'
 import { useAuthSession } from '../features/auth/session'
+import { getIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
 import { fetchNotifications } from '../features/notifications/api'
 import { AppSidebar } from './AppSidebar'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+
+const BreadcrumbDetailTitleContext = createContext<Dispatch<SetStateAction<string | null>> | null>(null)
+
+export function useAppBreadcrumbDetailTitle(title: string | null) {
+  const setBreadcrumbDetailTitle = useContext(BreadcrumbDetailTitleContext)
+
+  useEffect(() => {
+    if (!setBreadcrumbDetailTitle) return
+
+    setBreadcrumbDetailTitle(title)
+
+    return () => {
+      setBreadcrumbDetailTitle(null)
+    }
+  }, [setBreadcrumbDetailTitle, title])
+}
 
 export function AppShell() {
   const location = useLocation()
@@ -61,6 +78,11 @@ export function AppShell() {
     return 'system'
   })
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
+  const [breadcrumbDetailTitle, setBreadcrumbDetailTitle] = useState<string | null>(null)
+  const [iacrmConfigured, setIacrmConfigured] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return Boolean(getIacrmConfig()?.base_url)
+  })
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'header'],
@@ -68,9 +90,17 @@ export function AppShell() {
     staleTime: 30_000,
   })
 
-  const visibleNavigation = authenticatedNavigation.filter((route) =>
-    hasPermission(...route.permissions),
-  )
+  const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
+  const isBusinessOwner = user?.agent_profile === null && hasPermission('settings.view-business')
+  const shouldShowIacrmCta = !iacrmConfigured && (isSuperAdmin || isBusinessOwner)
+  // These paths are business-scoped management surfaces — not relevant for platform admin
+  const superAdminHiddenPaths = ['/agents', '/prospects', '/commissions', '/payouts', '/exchange-packs', '/transactions']
+
+  const visibleNavigation = authenticatedNavigation.filter((route) => {
+    if (!hasPermission(...route.permissions)) return false
+    if (isSuperAdmin && superAdminHiddenPaths.includes(route.path)) return false
+    return true
+  })
 
   const activeRoute =
     authenticatedNavigation.find(
@@ -89,13 +119,16 @@ export function AppShell() {
   const displayName = user?.display_name?.trim() ?? 'User'
 
   const pathSegments = location.pathname.split('/').filter(Boolean)
+  const isExchangePackDetailRoute = pathSegments[0] === 'exchange-packs' && Boolean(pathSegments[1])
   const hasDeepPath = pathSegments.length > 2
   const isIdLike = (value: string) =>
     /^\d+$/.test(value) ||
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 
   const shouldShowEllipsis =
-    hasDeepPath || pathSegments.some((segment, index) => index > 0 && isIdLike(segment))
+    !isExchangePackDetailRoute && (
+      hasDeepPath || pathSegments.some((segment, index) => index > 0 && isIdLike(segment))
+    )
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -175,6 +208,23 @@ export function AppShell() {
     setMobileSidebarOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncConfigState = () => {
+      setIacrmConfigured(Boolean(getIacrmConfig()?.base_url))
+    }
+
+    syncConfigState()
+    window.addEventListener(IACRM_CONFIG_EVENT, syncConfigState)
+    window.addEventListener('storage', syncConfigState)
+
+    return () => {
+      window.removeEventListener(IACRM_CONFIG_EVENT, syncConfigState)
+      window.removeEventListener('storage', syncConfigState)
+    }
+  }, [])
+
   const pageContent = (
     <>
       <header className={`sticky top-0 z-20 w-full ${dashboardSurfaceClass}`}>
@@ -227,6 +277,14 @@ export function AppShell() {
                       <BreadcrumbSeparator className="hidden md:block" />
                     </>
                   ) : null}
+                  {isExchangePackDetailRoute ? (
+                    <>
+                      <BreadcrumbItem className="hidden md:block">
+                        <BreadcrumbLink to="/exchange-packs">Exchange packs</BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                    </>
+                  ) : null}
                   {shouldShowEllipsis ? (
                     <>
                       <BreadcrumbItem className="hidden md:block">
@@ -237,7 +295,11 @@ export function AppShell() {
                   ) : null}
                   <BreadcrumbItem>
                     <BreadcrumbPage>
-                      {isProgramDocsRoute ? 'Documentation' : activeRoute.title}
+                      {isProgramDocsRoute
+                        ? 'Documentation'
+                        : isExchangePackDetailRoute
+                          ? breadcrumbDetailTitle ?? activeRoute.title
+                          : activeRoute.title}
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
@@ -246,22 +308,35 @@ export function AppShell() {
           </div>
 
           <div className="ml-auto flex items-center gap-2 md:flex-1 md:justify-end">
-            <div className="relative hidden lg:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value=""
-                readOnly
-                placeholder="Search documentation..."
-                className="h-8 w-64 rounded-full border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none"
-                aria-label="Global search"
-              />
-            </div>
-
-            <Separator
-              orientation="vertical"
-              className="hidden bg-border/80 data-[orientation=vertical]:h-4 lg:block"
-            />
+            {shouldShowIacrmCta ? (
+              <>
+                <div className="hidden items-center gap-3 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1.5 text-xs text-amber-950 dark:border-amber-900/80 dark:bg-amber-950/70 dark:text-amber-100 xl:flex">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/80 dark:text-amber-200">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="font-medium">
+                    IACRM est requis pour faire fonctionner l&apos;application.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 rounded-full bg-amber-500 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-400"
+                    onClick={() => navigate('/iacrm?tab=settings')}
+                  >
+                    Configurer l&apos;API
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full border-amber-300/80 bg-amber-50/80 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100 dark:hover:bg-amber-900/70 xl:hidden"
+                  onClick={() => navigate('/iacrm?tab=settings')}
+                >
+                  API IACRM
+                </Button>
+              </>
+            ) : null}
 
             <Button
               onClick={() =>
@@ -285,11 +360,6 @@ export function AppShell() {
                 <Moon className="h-4 w-4" />
               )}
             </Button>
-
-            <Separator
-              orientation="vertical"
-              className="hidden bg-border/80 data-[orientation=vertical]:h-4 md:block"
-            />
 
             <div className="relative">
               <Button
@@ -405,7 +475,9 @@ export function AppShell() {
       </header>
 
       <div className="w-full px-4 py-4 md:px-6 md:py-6">
-        <Outlet />
+        <BreadcrumbDetailTitleContext.Provider value={setBreadcrumbDetailTitle}>
+          <Outlet />
+        </BreadcrumbDetailTitleContext.Provider>
       </div>
     </>
   )

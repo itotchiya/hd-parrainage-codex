@@ -60,6 +60,16 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::get('/programs/{programId}/agents', [ProgramAgentAssignmentController::class, 'index']);
     Route::put('/programs/{programId}/agents', [ProgramAgentAssignmentController::class, 'sync']);
     Route::get('/exchange-packs', [ExchangePackController::class, 'index']);
+    Route::post('/exchange-packs', [ExchangePackController::class, 'store']);
+    Route::get('/exchange-packs/{exchangePackId}', [ExchangePackController::class, 'show']);
+    Route::patch('/exchange-packs/{exchangePackId}', [ExchangePackController::class, 'update']);
+    Route::patch('/exchange-packs/{exchangePackId}/status', [ExchangePackController::class, 'updateStatus']);
+    Route::delete('/exchange-packs/{exchangePackId}', [ExchangePackController::class, 'destroy']);
+    Route::post('/exchange-packs/{exchangePackId}/notify-agents', [ExchangePackController::class, 'notifyAgents']);
+    Route::post('/exchange-packs/{exchangePackId}/items', [ExchangePackController::class, 'storeItem']);
+    Route::patch('/exchange-packs/{exchangePackId}/items/order', [ExchangePackController::class, 'reorderItems']);
+    Route::patch('/exchange-packs/{exchangePackId}/items/{itemId}', [ExchangePackController::class, 'updateItem']);
+    Route::delete('/exchange-packs/{exchangePackId}/items/{itemId}', [ExchangePackController::class, 'destroyItem']);
     Route::get('/prospects', [ProspectController::class, 'index']);
     Route::post('/prospects', [ProspectController::class, 'store']);
     Route::get('/prospects/deleted', [ProspectController::class, 'deleted']);

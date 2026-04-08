@@ -26,6 +26,7 @@ import { PointsBalancePieChartSkeleton } from '../components/PointsBalancePieCha
 import { TopAffiliatesByProspectsTableSkeleton } from '../components/TopAffiliatesByProspectsTable'
 import { RecentActivityTableSkeleton } from '../components/RecentActivityTable'
 import { ProgramsOverviewTableSkeleton } from '../components/ProgramsOverviewTable'
+import { PlatformDashboard } from '../components/PlatformDashboard'
 
 function capitalize(value: string) {
   if (!value) return value
@@ -193,11 +194,7 @@ export function DashboardPage() {
   }
 
   if (!isBusinessOwner) {
-    return (
-      <section className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Dashboard customization is currently focused on the business-owner experience first.
-      </section>
-    )
+    return <PlatformDashboard />
   }
 
   if (

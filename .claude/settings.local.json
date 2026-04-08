@@ -36,7 +36,9 @@
       "mcp__postman__updateCollectionResponse",
       "mcp__postman__getWorkspaces",
       "mcp__postman__getCollections",
-      "mcp__postman__getCollection"
+      "mcp__postman__getCollection",
+      "Bash(docker compose:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
     ]
   },
   "enabledMcpjsonServers": [

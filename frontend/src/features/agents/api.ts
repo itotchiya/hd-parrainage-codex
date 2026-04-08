@@ -17,11 +17,11 @@ export async function inviteAgent(payload: { display_name: string; email: string
   })
 }
 
-export async function suspendAgent(agentId: string) {
+export async function suspendAgent(agentId: string, payload: { reason: string }) {
   return apiRequest<AgentEnvelope>(`/v1/agents/${agentId}/suspend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
   })
 }
 

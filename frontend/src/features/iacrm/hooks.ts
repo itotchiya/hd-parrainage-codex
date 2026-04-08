@@ -6,6 +6,11 @@ import {
   fetchIacrmInvoiceSummary,
   fetchIacrmPipelineProspects,
   fetchIacrmPipelineStages,
+  fetchIacrmPlatformBusinessClients,
+  fetchIacrmPlatformBusinessPipelineProspects,
+  fetchIacrmPlatformBusinessPipelineStages,
+  fetchIacrmPlatformBusinesses,
+  fetchIacrmPlatformBusinessServices,
   fetchIacrmServices,
   getIacrmConfig,
   saveIacrmConfig,
@@ -171,5 +176,49 @@ export function useIacrmInvoiceSummary() {
     queryKey: ['iacrm', 'invoices', 'summary'],
     queryFn: fetchIacrmInvoiceSummary,
     enabled: isConfigured(),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Platform (superadmin) — cross-business IACRM overview
+// ---------------------------------------------------------------------------
+
+export function useIacrmPlatformBusinesses() {
+  return useQuery({
+    queryKey: ['iacrm', 'platform', 'businesses'],
+    queryFn: fetchIacrmPlatformBusinesses,
+    enabled: isConfigured(),
+  })
+}
+
+export function useIacrmPlatformBusinessServices(businessId: string | null) {
+  return useQuery({
+    queryKey: ['iacrm', 'platform', 'businesses', businessId, 'services'],
+    queryFn: () => fetchIacrmPlatformBusinessServices(businessId!),
+    enabled: isConfigured() && !!businessId,
+  })
+}
+
+export function useIacrmPlatformBusinessClients(businessId: string | null) {
+  return useQuery({
+    queryKey: ['iacrm', 'platform', 'businesses', businessId, 'clients'],
+    queryFn: () => fetchIacrmPlatformBusinessClients(businessId!),
+    enabled: isConfigured() && !!businessId,
+  })
+}
+
+export function useIacrmPlatformBusinessPipeline(businessId: string | null, stage?: string) {
+  return useQuery({
+    queryKey: ['iacrm', 'platform', 'businesses', businessId, 'pipeline', stage],
+    queryFn: () => fetchIacrmPlatformBusinessPipelineProspects(businessId!, stage),
+    enabled: isConfigured() && !!businessId,
+  })
+}
+
+export function useIacrmPlatformBusinessPipelineStages(businessId: string | null) {
+  return useQuery({
+    queryKey: ['iacrm', 'platform', 'businesses', businessId, 'pipeline', 'stages'],
+    queryFn: () => fetchIacrmPlatformBusinessPipelineStages(businessId!),
+    enabled: isConfigured() && !!businessId,
   })
 }

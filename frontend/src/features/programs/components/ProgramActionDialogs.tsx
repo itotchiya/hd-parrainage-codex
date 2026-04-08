@@ -78,6 +78,22 @@ function rewardItemsLabel(count: number) {
   return `${count} item${count === 1 ? '' : 's'}`
 }
 
+function activeRewardItemCount(pack: ExchangePackRecord | null | undefined) {
+  if (!pack) return 0
+  return pack.active_items_count ?? pack.items.filter((item) => item.status === 'active').length
+}
+
+function isRewardPackAssignable(pack: ExchangePackRecord | null | undefined) {
+  return activeRewardItemCount(pack) > 0
+}
+
+function firstAssignablePackId(packs: ExchangePackRecord[]) {
+  return packs.find(isRewardPackAssignable)?.id ?? ''
+}
+
+const EMPTY_REWARD_PACK_MESSAGE =
+  "Ce pack ne contient aucun cadeau actif. Ajoutez au moins un cadeau avant de l'utiliser dans un programme."
+
 export function ProgramCashRulesDialog({
   open,
   program,
@@ -192,7 +208,7 @@ export function ProgramRewardPackDialog({
 
   useEffect(() => {
     if (!open) return
-    setSelectedPackId(program?.exchange_pack?.id ?? packs[0]?.id ?? '')
+    setSelectedPackId(program?.exchange_pack?.id ?? firstAssignablePackId(packs))
   }, [open, packs, program])
 
   return (
@@ -226,8 +242,8 @@ export function ProgramRewardPackDialog({
               </SelectTrigger>
               <SelectContent>
                 {packs.map((pack) => (
-                  <SelectItem key={pack.id} value={pack.id}>
-                    {pack.name}
+                  <SelectItem key={pack.id} value={pack.id} disabled={!isRewardPackAssignable(pack)}>
+                    {isRewardPackAssignable(pack) ? pack.name : `${pack.name} (aucun cadeau actif)`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -240,13 +256,13 @@ export function ProgramRewardPackDialog({
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 truncate font-medium text-foreground">{selectedPack.name}</span>
                   <Badge variant="outline" size="xs" className="shrink-0">
-                    {rewardItemsLabel(selectedPack.items.length)}
+                    {rewardItemsLabel(activeRewardItemCount(selectedPack))}
                   </Badge>
                 </div>
 
-                {selectedPack.items.length ? (
+                {isRewardPackAssignable(selectedPack) ? (
                   <div className="space-y-2">
-                    {selectedPack.items.map((item, index) => (
+                    {selectedPack.items.filter((item) => item.status === 'active').map((item, index) => (
                       <Item key={item.id} variant="outline" size="sm" className="bg-card/70">
                         <ItemMedia>
                           <div className="flex size-6 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
@@ -264,7 +280,7 @@ export function ProgramRewardPackDialog({
                   </div>
                 ) : (
                   <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                    Ce pack ne contient aucun item rewards.
+                    {EMPTY_REWARD_PACK_MESSAGE}
                   </p>
                 )}
               </div>
@@ -284,7 +300,7 @@ export function ProgramRewardPackDialog({
           </DialogClose>
           <Button
             type="button"
-            disabled={isSubmitting || !selectedPackId}
+            disabled={isSubmitting || !selectedPackId || !isRewardPackAssignable(selectedPack)}
             onClick={() => void onSubmit(selectedPackId)}
           >
             {isSubmitting ? 'Enregistrement...' : 'Enregistrer le pack'}

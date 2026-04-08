@@ -324,7 +324,7 @@ export function ProgramDetailPage() {
 
   const packsQuery = useQuery({
     queryKey: ['exchange-packs', 'list', 'program-detail'],
-    queryFn: fetchExchangePacks,
+    queryFn: () => fetchExchangePacks(),
     enabled: (editOpen || rewardsEditOpen) && hasPermission('exchange-pack.view'),
   })
 
@@ -495,7 +495,7 @@ export function ProgramDetailPage() {
   const activeProspects = programProspects.filter((prospect) => prospect.deleted_at === null)
   const convertedProspects = activeProspects.filter((prospect) => prospect.conversion_status === 'converted')
   const exchangeConfig = exchangeModeConfig(program)
-  const rewardPacks = (packsQuery.data?.data ?? []).filter((pack) => pack.status === 'active' || pack.status === 'draft')
+  const rewardPacks = (packsQuery.data?.data ?? []).filter((pack) => pack.status === 'active')
   const canEditProgram = Boolean(program.actions.can_edit_general ?? program.actions.can_update) && hasPermission('program.update')
   const canSubmitProspect = cardMode === 'agent' && hasPermission('prospect.submit') && program.status === 'active'
   const createProspectError = createProspectMutation.error as ApiError | null

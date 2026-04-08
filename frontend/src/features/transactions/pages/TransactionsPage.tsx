@@ -264,13 +264,13 @@ export function TransactionsPage() {
                   value={statusFilter}
                   onValueChange={(value) => setStatusFilter(value as 'all' | TransactionStatus)}
                 >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Status</SelectLabel>
-                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       {Object.entries(statusPresentation).map(([key, status]) => (
                         <SelectItem key={key} value={key}>
                           {status.label}
@@ -313,13 +313,13 @@ export function TransactionsPage() {
                   value={statusFilter}
                   onValueChange={(value) => setStatusFilter(value as 'all' | TransactionStatus)}
                 >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
+                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Status</SelectLabel>
-                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       {Object.entries(statusPresentation).map(([key, status]) => (
                         <SelectItem key={key} value={key}>
                           {status.label}

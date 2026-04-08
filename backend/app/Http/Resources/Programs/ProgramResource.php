@@ -54,10 +54,19 @@ class ProgramResource extends JsonResource
         );
         $canDeleteFromArchive = $canSoftDelete;
         $canLiftSuspension = $canPausePermission && $isSuspended && ! $isArchived;
+        $rewardPackReady = ! in_array($this->exchange_mode, ['reward', 'both'], true)
+            || (
+                $this->exchange_pack_id !== null
+                && (
+                    $this->relationLoaded('exchangePack') && $this->exchangePack !== null
+                        ? $this->exchangePack->items->where('status', 'active')->isNotEmpty()
+                        : $this->exchangePack?->items()->where('status', 'active')->exists()
+                )
+            );
         $draftReadyForActivation = $this->status === 'draft'
             && ($this->commission_type !== 'per_transaction' || $this->points_per_transaction !== null)
             && (! in_array($this->exchange_mode, ['cash', 'both'], true) || $this->points_per_euro !== null)
-            && (! in_array($this->exchange_mode, ['reward', 'both'], true) || $this->exchange_pack_id !== null);
+            && $rewardPackReady;
         $canActivate = $canUpdate && $draftReadyForActivation;
 
         return [

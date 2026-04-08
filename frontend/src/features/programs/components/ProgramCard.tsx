@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react'
 
+import { EntityCardIdentity } from '@/components/app/EntityCardIdentity'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,8 +45,6 @@ import { avatarSeedForUser } from '@/lib/avatar-fallback'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardTitle,
 } from '@/components/ui/card'
 import {
   Dialog,
@@ -548,37 +547,39 @@ export function ProgramCard({
     <Card className="rounded-lg border shadow-none">
       <div className="flex flex-col gap-1.5 p-3 sm:p-4">
         <div className="flex min-w-0 items-start gap-2.5">
-          {mode === 'agent' ? (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/30 text-sm font-semibold text-foreground">
-              {businessInitials(program.business_name)}
-            </div>
-          ) : (
-            <IconTile icon={modeConfig.icon} size="md" className={modeConfig.tileClass} />
-          )}
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <CardTitle className="truncate text-sm font-semibold leading-tight sm:text-base">
-                {program.name}
-              </CardTitle>
+          <Link to={`/programs/${program.id}`} className="group flex min-w-0 flex-1 cursor-pointer items-start">
+            <EntityCardIdentity
+              leading={
+                mode === 'agent' ? (
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border/70 bg-muted/30 text-sm font-semibold text-foreground">
+                    {businessInitials(program.business_name)}
+                  </div>
+                ) : (
+                  <IconTile icon={modeConfig.icon} size="md" className={modeConfig.tileClass} />
+                )
+              }
+              title={program.name}
+            badge={
               <Badge
-                variant="outline"
-                size="xs"
+                variant="secondary"
                 className={cn(
-                  'shrink-0 uppercase tracking-wide',
+                  'border-0',
                   programStatusBadgeClass(program.status),
                 )}
               >
                 {statusLabel[program.status]}
-              </Badge>
-            </div>
-
-            <CardDescription className="mt-0.5 line-clamp-1 text-xs leading-relaxed">
-              {mode === 'agent'
-                ? availability.helper
-                : program.description ?? 'No description available.'}
-            </CardDescription>
-          </div>
+                </Badge>
+              }
+              description={
+                mode === 'agent'
+                  ? availability.helper
+                  : program.description ?? 'No description available.'
+              }
+              className="flex-1"
+              titleClassName="group-hover:underline !text-sm text-foreground"
+              descriptionClassName="text-xs leading-[1.15rem]"
+            />
+          </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -9,6 +9,7 @@ import type {
   IacrmPipelineStageSummary,
   IacrmInvoice,
   IacrmInvoiceSummary,
+  IacrmPlatformBusiness,
 } from '../../types/iacrm'
 import { logIacrmActivity } from './activityLog'
 
@@ -17,6 +18,7 @@ import { logIacrmActivity } from './activityLog'
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = 'iacrm_api_config'
+export const IACRM_CONFIG_EVENT = 'iacrm-config-updated'
 
 export function getIacrmConfig(): IacrmApiConfig | null {
   try {
@@ -29,10 +31,12 @@ export function getIacrmConfig(): IacrmApiConfig | null {
 
 export function saveIacrmConfig(config: IacrmApiConfig) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
 }
 
 export function clearIacrmConfig() {
   localStorage.removeItem(STORAGE_KEY)
+  window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
 }
 
 // ---------------------------------------------------------------------------
@@ -179,5 +183,38 @@ export async function moveIacrmProspectStage(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage, reason: reason ?? null }),
     },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Platform (superadmin) — cross-business IACRM overview
+// ---------------------------------------------------------------------------
+
+export async function fetchIacrmPlatformBusinesses() {
+  return iacrmRequest<IacrmListEnvelope<IacrmPlatformBusiness>>('/platform/businesses')
+}
+
+export async function fetchIacrmPlatformBusiness(businessId: string) {
+  return iacrmRequest<{ data: IacrmPlatformBusiness }>(`/platform/businesses/${encodeURIComponent(businessId)}`)
+}
+
+export async function fetchIacrmPlatformBusinessServices(businessId: string) {
+  return iacrmRequest<IacrmListEnvelope<IacrmService>>(`/platform/businesses/${encodeURIComponent(businessId)}/services`)
+}
+
+export async function fetchIacrmPlatformBusinessClients(businessId: string) {
+  return iacrmRequest<IacrmListEnvelope<IacrmClient>>(`/platform/businesses/${encodeURIComponent(businessId)}/clients`)
+}
+
+export async function fetchIacrmPlatformBusinessPipelineProspects(businessId: string, stage?: string) {
+  const query = stage ? `?stage=${encodeURIComponent(stage)}` : ''
+  return iacrmRequest<IacrmListEnvelope<IacrmPipelineProspect>>(
+    `/platform/businesses/${encodeURIComponent(businessId)}/pipeline/prospects${query}`,
+  )
+}
+
+export async function fetchIacrmPlatformBusinessPipelineStages(businessId: string) {
+  return iacrmRequest<{ data: IacrmPipelineStageSummary[] }>(
+    `/platform/businesses/${encodeURIComponent(businessId)}/pipeline/stages`,
   )
 }

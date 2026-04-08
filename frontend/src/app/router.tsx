@@ -16,6 +16,7 @@ import {
   RequireAuth,
 } from '../features/auth/session'
 import { DashboardPage } from '../features/dashboard/pages/DashboardPage.tsx'
+import { ExchangePackDetailPage } from '../features/exchange-packs/pages/ExchangePackDetailPage.tsx'
 import { ExchangePacksPage } from '../features/exchange-packs/pages/ExchangePacksPage.tsx'
 import { ExchangeDetailPage } from '../features/exchanges/pages/ExchangeDetailPage.tsx'
 import { ExchangesPage } from '../features/exchanges/pages/ExchangesPage.tsx'
@@ -203,6 +204,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionBoundary anyOf={['exchange-pack.view']}>
             <ExchangePacksPage />
+          </PermissionBoundary>
+        ),
+      },
+      {
+        path: '/exchange-packs/:packId',
+        element: (
+          <PermissionBoundary anyOf={['exchange-pack.view']}>
+            <ExchangePackDetailPage />
           </PermissionBoundary>
         ),
       },

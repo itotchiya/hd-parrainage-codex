@@ -219,7 +219,7 @@ export function ProgramsPage() {
 
   const packsQuery = useQuery({
     queryKey: exchangePackQueryKey,
-    queryFn: fetchExchangePacks,
+    queryFn: () => fetchExchangePacks(),
     enabled: hasPermission('exchange-pack.view'),
   })
 
@@ -336,7 +336,7 @@ export function ProgramsPage() {
 
   const programs = programsQuery.data?.data ?? []
   const packs = packsQuery.data?.data ?? []
-  const rewardPacks = packs.filter((pack) => pack.status === 'active' || pack.status === 'draft')
+  const rewardPacks = packs.filter((pack) => pack.status === 'active')
   const ownerCanCreate = hasPermission('program.create')
   const cardMode = user?.agent_profile !== null ? 'agent' : 'owner'
   const canSubmitProspect = hasPermission('prospect.submit')
@@ -535,13 +535,13 @@ export function ProgramsPage() {
             }}
             disabled={scopeFilter === 'archived'}
           >
-            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[140px] sm:shrink-0">
-              <SelectValue placeholder="All states" />
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Status</SelectLabel>
-                <SelectItem value="all">All states</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 {cardMode === 'owner' ? <SelectItem value="draft">Draft</SelectItem> : null}
                 <SelectItem value="paused">Paused</SelectItem>
@@ -564,13 +564,13 @@ export function ProgramsPage() {
                 setSearchParams(nextParams, { replace: true })
               }}
             >
-              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[180px] sm:shrink-0">
-                <SelectValue placeholder="All businesses" />
+              <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
+                <SelectValue placeholder="Business" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Business</SelectLabel>
-                  <SelectItem value="all">All businesses</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   {businessFilterOptions.map((business) => (
                     <SelectItem key={business.id} value={business.id}>
                       {business.name}
@@ -594,16 +594,16 @@ export function ProgramsPage() {
               setSearchParams(nextParams, { replace: true })
             }}
           >
-            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[150px] sm:shrink-0">
-              <SelectValue placeholder="All exchange modes" />
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
+              <SelectValue placeholder="Mode" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Exchange mode</SelectLabel>
-                <SelectItem value="all">All exchange modes</SelectItem>
-                <SelectItem value="cash">Cash only</SelectItem>
-                <SelectItem value="reward">Rewards only</SelectItem>
-                <SelectItem value="both">Rewards + cash</SelectItem>
+                <SelectItem value="all">All modes</SelectItem>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="reward">Rewards</SelectItem>
+                <SelectItem value="both">Mixed</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -621,22 +621,22 @@ export function ProgramsPage() {
               setSearchParams(nextParams, { replace: true })
             }}
           >
-            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[170px] sm:shrink-0">
+            <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[108px] sm:shrink-0">
               <ArrowUpDown className="size-4 text-muted-foreground" aria-hidden />
-              <SelectValue placeholder="Sort by newest" />
+              <SelectValue placeholder="Recent" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Sort programs</SelectLabel>
-                <SelectItem value="newest">Newest first</SelectItem>
-                <SelectItem value="oldest">Oldest first</SelectItem>
-                <SelectItem value="status">By status</SelectItem>
-                <SelectItem value="points-high">Points high to low</SelectItem>
-                <SelectItem value="points-low">Points low to high</SelectItem>
+                <SelectItem value="newest">Recent</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="points-high">Points ↓</SelectItem>
+                <SelectItem value="points-low">Points ↑</SelectItem>
                 {cardMode === 'owner' ? (
                   <>
-                    <SelectItem value="agents-high">Agents high to low</SelectItem>
-                    <SelectItem value="agents-low">Agents low to high</SelectItem>
+                    <SelectItem value="agents-high">Agents ↓</SelectItem>
+                    <SelectItem value="agents-low">Agents ↑</SelectItem>
                   </>
                 ) : null}
               </SelectGroup>

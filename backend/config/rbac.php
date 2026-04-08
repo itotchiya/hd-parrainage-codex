@@ -77,10 +77,12 @@ return [
 
     'role_permissions' => [
         'super-admin' => [
+            // Platform governance
             'dashboard.view-platform',
             'business.view',
             'business.approve',
             'business.reject',
+            // Role & permission administration
             'role.view',
             'role.create',
             'role.update',
@@ -89,20 +91,19 @@ return [
             'permission.view',
             'permission.assign-to-role',
             'permission.assign-to-user',
+            // User administration
             'user-admin.view',
             'user-admin.create',
             'user-admin.update',
             'user-admin.suspend',
             'user-admin.reactivate',
-            'agent.view',
-            'prospect.view',
-            'transaction.view',
-            'points.view',
-            'exchange-request.view',
+            // Platform-wide read-only oversight
             'notification.view',
             'settings.view-platform',
             'iacrm.sync-view',
             'iacrm.sync-retry',
+            // Removed: agent.view, prospect.view, points.view, exchange-request.view
+            // (business-scoped management — superadmin uses platform dashboard instead)
         ],
         'business-owner' => [
             'dashboard.view-business',

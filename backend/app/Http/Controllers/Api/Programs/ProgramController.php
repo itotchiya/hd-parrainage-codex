@@ -534,14 +534,24 @@ class ProgramController extends Controller
         }
 
         if ($exchangePackId !== null) {
-            $packExists = ExchangePack::query()
+            $pack = ExchangePack::query()
                 ->where('business_id', $businessId)
                 ->where('id', $exchangePackId)
-                ->exists();
+                ->where('status', 'active')
+                ->withCount([
+                    'items as active_items_count' => fn (Builder $builder) => $builder->where('status', 'active'),
+                ])
+                ->first();
 
-            if (! $packExists) {
+            if ($pack === null) {
                 throw ValidationException::withMessages([
                     'exchange_pack_id' => 'The selected exchange pack is not available in the current business scope.',
+                ]);
+            }
+
+            if (in_array($exchangeMode, ['reward', 'both'], true) && (int) $pack->active_items_count === 0) {
+                throw ValidationException::withMessages([
+                    'exchange_pack_id' => 'The selected exchange pack must contain at least one active reward item.',
                 ]);
             }
         }
@@ -598,6 +608,21 @@ class ProgramController extends Controller
             throw ValidationException::withMessages([
                 'exchange_pack_id' => 'Select an exchange pack before activating.',
             ]);
+        }
+
+        if (in_array($program->exchange_mode, ['reward', 'both'], true)) {
+            $activeItemsCount = ExchangePack::query()
+                ->where('business_id', $program->business_id)
+                ->where('id', $program->exchange_pack_id)
+                ->where('status', 'active')
+                ->whereHas('items', fn (Builder $builder) => $builder->where('status', 'active'))
+                ->count();
+
+            if ($activeItemsCount === 0) {
+                throw ValidationException::withMessages([
+                    'exchange_pack_id' => 'Select an exchange pack with at least one active reward item before activating.',
+                ]);
+            }
         }
     }
 

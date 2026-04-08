@@ -6,6 +6,7 @@ import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents, inviteAgent, reactivateAgent, suspendAgent } from '../api'
 import { AddAgentDialog } from '../components/AddAgentDialog'
+import { AgentLifecycleConfirmDialog, type AgentLifecycleAction } from '../components/AgentActionDialogs'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
@@ -81,6 +82,10 @@ export function AgentsPage() {
   const canReactivate = hasPermission('agent.reactivate')
   const [search, setSearch] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [pendingLifecycleAction, setPendingLifecycleAction] = useState<{
+    type: AgentLifecycleAction
+    agent: AgentRecord
+  } | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [sortKey, setSortKey] = useState<AgentSortKey | null>(null)
@@ -100,16 +105,18 @@ export function AgentsPage() {
   })
 
   const suspendMutation = useMutation({
-    mutationFn: suspendAgent,
+    mutationFn: ({ agentId, reason }: { agentId: string; reason: string }) => suspendAgent(agentId, { reason }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['agents'] })
+      setPendingLifecycleAction(null)
     },
   })
 
   const reactivateMutation = useMutation({
-    mutationFn: reactivateAgent,
+    mutationFn: ({ agentId }: { agentId: string }) => reactivateAgent(agentId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['agents'] })
+      setPendingLifecycleAction(null)
     },
   })
 
@@ -197,6 +204,29 @@ export function AgentsPage() {
           inviteMutation.reset()
         }}
         onSubmit={(payload) => inviteMutation.mutate(payload)}
+      />
+      <AgentLifecycleConfirmDialog
+        action={pendingLifecycleAction}
+        isSubmitting={suspendMutation.isPending || reactivateMutation.isPending}
+        error={
+          suspendMutation.isError
+            ? (suspendMutation.error as ApiError)
+            : reactivateMutation.isError
+              ? (reactivateMutation.error as ApiError)
+              : null
+        }
+        onClose={() => {
+          setPendingLifecycleAction(null)
+          suspendMutation.reset()
+          reactivateMutation.reset()
+        }}
+        onConfirm={async (action, agent, payload) => {
+          if (action === 'suspend') {
+            await suspendMutation.mutateAsync({ agentId: agent.id, reason: payload.reason ?? '' })
+            return
+          }
+          await reactivateMutation.mutateAsync({ agentId: agent.id })
+        }}
       />
       <section className="app-section">
         <PageHeader
@@ -389,7 +419,7 @@ export function AgentsPage() {
                               <DropdownMenuItem
                                 variant="destructive"
                                 disabled={actionsBusy}
-                                onClick={() => suspendMutation.mutate(agent.id)}
+                                onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
                               >
                                 Suspendre
                               </DropdownMenuItem>
@@ -397,7 +427,7 @@ export function AgentsPage() {
                             {showReactivate ? (
                               <DropdownMenuItem
                                 disabled={actionsBusy}
-                                onClick={() => reactivateMutation.mutate(agent.id)}
+                                onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
                               >
                                 Réactiver
                               </DropdownMenuItem>

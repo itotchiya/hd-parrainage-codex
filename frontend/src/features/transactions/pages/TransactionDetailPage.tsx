@@ -1,22 +1,40 @@
 import { useQuery } from '@tanstack/react-query'
+import {
+  Banknote,
+  CalendarClock,
+  CircleDollarSign,
+  Link2,
+  RefreshCcw,
+} from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError } from '../../../lib/api'
+
+import {
+  DetailMetaGrid,
+  DetailMetaItem,
+  DetailSectionCard,
+} from '@/components/app/DetailPageKit'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { transactionStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
+import { ApiError } from '@/lib/api'
+
 import { fetchTransaction } from '../api'
 
-const statusPresentation = {
-  detected: { label: 'Detected', className: 'bg-slate-100 text-slate-700' },
-  pending: { label: 'Pending', className: 'bg-blue-100 text-blue-700' },
-  validated: { label: 'Validated', className: 'bg-amber-100 text-amber-700' },
-  rejected: { label: 'Rejected', className: 'bg-rose-100 text-rose-700' },
-  paid: { label: 'Paid', className: 'bg-emerald-100 text-emerald-700' },
+const invoiceBadgeClass = {
+  pending: 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+  paid: 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+  unpaid: 'border-transparent bg-muted text-muted-foreground',
+  overdue: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
 } as const
 
 function formatDate(value: string | null, withTime = false) {
   if (!value) {
-    return 'Not available'
+    return 'Indisponible'
   }
 
-  return new Date(value).toLocaleString('en-GB', {
+  return new Date(value).toLocaleString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -49,15 +67,15 @@ export function TransactionDetailPage() {
   if (!transactionId) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Transaction identifier is missing from the current route.
+        Identifiant de transaction manquant.
       </article>
     )
   }
 
   if (transactionQuery.isPending) {
     return (
-      <article className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        Loading transaction detail...
+      <article className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        Chargement de la transaction...
       </article>
     )
   }
@@ -71,109 +89,152 @@ export function TransactionDetailPage() {
   }
 
   const transaction = transactionQuery.data.data
-  const status = statusPresentation[transaction.status]
+  const transactionStatusClass = transactionStatusBadgeClass(transaction.status)
+  const invoiceClass = transaction.invoice_status
+    ? invoiceBadgeClass[transaction.invoice_status]
+    : 'border-transparent bg-muted text-muted-foreground'
 
   return (
-    <section className="space-y-5">
-      <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Transaction
-            </p>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-                {transaction.transaction_reference}
-              </h1>
-              <p className="mt-2 text-sm text-slate-600">
-                {transaction.product_name} / {transaction.program_name ?? 'No program'} /{' '}
-                {transaction.agent_name ?? 'No agent'}
-              </p>
+    <section className="app-section">
+      <PageHeader
+        title={transaction.transaction_reference}
+        titleAddon={
+          <>
+            <Badge className={transactionStatusClass}>{transaction.status}</Badge>
+            {transaction.invoice_status ? (
+              <Badge className={invoiceClass}>Facture {transaction.invoice_status}</Badge>
+            ) : null}
+          </>
+        }
+        right={
+          <PageHeaderToolbar>
+            {transaction.prospect ? (
+              <Button asChild variant="outline">
+                <Link to={`/prospects/${transaction.prospect.id}`}>Ouvrir le prospect</Link>
+              </Button>
+            ) : null}
+            <Button asChild variant="outline">
+              <Link to="/transactions">Retour</Link>
+            </Button>
+          </PageHeaderToolbar>
+        }
+      />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          title="Montant"
+          value={formatCurrency(transaction.amount, transaction.currency_code)}
+          description="Valeur commerciale reconnue"
+          badge={kpiSnapshotBadge(transaction.product_name)}
+          icon={Banknote}
+          tone="success"
+        />
+        <KpiCard
+          title="Points attribués"
+          value={
+            transaction.points_awarded === null
+              ? 'En attente'
+              : `${transaction.points_awarded.toLocaleString('fr-FR')} pts`
+          }
+          description="Crédit affilié généré"
+          badge={kpiSnapshotBadge(transaction.program_name ?? 'Sans programme')}
+          icon={CircleDollarSign}
+          tone="primary"
+        />
+        <KpiCard
+          title="Survenue"
+          value={formatDate(transaction.occurred_at)}
+          description="Date métier de la transaction"
+          badge={kpiSnapshotBadge(transaction.agent_name ?? 'Sans agent')}
+          icon={CalendarClock}
+          tone="warning"
+        />
+        <KpiCard
+          title="Dernière synchro"
+          value={formatDate(transaction.last_synced_at)}
+          description="Traçabilité IACRM"
+          badge={kpiSnapshotBadge(transaction.iacrm_transaction_id ?? 'Aucune référence')}
+          icon={RefreshCcw}
+          tone="info"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
+        <DetailSectionCard
+          title="Vue d’ensemble"
+          description="Références commerciales et dates de traitement."
+        >
+          <DetailMetaGrid className="xl:grid-cols-3">
+            <DetailMetaItem label="Produit" value={transaction.product_name} />
+            <DetailMetaItem
+              label="Montant"
+              value={formatCurrency(transaction.amount, transaction.currency_code)}
+            />
+            <DetailMetaItem
+              label="Points"
+              value={
+                transaction.points_awarded === null
+                  ? 'En attente'
+                  : `${transaction.points_awarded.toLocaleString('fr-FR')} pts`
+              }
+            />
+            <DetailMetaItem label="Programme" value={transaction.program_name ?? 'Aucun programme'} />
+            <DetailMetaItem label="Affilié" value={transaction.agent_name ?? 'Aucun affilié'} />
+            <DetailMetaItem label="Business" value={transaction.business_name ?? 'Plateforme'} />
+            <DetailMetaItem label="Survenue" value={formatDate(transaction.occurred_at, true)} />
+            <DetailMetaItem label="Validée" value={formatDate(transaction.validated_at, true)} />
+            <DetailMetaItem label="Payée" value={formatDate(transaction.paid_at, true)} />
+          </DetailMetaGrid>
+        </DetailSectionCard>
+
+        <DetailSectionCard
+          title="Synchronisation et relation"
+          description="Rattachement du prospect et références externes."
+        >
+          <DetailMetaGrid>
+            <DetailMetaItem
+              label="Référence IACRM"
+              value={transaction.iacrm_transaction_id ?? 'Non disponible'}
+            />
+            <DetailMetaItem label="Dernière synchro" value={formatDate(transaction.last_synced_at, true)} />
+            <DetailMetaItem label="Reconnaissance" value={formatDate(transaction.recognized_at, true)} />
+            <DetailMetaItem label="Facture" value={transaction.invoice_status ?? 'Non renseignée'} />
+          </DetailMetaGrid>
+
+          <div className="mt-4 rounded-lg border border-border bg-muted/25 px-4 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Prospect lié
+                </p>
+                {transaction.prospect ? (
+                  <>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {transaction.prospect.contact_name}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {transaction.prospect.company_name ?? 'Sans société'} /{' '}
+                      {transaction.prospect.pipeline_stage} / {transaction.prospect.conversion_status}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Cette transaction n’est reliée à aucun prospect local.
+                  </p>
+                )}
+              </div>
+              {transaction.prospect ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/prospects/${transaction.prospect.id}`}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Ouvrir
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${status.className}`}>
-              {status.label}
-            </span>
-            {transaction.invoice_status ? (
-              <span className="rounded-md bg-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                Invoice {transaction.invoice_status}
-              </span>
-            ) : null}
-            <Link
-              to="/transactions"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-            >
-              Back
-            </Link>
-          </div>
-        </div>
-      </article>
-
-      <div className="grid gap-4 xl:grid-cols-[0.98fr_1.02fr]">
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Commercial data
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DataCell label="Amount" value={formatCurrency(transaction.amount, transaction.currency_code)} />
-            <DataCell label="Points awarded" value={transaction.points_awarded?.toString() ?? 'Pending'} />
-            <DataCell label="Business" value={transaction.business_name ?? 'Global platform'} />
-            <DataCell label="Prospect" value={transaction.prospect_name ?? 'Not linked'} />
-            <DataCell label="Occurred" value={formatDate(transaction.occurred_at, true)} />
-            <DataCell label="Validated" value={formatDate(transaction.validated_at, true)} />
-            <DataCell label="Paid" value={formatDate(transaction.paid_at, true)} />
-            <DataCell label="Recognized" value={formatDate(transaction.recognized_at, true)} />
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Sync and relation
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DataCell label="IACRM reference" value={transaction.iacrm_transaction_id ?? 'Not available'} />
-            <DataCell label="Last sync" value={formatDate(transaction.last_synced_at, true)} />
-          </div>
-
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Linked prospect
-            </p>
-            {transaction.prospect ? (
-              <div className="mt-3">
-                <h2 className="text-base font-semibold text-slate-950">
-                  {transaction.prospect.contact_name}
-                </h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  {transaction.prospect.company_name ?? 'No company'} / {transaction.prospect.pipeline_stage} /{' '}
-                  {transaction.prospect.conversion_status}
-                </p>
-                <Link
-                  to={`/prospects/${transaction.prospect.id}`}
-                  className="mt-4 inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                >
-                  Open prospect
-                </Link>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-slate-600">
-                This transaction entered the scoped ledger without a local prospect relation.
-              </p>
-            )}
-          </div>
-        </article>
+        </DetailSectionCard>
       </div>
     </section>
-  )
-}
-
-function DataCell({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
-    </article>
   )
 }

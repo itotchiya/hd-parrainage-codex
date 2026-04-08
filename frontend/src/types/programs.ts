@@ -9,6 +9,16 @@ export interface ExchangePackItem {
   item_type: string
   points_cost: number
   display_order: number
+  status: string
+}
+
+export interface ExchangePackProgramSummary {
+  id: string
+  name: string
+  status: ProgramStatus
+  exchange_mode: ProgramExchangeMode
+  assigned_agents_count: number | null
+  updated_at: string | null
 }
 
 export interface ExchangePackRecord {
@@ -17,8 +27,19 @@ export interface ExchangePackRecord {
   name: string
   description: string | null
   status: string
+  created_at?: string | null
   updated_at: string | null
+  active_items_count?: number
+  linked_programs_count?: number
   items: ExchangePackItem[]
+  linked_programs?: ExchangePackProgramSummary[]
+  actions?: {
+    can_create: boolean
+    can_update: boolean
+    can_delete: boolean
+    can_disable?: boolean
+    can_activate?: boolean
+  }
 }
 
 export interface AssignedAgent {
@@ -100,6 +121,10 @@ export interface ProgramDetailEnvelope {
 
 export interface ExchangePackListEnvelope {
   data: ExchangePackRecord[]
+}
+
+export interface ExchangePackDetailEnvelope {
+  data: ExchangePackRecord
 }
 
 export interface ProgramMutationPayload {

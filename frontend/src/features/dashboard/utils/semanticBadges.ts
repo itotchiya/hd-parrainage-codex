@@ -51,6 +51,22 @@ export function transactionStatusBadgeClass(status: TransactionStatus): string {
   }
 }
 
+export function exchangePackStatusBadgeClass(status: string | null): string {
+  if (!status) return 'border-transparent bg-muted text-muted-foreground'
+
+  const normalized = status.toLowerCase()
+
+  if (normalized === 'active') {
+    return 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
+  }
+
+  if (normalized === 'inactive') {
+    return 'border-transparent bg-muted text-muted-foreground'
+  }
+
+  return 'border-transparent bg-muted text-muted-foreground'
+}
+
 export function formatDashboardDateFr(value: string | null) {
   if (!value) return '—'
   return new Date(value).toLocaleDateString('fr-FR', {

@@ -117,6 +117,21 @@ export interface IacrmInvoiceSummary {
   overdue_amount: number
 }
 
+// ---- Platform (superadmin) — cross-business IACRM overview ---------------
+
+export interface IacrmPlatformBusiness {
+  iacrm_id: string
+  legal_name: string
+  display_name: string
+  industry: string | null
+  country_code: string
+  status: string
+  services_count: number
+  clients_count: number
+  pipeline_count: number
+  created_at: string
+}
+
 // ---- Response envelopes ---------------------------------------------------
 
 export interface IacrmListEnvelope<T> {

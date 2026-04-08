@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Support\FrontendUrlResolver;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,31 @@ class AgentController extends Controller
         $this->assertPermission($user, 'agent.view', $businessId);
 
         $agent = $this->scopedAgentsQuery($user)
-            ->with('user')
+            ->with([
+                'user',
+                'programAssignments' => function ($query): void {
+                    $query
+                        ->whereNull('removed_at')
+                        ->orderByDesc('assigned_at')
+                        ->with([
+                            'program' => function ($programQuery): void {
+                                $programQuery->withCount([
+                                    'agentAssignments as assigned_agents_count' => function ($assignmentQuery): void {
+                                        $assignmentQuery->whereNull('removed_at');
+                                    },
+                                ]);
+                            },
+                        ]);
+                },
+                'prospects' => function ($query): void {
+                    $query
+                        ->with('program')
+                        ->orderByDesc('submitted_at');
+                },
+            ])
+            ->withCount([
+                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+            ])
             ->findOrFail($agentId);
 
         return response()->json([
@@ -48,7 +73,11 @@ class AgentController extends Controller
 
         $this->assertPermission($user, 'agent.view', $businessId);
 
-        $query = $this->scopedAgentsQuery($user)->with('user');
+        $query = $this->scopedAgentsQuery($user)
+            ->with('user')
+            ->withCount([
+                'prospects as active_pipeline_prospects_count' => fn (HasMany $prospectsQuery) => $this->activePipelineProspectsScope($prospectsQuery),
+            ]);
 
         if ($request->filled('status')) {
             $query->where('status', (string) $request->string('status'));
@@ -277,9 +306,16 @@ class AgentController extends Controller
         $businessId = $this->ownerBusinessId($user);
         $this->assertPermission($user, 'agent.suspend', $businessId);
 
+        $payload = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
         $agent = Agent::query()
             ->where('business_id', $businessId)
             ->with('user')
+            ->withCount([
+                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+            ])
             ->findOrFail($agentId);
 
         if ($agent->status === 'suspended') {
@@ -298,8 +334,28 @@ class AgentController extends Controller
             'suspended_at' => now(),
         ])->save();
 
+        $reason = trim((string) $payload['reason']);
+        $this->notifyAgentLifecycleChange(
+            agent: $agent,
+            businessId: $businessId,
+            event: 'agent_suspended',
+            title: 'Compte affilié suspendu',
+            message: sprintf(
+                'Votre accès affilié a été suspendu. Motif : %s',
+                $reason
+            ),
+            metadata: [
+                'reason' => $reason,
+                'active_pipeline_prospects_count' => (int) ($agent->active_pipeline_prospects_count ?? 0),
+            ],
+        );
+
+        $agent->load('user')->loadCount([
+            'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+        ]);
+
         return response()->json([
-            'data' => AgentResource::make($agent->fresh('user'))->resolve($request),
+            'data' => AgentResource::make($agent)->resolve($request),
         ]);
     }
 
@@ -312,6 +368,9 @@ class AgentController extends Controller
         $agent = Agent::query()
             ->where('business_id', $businessId)
             ->with('user')
+            ->withCount([
+                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+            ])
             ->findOrFail($agentId);
 
         if ($agent->status !== 'suspended') {
@@ -332,8 +391,57 @@ class AgentController extends Controller
             'suspended_at' => null,
         ])->save();
 
+        $this->notifyAgentLifecycleChange(
+            agent: $agent,
+            businessId: $businessId,
+            event: 'agent_reactivated',
+            title: 'Compte affilié réactivé',
+            message: 'Votre accès affilié a été réactivé. Vous pouvez à nouveau utiliser la plateforme.',
+            metadata: [
+                'active_pipeline_prospects_count' => (int) ($agent->active_pipeline_prospects_count ?? 0),
+            ],
+        );
+
+        $agent->load('user')->loadCount([
+            'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+        ]);
+
         return response()->json([
-            'data' => AgentResource::make($agent->fresh('user'))->resolve($request),
+            'data' => AgentResource::make($agent)->resolve($request),
+        ]);
+    }
+
+    private function activePipelineProspectsScope(HasMany $query): void
+    {
+        $query
+            ->where('submission_status', '!=', 'deleted')
+            ->whereNotIn('conversion_status', ['converted', 'lost']);
+    }
+
+    private function notifyAgentLifecycleChange(
+        Agent $agent,
+        string $businessId,
+        string $event,
+        string $title,
+        string $message,
+        array $metadata = [],
+    ): void {
+        if ($agent->user_id === null) {
+            return;
+        }
+
+        AppNotification::query()->create([
+            'recipient_user_id' => $agent->user_id,
+            'business_id' => $businessId,
+            'notification_type' => 'agent',
+            'title' => $title,
+            'message' => $message,
+            'severity' => $event === 'agent_suspended' ? 'warning' : 'info',
+            'metadata' => array_merge([
+                'event' => $event,
+                'agent_id' => $agent->id,
+            ], $metadata),
+            'read_at' => null,
         ]);
     }
 
