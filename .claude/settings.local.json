@@ -38,7 +38,8 @@
       "mcp__postman__getCollections",
       "mcp__postman__getCollection",
       "Bash(docker compose:*)",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(npm install:*)"
     ]
   },
   "enabledMcpjsonServers": [

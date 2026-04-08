@@ -28,6 +28,7 @@ import { useAuthSession } from '../../auth/session'
 import { fetchAgents } from '../../agents/api'
 import { fetchProspects, createProspect } from '../../prospects/api'
 import { NewProspectDialog } from '../../prospects/components/NewProspectDialog'
+import { AddProspectMethodDialog } from '../../prospects/components/AddProspectMethodDialog'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr, programStatusBadgeClass } from '../../dashboard/utils/semanticBadges'
@@ -292,6 +293,7 @@ export function ProgramDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [cashEditOpen, setCashEditOpen] = useState(false)
   const [rewardsEditOpen, setRewardsEditOpen] = useState(false)
+  const [addProspectMethodOpen, setAddProspectMethodOpen] = useState(false)
   const [createProspectOpen, setCreateProspectOpen] = useState(false)
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
@@ -662,7 +664,7 @@ export function ProgramDetailPage() {
                       size="sm"
                       disabled={!canCreateProspect}
                       onClick={() => {
-                        if (canCreateProspect) setCreateProspectOpen(true)
+                        if (canCreateProspect) setAddProspectMethodOpen(true)
                       }}
                     >
                       <Zap className="size-4" aria-hidden />
@@ -1290,6 +1292,17 @@ export function ProgramDetailPage() {
               exchange_pack_id: exchangePackId,
             }),
           })
+        }}
+      />
+
+      <AddProspectMethodDialog
+        open={addProspectMethodOpen}
+        programId={program.id}
+        agentCode={user?.agent_profile?.agent_code ?? ''}
+        onClose={() => setAddProspectMethodOpen(false)}
+        onSelectForm={() => {
+          setAddProspectMethodOpen(false)
+          setCreateProspectOpen(true)
         }}
       />
 

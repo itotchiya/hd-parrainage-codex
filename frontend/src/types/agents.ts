@@ -19,6 +19,7 @@ export interface AgentRecord {
   created_at: string | null
   updated_at: string | null
   active_pipeline_prospects_count?: number
+  assigned_programs_count?: number
   assigned_programs?: AgentAssignedProgramSummary[]
   prospects?: AgentProspectSummary[]
   actions?: AgentActions

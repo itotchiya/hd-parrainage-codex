@@ -19,6 +19,9 @@ import {
   updateProgram,
 } from '../api'
 import { fetchAgents } from '../../agents/api'
+import { createProspect } from '../../prospects/api'
+import { AddProspectMethodDialog } from '../../prospects/components/AddProspectMethodDialog'
+import { NewProspectDialog } from '../../prospects/components/NewProspectDialog'
 import { ProgramFormDialog } from '../components/ProgramFormDialog'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -211,6 +214,9 @@ export function ProgramsPage() {
     type: ProgramLifecycleAction
     program: ProgramRecord
   } | null>(null)
+  const [addProspectProgram, setAddProspectProgram] = useState<ProgramRecord | null>(null)
+  const [prospectFormProgram, setProspectFormProgram] = useState<ProgramRecord | null>(null)
+  const [createProspectError, setCreateProspectError] = useState<ApiError | null>(null)
 
   const programsQuery = useQuery({
     queryKey: programQueryKey,
@@ -331,6 +337,18 @@ export function ProgramsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: programQueryKey })
       setRewardsDialogProgram(null)
+    },
+  })
+
+  const createProspectMutation = useMutation({
+    mutationFn: createProspect,
+    onSuccess: async () => {
+      setProspectFormProgram(null)
+      setCreateProspectError(null)
+      await queryClient.invalidateQueries({ queryKey: ['prospects', 'list'] })
+    },
+    onError: (err) => {
+      setCreateProspectError(err as ApiError)
     },
   })
 
@@ -710,11 +728,7 @@ export function ProgramsPage() {
               program={program}
               mode={cardMode}
               canSubmitProspect={canSubmitProspect}
-              prospectCreateHref={
-                canSubmitProspect && program.status === 'active'
-                  ? `/prospects?create=true&programId=${encodeURIComponent(program.id)}`
-                  : undefined
-              }
+              onAddProspect={(p) => setAddProspectProgram(p)}
               togglePending={
                 pauseMutation.isPending || reactivateMutation.isPending || suspendMutation.isPending
               }
@@ -1186,6 +1200,34 @@ export function ProgramsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddProspectMethodDialog
+        open={Boolean(addProspectProgram)}
+        programId={addProspectProgram?.id ?? ''}
+        agentCode={user?.agent_profile?.agent_code ?? ''}
+        onClose={() => setAddProspectProgram(null)}
+        onSelectForm={() => {
+          const prog = addProspectProgram
+          setAddProspectProgram(null)
+          setProspectFormProgram(prog)
+        }}
+      />
+
+      <NewProspectDialog
+        open={Boolean(prospectFormProgram)}
+        programs={prospectFormProgram ? [prospectFormProgram] : []}
+        defaultProgramId={prospectFormProgram?.id ?? null}
+        isSubmitting={createProspectMutation.isPending}
+        error={createProspectError}
+        onClose={() => {
+          setProspectFormProgram(null)
+          setCreateProspectError(null)
+          createProspectMutation.reset()
+        }}
+        onSubmit={async (payload) => {
+          await createProspectMutation.mutateAsync(payload)
+        }}
+      />
     </section>
   )
 }

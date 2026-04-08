@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Models\UserRole;
 use App\Support\FrontendUrlResolver;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,7 +56,8 @@ class AgentController extends Controller
                 },
             ])
             ->withCount([
-                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+                'prospects as active_pipeline_prospects_count' => fn (Builder $query) => $this->activePipelineProspectsScope($query),
+                'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
             ])
             ->findOrFail($agentId);
 
@@ -74,9 +74,26 @@ class AgentController extends Controller
         $this->assertPermission($user, 'agent.view', $businessId);
 
         $query = $this->scopedAgentsQuery($user)
-            ->with('user')
+            ->with([
+                'user',
+                'programAssignments' => function ($query): void {
+                    $query
+                        ->whereNull('removed_at')
+                        ->orderByDesc('assigned_at')
+                        ->with([
+                            'program' => function ($programQuery): void {
+                                $programQuery->withCount([
+                                    'agentAssignments as assigned_agents_count' => function ($assignmentQuery): void {
+                                        $assignmentQuery->whereNull('removed_at');
+                                    },
+                                ]);
+                            },
+                        ]);
+                },
+            ])
             ->withCount([
-                'prospects as active_pipeline_prospects_count' => fn (HasMany $prospectsQuery) => $this->activePipelineProspectsScope($prospectsQuery),
+                'prospects as active_pipeline_prospects_count' => fn (Builder $prospectsQuery) => $this->activePipelineProspectsScope($prospectsQuery),
+                'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
             ]);
 
         if ($request->filled('status')) {
@@ -314,7 +331,8 @@ class AgentController extends Controller
             ->where('business_id', $businessId)
             ->with('user')
             ->withCount([
-                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+                'prospects as active_pipeline_prospects_count' => fn (Builder $query) => $this->activePipelineProspectsScope($query),
+                'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
             ])
             ->findOrFail($agentId);
 
@@ -351,7 +369,8 @@ class AgentController extends Controller
         );
 
         $agent->load('user')->loadCount([
-            'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+            'prospects as active_pipeline_prospects_count' => fn (Builder $query) => $this->activePipelineProspectsScope($query),
+            'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
         ]);
 
         return response()->json([
@@ -369,7 +388,8 @@ class AgentController extends Controller
             ->where('business_id', $businessId)
             ->with('user')
             ->withCount([
-                'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+                'prospects as active_pipeline_prospects_count' => fn (Builder $query) => $this->activePipelineProspectsScope($query),
+                'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
             ])
             ->findOrFail($agentId);
 
@@ -403,7 +423,8 @@ class AgentController extends Controller
         );
 
         $agent->load('user')->loadCount([
-            'prospects as active_pipeline_prospects_count' => fn (HasMany $query) => $this->activePipelineProspectsScope($query),
+            'prospects as active_pipeline_prospects_count' => fn (Builder $query) => $this->activePipelineProspectsScope($query),
+            'programAssignments as assigned_programs_count' => fn (Builder $query) => $query->whereNull('removed_at'),
         ]);
 
         return response()->json([
@@ -411,7 +432,7 @@ class AgentController extends Controller
         ]);
     }
 
-    private function activePipelineProspectsScope(HasMany $query): void
+    private function activePipelineProspectsScope(Builder $query): void
     {
         $query
             ->where('submission_status', '!=', 'deleted')

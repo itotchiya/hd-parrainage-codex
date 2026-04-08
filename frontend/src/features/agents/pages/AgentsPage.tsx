@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
@@ -11,13 +11,25 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
-import { agentStatusBadgeClass, formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
+import {
+  agentStatusBadgeClass,
+  formatDashboardDateFr,
+  programStatusBadgeClass,
+} from '@/features/dashboard/utils/semanticBadges'
+import { DetailEmptyState } from '@/components/app/DetailPageKit'
 import { PageHeader } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -75,6 +87,7 @@ function compareAgents(left: AgentRecord, right: AgentRecord, key: AgentSortKey,
 }
 
 export function AgentsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthSession()
   const canInvite = hasPermission('agent.invite')
@@ -86,6 +99,7 @@ export function AgentsPage() {
     type: AgentLifecycleAction
     agent: AgentRecord
   } | null>(null)
+  const [programsDialogAgent, setProgramsDialogAgent] = useState<AgentRecord | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [sortKey, setSortKey] = useState<AgentSortKey | null>(null)
@@ -228,6 +242,52 @@ export function AgentsPage() {
           await reactivateMutation.mutateAsync({ agentId: agent.id })
         }}
       />
+      <Dialog open={programsDialogAgent !== null} onOpenChange={(open) => !open && setProgramsDialogAgent(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Programmes assignés</DialogTitle>
+            <DialogDescription>
+              {programsDialogAgent
+                ? `Liste complète des programmes actuellement attribués à ${programsDialogAgent.display_name ?? programsDialogAgent.email ?? 'cet affilié'}.`
+                : 'Liste complète des programmes assignés à cet affilié.'}
+            </DialogDescription>
+          </DialogHeader>
+          {programsDialogAgent && (programsDialogAgent.assigned_programs?.length ?? 0) > 0 ? (
+            <div className="space-y-3">
+              {programsDialogAgent.assigned_programs?.map((assignment) => (
+                <button
+                  key={assignment.assignment_id}
+                  type="button"
+                  className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-dashed border-border bg-background px-4 py-3 text-left transition-colors hover:border-border hover:bg-muted/20"
+                  onClick={() => {
+                    setProgramsDialogAgent(null)
+                    navigate(`/programs/${assignment.program.id}`)
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">{assignment.program.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Assigné le {formatDashboardDateFr(assignment.assigned_at)}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex shrink-0 items-center gap-2">
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} agents
+                    </Badge>
+                    <Badge className={programStatusBadgeClass(assignment.program.status)}>
+                      {assignment.program.status}
+                    </Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <DetailEmptyState
+              message="Cet affilié n’est actuellement lié à aucun programme."
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       <section className="app-section">
         <PageHeader
           title="Agents"
@@ -332,6 +392,7 @@ export function AgentsPage() {
                   >
                     Statut
                   </SortableTableHead>
+                  <TableHead className="hidden lg:table-cell">Programmes</TableHead>
                   <SortableTableHead
                     sortKey="joined"
                     activeKey={sortKey}
@@ -391,6 +452,21 @@ export function AgentsPage() {
                         ) : (
                           '—'
                         )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <button
+                          type="button"
+                          className="cursor-pointer"
+                          onClick={() => setProgramsDialogAgent(agent)}
+                        >
+                          <Badge
+                            variant="secondary"
+                            className="transition-colors hover:bg-secondary/80"
+                          >
+                            {(agent.assigned_programs_count ?? 0).toLocaleString('fr-FR')}{' '}
+                            {(agent.assigned_programs_count ?? 0) > 1 ? 'programmes' : 'programme'}
+                          </Badge>
+                        </button>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDashboardDateFr(joinedAt)}

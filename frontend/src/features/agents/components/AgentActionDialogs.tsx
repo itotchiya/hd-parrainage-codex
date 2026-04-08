@@ -37,7 +37,7 @@ const lifecycleCopy: Record<
     alertTitle: 'Accès interrompu',
     alertDescription:
       'L’affilié sera notifié de sa suspension dans la plateforme. Le motif saisi sera visible dans sa notification.',
-    confirmLabel: 'Confirmer la suspension',
+    confirmLabel: 'Suspendre',
     destructive: true,
   },
   reactivate: {
@@ -46,7 +46,7 @@ const lifecycleCopy: Record<
     alertTitle: 'Affilié informé',
     alertDescription:
       'L’affilié recevra une notification indiquant que son accès a été réactivé.',
-    confirmLabel: 'Confirmer la réactivation',
+    confirmLabel: 'Réactiver',
   },
 }
 
@@ -69,24 +69,21 @@ export function AgentLifecycleConfirmDialog({
 }) {
   const [reason, setReason] = useState('')
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS)
+  const [countdownStarted, setCountdownStarted] = useState(false)
 
   const copy = action ? lifecycleCopy[action.type] : lifecycleCopy.suspend
-  const activePipelineProspects = action?.agent.active_pipeline_prospects_count ?? 0
-  const requiresCountdown = action?.type === 'suspend' && activePipelineProspects > 0
+  const assignedProgramsCount =
+    action?.agent.assigned_programs_count ?? action?.agent.assigned_programs?.length ?? 0
+  const requiresCountdown = action?.type === 'suspend' && assignedProgramsCount > 0
 
   useEffect(() => {
-    if (!action) {
-      setReason('')
-      setCountdown(COUNTDOWN_SECONDS)
-      return
-    }
-
     setReason('')
     setCountdown(COUNTDOWN_SECONDS)
+    setCountdownStarted(false)
   }, [action])
 
   useEffect(() => {
-    if (!action || !requiresCountdown || isSubmitting) {
+    if (!action || !requiresCountdown || isSubmitting || !countdownStarted) {
       return
     }
 
@@ -99,20 +96,37 @@ export function AgentLifecycleConfirmDialog({
     }, 1000)
 
     return () => window.clearTimeout(timer)
-  }, [action, countdown, isSubmitting, requiresCountdown])
+  }, [action, countdown, countdownStarted, isSubmitting, requiresCountdown])
 
   const suspendWarningDescription = useMemo(() => {
     if (!requiresCountdown) {
-      return 'Vous pouvez suspendre cet affilié immédiatement. Aucun prospect actif n’est encore en cours de traitement.'
+      return 'Vous pouvez suspendre cet affilié immédiatement. Aucun programme n’est encore assigné à cet affilié.'
     }
 
-    return `Cet affilié a encore ${activePipelineProspects.toLocaleString('fr-FR')} prospect${
-      activePipelineProspects > 1 ? 's' : ''
-    } en cours dans le pipeline. Attendez ${countdown}s avant de confirmer afin d’éviter une interruption brutale.`
-  }, [activePipelineProspects, countdown, requiresCountdown])
+    if (!countdownStarted) {
+      return `Cet affilié est déjà assigné à ${assignedProgramsCount.toLocaleString('fr-FR')} programme${
+        assignedProgramsCount > 1 ? 's' : ''
+      }. Cliquez sur "Suspendre" pour lancer un délai de confirmation de 10 secondes.`
+    }
+
+    return `Cet affilié est déjà assigné à ${assignedProgramsCount.toLocaleString('fr-FR')} programme${
+      assignedProgramsCount > 1 ? 's' : ''
+    }. Attendez ${countdown}s avant de confirmer afin d’éviter une interruption brutale.`
+  }, [assignedProgramsCount, countdown, countdownStarted, requiresCountdown])
+
+  const suspendButtonDisabled =
+    isSubmitting ||
+    !action ||
+    (action.type === 'suspend' && !reason.trim()) ||
+    (action?.type === 'suspend' && requiresCountdown && countdownStarted && countdown > 0)
 
   return (
-    <Dialog open={Boolean(action)} onOpenChange={(isOpen) => { if (!isOpen && !isSubmitting) onClose() }}>
+    <Dialog
+      open={Boolean(action)}
+      onOpenChange={(isOpen) => {
+        if (!isOpen && !isSubmitting) onClose()
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
@@ -121,7 +135,11 @@ export function AgentLifecycleConfirmDialog({
 
         <Alert
           variant={copy.destructive ? 'destructive' : 'default'}
-          className={!copy.destructive ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-900 dark:text-emerald-300' : undefined}
+          className={
+            !copy.destructive
+              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-900 dark:text-emerald-300'
+              : undefined
+          }
         >
           {copy.destructive ? <AlertTriangleIcon /> : <InfoIcon />}
           <AlertTitle>{copy.alertTitle}</AlertTitle>
@@ -132,7 +150,7 @@ export function AgentLifecycleConfirmDialog({
           <div className="space-y-4">
             <Alert className="border-amber-500/25 bg-amber-500/10 text-amber-950 dark:text-amber-200">
               <UserX />
-              <AlertTitle>Prospects en cours</AlertTitle>
+              <AlertTitle>Programmes assignés</AlertTitle>
               <AlertDescription>{suspendWarningDescription}</AlertDescription>
             </Alert>
 
@@ -173,13 +191,15 @@ export function AgentLifecycleConfirmDialog({
           <Button
             type="button"
             variant={copy.destructive ? 'destructive' : 'default'}
-            disabled={
-              isSubmitting ||
-              !action ||
-              (action.type === 'suspend' && (!reason.trim() || countdown > 0))
-            }
+            disabled={suspendButtonDisabled}
             onClick={() => {
               if (!action) return
+
+              if (action.type === 'suspend' && requiresCountdown && !countdownStarted) {
+                setCountdownStarted(true)
+                return
+              }
+
               void onConfirm(action.type, action.agent, {
                 reason: action.type === 'suspend' ? reason.trim() : undefined,
               })
@@ -187,7 +207,7 @@ export function AgentLifecycleConfirmDialog({
           >
             {isSubmitting
               ? 'Traitement...'
-              : action?.type === 'suspend' && countdown > 0
+              : action?.type === 'suspend' && requiresCountdown && countdownStarted && countdown > 0
                 ? `Attendre ${countdown}s`
                 : copy.confirmLabel}
           </Button>

@@ -8,6 +8,7 @@ import { KpiCard, kpiSnapshotBadge, type KpiTone } from '../../dashboard/compone
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPrograms } from '../../programs/api'
+import { AddProspectMethodDialog } from '../components/AddProspectMethodDialog'
 import { DeleteProspectDialog } from '../components/DeleteProspectDialog'
 import { NewProspectDialog } from '../components/NewProspectDialog'
 import {
@@ -189,6 +190,7 @@ export function ProspectsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const queryWantsCreate = searchParams.get('create') === 'true'
   const queryProgramId = searchParams.get('programId')
+  const [methodDialogOpen, setMethodDialogOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(queryWantsCreate)
   const [deleteTarget, setDeleteTarget] = useState<ProspectRecord | null>(null)
   const isAgentView = user?.agent_profile !== null && user?.agent_profile !== undefined
@@ -487,7 +489,7 @@ export function ProspectsPage() {
                     type="button"
                     size="sm"
                     className="gap-2 sm:shrink-0"
-                    onClick={() => setCreateOpen(true)}
+                    onClick={() => setMethodDialogOpen(true)}
                     disabled={eligiblePrograms.length === 0}
                   >
                     <Plus className="size-4" aria-hidden />
@@ -580,7 +582,7 @@ export function ProspectsPage() {
                     type="button"
                     size="sm"
                     className="gap-2 sm:shrink-0"
-                    onClick={() => setCreateOpen(true)}
+                    onClick={() => setMethodDialogOpen(true)}
                     disabled={eligiblePrograms.length === 0}
                   >
                     <Plus className="size-4" aria-hidden />
@@ -864,6 +866,17 @@ export function ProspectsPage() {
           </div>
         </article>
       )}
+
+      <AddProspectMethodDialog
+        open={methodDialogOpen}
+        agentCode={user?.agent_profile?.agent_code ?? ''}
+        programs={eligiblePrograms}
+        onClose={() => setMethodDialogOpen(false)}
+        onSelectForm={() => {
+          setMethodDialogOpen(false)
+          setCreateOpen(true)
+        }}
+      />
 
       <NewProspectDialog
         open={createOpen}

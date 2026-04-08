@@ -30,6 +30,7 @@ import { ProgramsPage } from '../features/programs/pages/ProgramsPage.tsx'
 import { TransactionsPage } from '../features/transactions/pages/TransactionsPage.tsx'
 import { SettingsPage } from '../features/settings/pages/SettingsPage.tsx'
 import { IacrmDashboardPage } from '../features/iacrm/pages/IacrmDashboardPage.tsx'
+import { PublicProspectPortalPage } from '../features/prospects/pages/PublicProspectPortalPage.tsx'
 import { ForbiddenPage } from '../features/system/pages/ForbiddenPage'
 import { NotFoundPage } from '../features/system/pages/NotFoundPage'
 import { SessionExpiredPage } from '../features/system/pages/SessionExpiredPage'
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
         <PasswordResetPage />
       </PublicOnly>
     ),
+  },
+  {
+    path: '/portal/:agentCode/:programId',
+    element: <PublicProspectPortalPage />,
   },
   {
     path: '/403',

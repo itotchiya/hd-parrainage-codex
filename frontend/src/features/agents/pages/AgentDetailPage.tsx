@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Search, UserCheck, UserX } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   DetailEmptyState,
-  DetailMetaGrid,
-  DetailMetaItem,
   DetailSectionCard,
 } from '@/components/app/DetailPageKit'
+import { EntityCardIdentity } from '@/components/app/EntityCardIdentity'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
@@ -141,6 +140,46 @@ function syncBadgeClass(status: string) {
   return 'border-transparent bg-muted text-muted-foreground'
 }
 
+function ClickableInfoCard({
+  onClick,
+  children,
+}: {
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group block w-full cursor-pointer rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      {children}
+    </button>
+  )
+}
+
+function CompactMetaItem({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2 transition-colors group-hover:border-solid group-hover:bg-muted/20 group-focus-visible:border-solid',
+        className,
+      )}
+    >
+      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xs font-medium text-foreground">{value}</p>
+    </div>
+  )
+}
+
 function AgentDetailSkeleton() {
   return (
     <section className="app-section">
@@ -207,6 +246,7 @@ export function AgentDetailPage() {
   const canReactivate = hasPermission('agent.reactivate')
 
   const [programsDialogOpen, setProgramsDialogOpen] = useState(false)
+  const [profileDetailKey, setProfileDetailKey] = useState<string | null>(null)
   const [pendingLifecycleAction, setPendingLifecycleAction] = useState<{
     type: AgentLifecycleAction
     agent: AgentRecord
@@ -338,6 +378,68 @@ export function AgentDetailPage() {
 
   const statusLabel = agent.status.replace(/_/g, ' ')
   const title = agent.display_name ?? 'Affilié sans nom'
+  const shortUserId = agent.user_id.slice(0, 8)
+  const profileDetails = [
+    {
+      key: 'contact',
+      label: 'Contact',
+      value: agent.email ?? 'Aucun email',
+      description: 'Adresse email utilisée pour les notifications, invitations et échanges avec l’affilié.',
+    },
+    {
+      key: 'code',
+      label: 'Code affilié',
+      value: agent.agent_code ?? 'Code non attribué',
+      description: 'Code interne unique utilisé pour identifier rapidement cet affilié dans la plateforme.',
+    },
+    {
+      key: 'id',
+      label: 'Identifiant',
+      value: shortUserId,
+      description: 'Identifiant court de l’utilisateur rattaché à cet affilié.',
+    },
+    {
+      key: 'invited',
+      label: 'Invité le',
+      value: formatDate(agent.invited_at, true),
+      description: 'Date et heure de l’envoi de l’invitation initiale.',
+    },
+    {
+      key: 'joined',
+      label: 'Rejoint le',
+      value: formatDate(agent.activated_at, true),
+      description: 'Date et heure de l’activation effective de l’affilié.',
+    },
+    {
+      key: 'activity',
+      label: 'Dernière activité',
+      value: formatDate(agent.last_activity_at, true),
+      description: 'Dernière activité enregistrée pour cet affilié dans la plateforme.',
+    },
+    {
+      key: 'suspended',
+      label: 'Suspendu le',
+      value: formatDate(agent.suspended_at, true),
+      description: 'Date et heure de suspension, si l’affilié a déjà été suspendu.',
+    },
+    {
+      key: 'created',
+      label: 'Créé le',
+      value: formatDate(agent.created_at, true),
+      description: 'Date de création de la fiche affilié dans le système.',
+    },
+    ...(agent.notes
+      ? [
+          {
+            key: 'notes',
+            label: 'Notes',
+            value: agent.notes,
+            description: 'Notes internes liées à cet affilié.',
+          },
+        ]
+      : []),
+  ] as const
+  const activeProfileDetail = profileDetails.find((item) => item.key === profileDetailKey) ?? null
 
   return (
     <section className="app-section">
@@ -368,6 +470,23 @@ export function AgentDetailPage() {
           await reactivateMutation.mutateAsync({ agentId: selectedAgent.id })
         }}
       />
+      <Dialog open={profileDetailKey !== null} onOpenChange={(open) => !open && setProfileDetailKey(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{activeProfileDetail?.label ?? 'Détail'}</DialogTitle>
+            <DialogDescription>
+              {activeProfileDetail?.description ?? 'Détail du profil affilié.'}
+            </DialogDescription>
+          </DialogHeader>
+          {activeProfileDetail ? (
+            <CompactMetaItem
+              label={activeProfileDetail.label}
+              value={activeProfileDetail.value}
+              className="border-border bg-background px-4 py-3"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <PageHeader
         beforeTitle={
@@ -415,43 +534,34 @@ export function AgentDetailPage() {
 
       <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
         <DetailSectionCard title="Profil affilié" className="h-full">
-          <div className="flex items-start gap-4">
-            <Avatar className="size-16 rounded-2xl">
-              <AvatarImage src={agent.avatar_url ?? undefined} alt={title} />
-              <AgentAvatarFallback
-                seed={avatarSeedForUser({ id: agent.user_id })}
-                className="text-base font-semibold"
-              >
-                {initials(agent.display_name, agent.email)}
-              </AgentAvatarFallback>
-            </Avatar>
+          <div className="space-y-3">
+            <EntityCardIdentity
+              leading={
+                <Avatar className="size-12 rounded-xl">
+                  <AvatarImage src={agent.avatar_url ?? undefined} alt={title} />
+                  <AgentAvatarFallback
+                    seed={avatarSeedForUser({ id: agent.user_id })}
+                    className="text-sm font-semibold"
+                  >
+                    {initials(agent.display_name, agent.email)}
+                  </AgentAvatarFallback>
+                </Avatar>
+              }
+              title={title}
+              description={agent.email ?? 'Aucun email renseigné'}
+              badge={<Badge variant="secondary">{agent.agent_code ?? 'Code non attribué'}</Badge>}
+              titleClassName="!text-sm text-foreground"
+              descriptionClassName="text-xs leading-[1.15rem]"
+            />
 
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-foreground">{title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {agent.email ?? 'Aucun email renseigné'}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{agent.agent_code ?? 'Code non attribué'}</Badge>
-                <Badge variant="secondary">{agent.id.slice(0, 8)}…</Badge>
-              </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {profileDetails.map((item) => (
+                <ClickableInfoCard key={item.key} onClick={() => setProfileDetailKey(item.key)}>
+                  <CompactMetaItem label={item.label} value={item.value} />
+                </ClickableInfoCard>
+              ))}
             </div>
           </div>
-
-          <DetailMetaGrid className="mt-5 xl:grid-cols-3">
-            <DetailMetaItem label="Email" value={agent.email ?? 'Aucun email'} />
-            <DetailMetaItem label="Invité le" value={formatDate(agent.invited_at, true)} />
-            <DetailMetaItem label="Rejoint le" value={formatDate(agent.activated_at, true)} />
-            <DetailMetaItem label="Dernière activité" value={formatDate(agent.last_activity_at, true)} />
-            <DetailMetaItem label="Suspendu le" value={formatDate(agent.suspended_at, true)} />
-            <DetailMetaItem label="Créé le" value={formatDate(agent.created_at, true)} />
-          </DetailMetaGrid>
-
-          {agent.notes ? (
-            <div className="mt-4 rounded-lg border border-border bg-muted/25 px-4 py-4 text-sm leading-6 text-muted-foreground">
-              {agent.notes}
-            </div>
-          ) : null}
         </DetailSectionCard>
 
         <DetailSectionCard
@@ -681,3 +791,4 @@ export function AgentDetailPage() {
     </section>
   )
 }
+

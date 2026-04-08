@@ -286,6 +286,7 @@ interface ProgramCardProps {
   onAssignAgents?: (program: ProgramRecord) => void
   onManageRewards?: (program: ProgramRecord) => void
   onEditRewardsPack?: (program: ProgramRecord) => void
+  onAddProspect?: (program: ProgramRecord) => void
   onViewBusinessPrograms?: (program: ProgramRecord) => void
   onDeleteArchived?: (program: ProgramRecord) => void
   onLiftSuspension?: (program: ProgramRecord) => void
@@ -325,6 +326,7 @@ export function ProgramCard({
   onAssignAgents,
   onManageRewards,
   onEditRewardsPack,
+  onAddProspect,
   onViewBusinessPrograms,
   onDeleteArchived,
   onLiftSuspension,
@@ -370,7 +372,7 @@ export function ProgramCard({
     canAssignAgent && onAssignAgents && !isSuspended && program.status !== 'archived',
   )
   const canDeleteAction = Boolean(canSoftDelete && onDeleteArchived)
-  const canCreateProspect = Boolean(prospectCreateHref && canSubmitProspect && program.status === 'active')
+  const canCreateProspect = Boolean((prospectCreateHref || onAddProspect) && canSubmitProspect && program.status === 'active')
   const [activeInfoCard, setActiveInfoCard] = useState<ProgramInfoCardKey | null>(null)
   const pointsSummary =
     program.points_per_transaction === null
@@ -604,11 +606,13 @@ export function ProgramCard({
                       </Link>
                     </DropdownMenuItem>
                     {withDisabledTooltip(
-                      <DropdownMenuItem asChild disabled={!canCreateProspect}>
-                        <Link to={prospectCreateHref ?? '#'} className="flex cursor-pointer items-center gap-2">
-                          <Zap className="size-4" />
-                          Add prospect
-                        </Link>
+                      <DropdownMenuItem
+                        disabled={!canCreateProspect}
+                        onClick={() => { if (canCreateProspect) onAddProspect?.(program) }}
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <Zap className="size-4" />
+                        Add prospect
                       </DropdownMenuItem>,
                       addProspectDisabledReason,
                     )}

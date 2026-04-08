@@ -37,6 +37,7 @@ class AgentResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'active_pipeline_prospects_count' => (int) ($this->active_pipeline_prospects_count ?? 0),
+            'assigned_programs_count' => (int) ($this->assigned_programs_count ?? 0),
             'assigned_programs' => $this->whenLoaded('programAssignments', function (): array {
                 return $this->programAssignments
                     ->filter(fn ($assignment) => $assignment->program !== null)
@@ -79,7 +80,7 @@ class AgentResource extends JsonResource
             'actions' => [
                 'can_suspend' => $this->status !== 'suspended',
                 'can_reactivate' => $this->status === 'suspended',
-                'requires_suspend_timer' => ((int) ($this->active_pipeline_prospects_count ?? 0)) > 0,
+                'requires_suspend_timer' => ((int) ($this->assigned_programs_count ?? 0)) > 0,
             ],
         ];
     }

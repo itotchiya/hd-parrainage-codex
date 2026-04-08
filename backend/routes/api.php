@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Programs\ExchangePackController;
 use App\Http\Controllers\Api\Programs\ProgramAgentAssignmentController;
 use App\Http\Controllers\Api\Programs\ProgramController;
 use App\Http\Controllers\Api\Prospects\ProspectController;
+use App\Http\Controllers\Api\Prospects\PublicProspectController;
 use App\Http\Controllers\Api\Settings\SettingsController;
 use App\Http\Controllers\Api\Sync\SyncJobController;
 use App\Http\Controllers\Api\Transactions\TransactionController;
@@ -101,6 +102,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::post('/exchange-requests/{exchangeRequestId}/processing', [ExchangeRequestController::class, 'markProcessing']);
     Route::post('/exchange-requests/{exchangeRequestId}/complete', [ExchangeRequestController::class, 'complete']);
     Route::post('/exchange-requests/{exchangeRequestId}/cancel', [ExchangeRequestController::class, 'cancel']);
+});
+
+Route::prefix('public')->group(function (): void {
+    Route::get('/programs/{programId}/portal-info', [PublicProspectController::class, 'portalInfo']);
+    Route::post('/prospects', [PublicProspectController::class, 'store']);
 });
 
 require __DIR__.'/api_frontend2.php';
