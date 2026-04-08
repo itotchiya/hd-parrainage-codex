@@ -27,6 +27,7 @@ import { ProspectsPage } from '../features/prospects/pages/ProspectsPage.tsx'
 import { ProgramDocsPage } from '../features/programs/pages/ProgramDocsPage.tsx'
 import { ProgramDetailPage } from '../features/programs/pages/ProgramDetailPage.tsx'
 import { ProgramsPage } from '../features/programs/pages/ProgramsPage.tsx'
+import { TransactionDetailPage } from '../features/transactions/pages/TransactionDetailPage.tsx'
 import { TransactionsPage } from '../features/transactions/pages/TransactionsPage.tsx'
 import { SettingsPage } from '../features/settings/pages/SettingsPage.tsx'
 import { IacrmDashboardPage } from '../features/iacrm/pages/IacrmDashboardPage.tsx'
@@ -209,6 +210,14 @@ export const router = createBrowserRouter([
         element: (
           <PermissionBoundary anyOf={['transaction.view']}>
             <TransactionsPage />
+          </PermissionBoundary>
+        ),
+      },
+      {
+        path: '/transactions/:transactionId',
+        element: (
+          <PermissionBoundary anyOf={['transaction.view']}>
+            <TransactionDetailPage />
           </PermissionBoundary>
         ),
       },

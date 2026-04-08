@@ -64,3 +64,12 @@ export interface TransactionDetailEnvelope {
 export interface TransactionSummaryEnvelope {
   data: TransactionSummaryRecord
 }
+
+export interface TransactionQueryParams {
+  search?: string
+  status?: TransactionStatus | 'all'
+  programId?: string
+  agentId?: string
+  dateFrom?: string
+  dateTo?: string
+}

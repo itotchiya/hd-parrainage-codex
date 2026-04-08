@@ -94,7 +94,7 @@ export function DashboardPage() {
   })
   const transactionsQuery = useQuery({
     queryKey: ['dashboard', 'transactions'],
-    queryFn: fetchTransactions,
+    queryFn: () => fetchTransactions(),
     enabled: isBusinessOwner,
   })
   const pointsLedgerQuery = useQuery({
