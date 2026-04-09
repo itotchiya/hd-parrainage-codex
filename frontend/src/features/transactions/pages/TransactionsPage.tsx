@@ -14,7 +14,7 @@ import {
 
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
-import { formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
+import { formatDashboardDateFr, formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { useAuthSession } from '@/features/auth/session'
 import { fetchAgents } from '@/features/agents/api'
 import { fetchPrograms } from '@/features/programs/api'
@@ -129,7 +129,7 @@ function transactionSyncPresentation(transaction: TransactionRecord) {
       label: 'Rejet métier',
       className:
         'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-      helper: transaction.rejected_at ? `Rejetée le ${formatDashboardDateFr(transaction.rejected_at)}` : 'Rejetée',
+      helper: transaction.rejected_at ? `Rejetée le ${formatDashboardDateTimeFr(transaction.rejected_at)}` : 'Rejetée',
       rank: 0,
     }
   }
@@ -139,7 +139,7 @@ function transactionSyncPresentation(transaction: TransactionRecord) {
       label: 'Synchronisée',
       className:
         'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-      helper: formatDashboardDateFr(transaction.last_synced_at),
+      helper: formatDashboardDateTimeFr(transaction.last_synced_at),
       rank: 3,
     }
   }
@@ -149,7 +149,7 @@ function transactionSyncPresentation(transaction: TransactionRecord) {
       label: 'Trace locale',
       className:
         'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-      helper: formatDashboardDateFr(transaction.last_synced_at),
+      helper: formatDashboardDateTimeFr(transaction.last_synced_at),
       rank: 2,
     }
   }
@@ -263,6 +263,7 @@ export function TransactionsPage() {
   const transactionsQuery = useQuery({
     queryKey: ['transactions', 'list', queryParams],
     queryFn: () => fetchTransactions(queryParams),
+    refetchInterval: 30_000,
   })
 
   const summaryQuery = useQuery({

@@ -18,7 +18,7 @@ export function kpiSnapshotBadge(label: string): DashboardMetricBadge {
   return { tone: 'neutral', label, icon: null }
 }
 
-export type KpiTone = 'primary' | 'success' | 'warning' | 'info'
+export type KpiTone = 'primary' | 'success' | 'warning' | 'info' | 'danger'
 
 interface KpiCardProps {
   title: string
@@ -52,6 +52,10 @@ const toneStyles: Record<
   info: {
     icon: 'bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-300',
     badge: 'bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-300',
+  },
+  danger: {
+    icon: 'bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300',
+    badge: 'bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300',
   },
 }
 

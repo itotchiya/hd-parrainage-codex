@@ -62,7 +62,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuthSession } from '@/features/auth/session'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
-import { formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
+import { formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { fetchPointsByProgram, fetchPointsSummary } from '@/features/points/api'
 import { ApiError } from '@/lib/api'
 import type { ExchangeRequestRecord, ExchangeRequestStatus } from '@/types/exchanges'
@@ -288,6 +288,7 @@ export function ExchangesPage() {
   const exchangesQuery = useQuery({
     queryKey: ['exchange-requests', 'list'],
     queryFn: fetchExchangeRequests,
+    refetchInterval: 30_000,
   })
 
   const programBalancesQuery = useQuery({
@@ -930,7 +931,7 @@ export function ExchangesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
-                        {formatDashboardDateFr(record.requested_at)}
+                        {formatDashboardDateTimeFr(record.requested_at)}
                       </TableCell>
                       <TableCell className="text-right">
                         <TooltipProvider delayDuration={150}>

@@ -4,6 +4,11 @@ export interface SettingsPayload {
     display_name: string
     avatar_url: string | null
     email: string
+    pending_email: string | null
+    phone_number: string | null
+    email_verified_at: string | null
+    pending_email_verification_sent_at: string | null
+    pending_email_verification_expires_at: string | null
     status: string
   }
   business: {

@@ -15,7 +15,7 @@ import { useAuthSession } from '@/features/auth/session'
 import { fetchAgents } from '@/features/agents/api'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
-import { formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
+import { formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { fetchPrograms } from '@/features/programs/api'
 import { buildProspectDetailPath } from '@/features/prospects/paths'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
@@ -330,6 +330,7 @@ export function PointsPage() {
   const ledgerQuery = useQuery({
     queryKey: ['points', 'ledger', ledgerQueryParams],
     queryFn: () => fetchPointsLedger(ledgerQueryParams),
+    refetchInterval: 30_000,
   })
 
   const programsQuery = useQuery({
@@ -675,7 +676,7 @@ export function PointsPage() {
                         <TableCell className="hidden xl:table-cell">
                           {entry.transaction_id ? <Link to={`/transactions/${entry.transaction_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.transaction_reference ?? 'Open transaction'}</Link> : <span className="text-muted-foreground">No transaction</span>}
                         </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{entry.effective_at ? formatDashboardDateFr(entry.effective_at) : 'Unavailable'}</TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">{entry.effective_at ? formatDashboardDateTimeFr(entry.effective_at) : 'Indisponible'}</TableCell>
                       </TableRow>
                     )
                   })}

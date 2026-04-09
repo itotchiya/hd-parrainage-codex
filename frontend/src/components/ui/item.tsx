@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 const itemVariants = cva('flex items-center gap-3 rounded-lg', {
   variants: {
     variant: {
-      default: 'bg-muted/20',
+      default: 'bg-transparent',
+      muted: 'bg-muted/20',
       outline: 'border border-border bg-background',
     },
     size: {
@@ -35,11 +36,28 @@ function Item({
   return <Comp data-slot="item" className={cn(itemVariants({ variant, size }), className)} {...props} />
 }
 
-function ItemMedia({ className, ...props }: React.ComponentProps<'div'>) {
+const itemMediaVariants = cva('flex shrink-0 items-center justify-center', {
+  variants: {
+    variant: {
+      default: '',
+      icon: 'size-10 rounded-xl border border-border/70 bg-background text-muted-foreground',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+})
+
+function ItemMedia({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<'div'> &
+  VariantProps<typeof itemMediaVariants>) {
   return (
     <div
       data-slot="item-media"
-      className={cn('flex shrink-0 items-center justify-center', className)}
+      className={cn(itemMediaVariants({ variant }), className)}
       {...props}
     />
   )

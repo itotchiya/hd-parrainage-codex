@@ -117,7 +117,7 @@ export function AppSidebar({
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          onClick={() => navigate('/iacrm?tab=settings')}
+                          onClick={() => navigate('/settings?tab=api')}
                           className={[
                             'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                             'text-muted-foreground hover:bg-accent/60 hover:text-foreground',

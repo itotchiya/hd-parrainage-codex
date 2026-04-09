@@ -37,7 +37,7 @@ export function IacrmConfigGate({ action, onClose }: IacrmConfigGateProps) {
         </div>
 
         {/* Primary CTA */}
-        <Button type="button" onClick={() => goToConfigure('/iacrm')}>
+        <Button type="button" onClick={() => goToConfigure('/settings?tab=api')}>
           Configurer l'API IACRM
         </Button>
 
@@ -45,7 +45,7 @@ export function IacrmConfigGate({ action, onClose }: IacrmConfigGateProps) {
         <button
           type="button"
           className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
-          onClick={() => goToConfigure('/settings')}
+          onClick={() => goToConfigure('/settings?tab=api')}
         >
           Paramètres → API
         </button>

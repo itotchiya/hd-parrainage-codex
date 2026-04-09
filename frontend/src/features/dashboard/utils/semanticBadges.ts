@@ -75,3 +75,14 @@ export function formatDashboardDateFr(value: string | null) {
     year: 'numeric',
   })
 }
+
+export function formatDashboardDateTimeFr(value: string | null) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

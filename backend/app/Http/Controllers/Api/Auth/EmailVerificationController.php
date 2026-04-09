@@ -15,13 +15,27 @@ class EmailVerificationController extends Controller
         abort_unless($request->hasValidSignature(), 403);
 
         $user = User::query()->findOrFail($id);
-        abort_unless(hash_equals((string) $hash, sha1($user->email)), 403);
+        $pendingEmail = $user->pending_email;
 
-        if ($user->email_verified_at === null) {
+        if ($pendingEmail !== null && $pendingEmail !== '' && hash_equals((string) $hash, sha1($pendingEmail))) {
             $user->forceFill([
+                'email' => $pendingEmail,
+                'pending_email' => null,
+                'pending_email_verification_code_hash' => null,
+                'pending_email_verification_sent_at' => null,
+                'pending_email_verification_expires_at' => null,
                 'email_verified_at' => now(),
                 'last_activity_at' => now(),
             ])->save();
+        } else {
+            abort_unless(hash_equals((string) $hash, sha1($user->email)), 403);
+
+            if ($user->email_verified_at === null) {
+                $user->forceFill([
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                ])->save();
+            }
         }
 
         $redirectUrl = (string) $request->query('redirect', '');

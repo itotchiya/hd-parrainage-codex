@@ -97,7 +97,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::patch('/settings/own', [SettingsController::class, 'updateOwn']);
     Route::post('/settings/own/avatar', [SettingsController::class, 'uploadOwnAvatar']);
+    Route::post('/settings/own/email/request-change', [SettingsController::class, 'requestOwnEmailChange']);
     Route::post('/settings/own/email/resend-verification', [SettingsController::class, 'resendOwnEmailVerification']);
+    Route::post('/settings/own/email/verify-code', [SettingsController::class, 'verifyOwnEmailCode']);
     Route::patch('/settings/own/password', [SettingsController::class, 'updateOwnPassword']);
     Route::patch('/settings/business', [SettingsController::class, 'updateBusiness']);
     Route::get('/exchange-requests', [ExchangeRequestController::class, 'index']);

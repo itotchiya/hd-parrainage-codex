@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Eye, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer, Trash2, User } from 'lucide-react'
+import { BadgeCheck, Eye, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer, Trash2, User, XCircle } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
-import { formatDashboardDateFr } from '../../dashboard/utils/semanticBadges'
+import { formatDashboardDateTimeFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPrograms } from '../../programs/api'
 import { AddProspectMethodDialog } from '../components/AddProspectMethodDialog'
 import { DeleteProspectDialog } from '../components/DeleteProspectDialog'
@@ -145,14 +145,22 @@ function prospectTime(value: string | null) {
 }
 
 function prospectPipelineRank(prospect: ProspectRecord) {
-  return prospect.conversion_status === 'converted' ? 4 : pipelineSortOrder[prospect.pipeline_stage]
+  if (prospect.conversion_status === 'converted') return 4
+  if (prospect.conversion_status === 'lost') return 5
+  return pipelineSortOrder[prospect.pipeline_stage]
 }
 
 function prospectPipelinePresentation(prospect: ProspectRecord) {
   if (prospect.conversion_status === 'converted') {
     return {
-      label: 'Converted',
+      label: 'Converti',
       className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
+    }
+  }
+  if (prospect.conversion_status === 'lost') {
+    return {
+      label: 'Perdu',
+      className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300',
     }
   }
 
@@ -223,7 +231,7 @@ export function ProspectsPage() {
   const { user, hasPermission } = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [stageFilter, setStageFilter] = useState<'all' | ProspectPipelineStage>('all')
+  const [stageFilter, setStageFilter] = useState<'all' | ProspectPipelineStage | 'converted' | 'lost'>('all')
   const [selectedAgentId, setSelectedAgentId] = useState('all')
   const [showDeleted, setShowDeleted] = useState(false)
   const [page, setPage] = useState(1)
@@ -241,6 +249,7 @@ export function ProspectsPage() {
   const prospectsQuery = useQuery({
     queryKey: prospectsQueryKey,
     queryFn: fetchProspects,
+    refetchInterval: 30_000,
   })
 
   const deletedProspectsQuery = useQuery({
@@ -336,7 +345,11 @@ export function ProspectsPage() {
     const normalizedSearch = search.trim().toLowerCase()
 
     return prospects.filter((prospect) => {
-      const matchesStage = stageFilter === 'all' || prospect.pipeline_stage === stageFilter
+      const matchesStage =
+        stageFilter === 'all' ||
+        (stageFilter === 'converted' ? prospect.conversion_status === 'converted' :
+        stageFilter === 'lost' ? prospect.conversion_status === 'lost' :
+        prospect.conversion_status === 'open' && prospect.pipeline_stage === stageFilter)
       const matchesAgent = selectedAgentId === 'all' || prospect.agent_id === selectedAgentId
       const matchesSearch =
         normalizedSearch.length === 0 ||
@@ -396,12 +409,15 @@ export function ProspectsPage() {
   const convertedProspectCount = activeProspects.filter(
     (prospect) => prospect.conversion_status === 'converted',
   ).length
+  const lostProspectCount = activeProspects.filter(
+    (prospect) => prospect.conversion_status === 'lost',
+  ).length
   const stageCards = !showDeleted
     ? Object.entries(stagePresentation).map(([key, value]) => ({
         key,
         ...value,
         count: activeProspects.filter(
-          (prospect) => prospect.conversion_status !== 'converted' && prospect.pipeline_stage === key,
+          (prospect) => prospect.conversion_status === 'open' && prospect.pipeline_stage === key,
         ).length,
       }))
     : []
@@ -423,7 +439,7 @@ export function ProspectsPage() {
       <PageHeader title="Prospects" />
 
       {!showDeleted ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
           {stageCards.map((stage) => {
             const stageKey = stage.key as ProspectPipelineStage
             return (
@@ -431,7 +447,7 @@ export function ProspectsPage() {
                 key={stage.key}
                 title={stage.label}
                 value={stage.count.toString()}
-                description="Prospects in this funnel stage"
+                description="Prospects dans cette étape du funnel"
                 badge={kpiSnapshotBadge('Pipeline')}
                 icon={stageKpiIcons[stageKey]}
                 tone={stageKpiTones[stageKey]}
@@ -439,12 +455,20 @@ export function ProspectsPage() {
             )
           })}
           <KpiCard
-            title="Converted"
+            title="Converti"
             value={convertedProspectCount.toLocaleString('fr-FR')}
-            description="Prospects that produced a validated commercial outcome"
-            badge={kpiSnapshotBadge('Outcome')}
+            description="Prospects ayant produit un résultat commercial validé"
+            badge={kpiSnapshotBadge('Résultat')}
             icon={BadgeCheck}
             tone="success"
+          />
+          <KpiCard
+            title="Perdu"
+            value={lostProspectCount.toLocaleString('fr-FR')}
+            description="Prospects marqués comme perdus par IACRM"
+            badge={kpiSnapshotBadge('Résultat')}
+            icon={XCircle}
+            tone="danger"
           />
         </div>
       ) : (
@@ -477,21 +501,23 @@ export function ProspectsPage() {
 
                 <Select
                   value={stageFilter}
-                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
+                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
                   disabled={showDeleted}
                 >
                   <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                    <SelectValue placeholder="Stage" />
+                    <SelectValue placeholder="Étape" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Pipeline stage</SelectLabel>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectLabel>Étape pipeline</SelectLabel>
+                      <SelectItem value="all">Tous</SelectItem>
                       {Object.entries(stagePresentation).map(([key, stage]) => (
                         <SelectItem key={key} value={key}>
                           {stage.label}
                         </SelectItem>
                       ))}
+                      <SelectItem value="converted">Converti</SelectItem>
+                      <SelectItem value="lost">Perdu</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -570,21 +596,23 @@ export function ProspectsPage() {
 
                 <Select
                   value={stageFilter}
-                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage)}
+                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
                   disabled={showDeleted}
                 >
                   <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                    <SelectValue placeholder="Stage" />
+                    <SelectValue placeholder="Étape" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Pipeline stage</SelectLabel>
-                      <SelectItem value="all">All</SelectItem>
+                      <SelectLabel>Étape pipeline</SelectLabel>
+                      <SelectItem value="all">Tous</SelectItem>
                       {Object.entries(stagePresentation).map(([key, stage]) => (
                         <SelectItem key={key} value={key}>
                           {stage.label}
                         </SelectItem>
                       ))}
+                      <SelectItem value="converted">Converti</SelectItem>
+                      <SelectItem value="lost">Perdu</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -741,7 +769,7 @@ export function ProspectsPage() {
                             </p>
                           ) : null}
                           <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
-                            Submitted {formatDashboardDateFr(prospect.submitted_at)}
+                            Submitted {formatDashboardDateTimeFr(prospect.submitted_at)}
                           </p>
                           {prospect.deleted_at ? (
                             <p
@@ -752,7 +780,7 @@ export function ProspectsPage() {
                                   : undefined
                               }
                             >
-                              Deleted {formatDashboardDateFr(prospect.deleted_at)}
+                              Deleted {formatDashboardDateTimeFr(prospect.deleted_at)}
                             </p>
                           ) : null}
                         </Link>
@@ -810,7 +838,7 @@ export function ProspectsPage() {
                             {submissionPresentation[prospect.submission_status].replace(/_/g, ' ')}
                           </Badge>
                           <span className="text-[11px] text-muted-foreground">
-                            {formatDashboardDateFr(prospect.last_synced_at)}
+                            {formatDashboardDateTimeFr(prospect.last_synced_at)}
                           </span>
                           {prospect.sync_error_message ? (
                             <span
@@ -823,7 +851,7 @@ export function ProspectsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="hidden text-sm text-muted-foreground xl:table-cell">
-                        {formatDashboardDateFr(prospect.submitted_at)}
+                        {formatDashboardDateTimeFr(prospect.submitted_at)}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-col gap-1">
@@ -846,7 +874,7 @@ export function ProspectsPage() {
                       </TableCell>
                       {showDeleted ? (
                         <TableCell className="hidden max-w-[10rem] text-xs text-muted-foreground xl:table-cell">
-                          {formatDashboardDateFr(prospect.deleted_at)}
+                          {formatDashboardDateTimeFr(prospect.deleted_at)}
                           {prospect.deleted_by_user ? (
                             <p className="mt-1 truncate" title={prospect.soft_delete_reason ?? undefined}>
                               {prospect.deleted_by_user.display_name}

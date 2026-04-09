@@ -41,8 +41,11 @@ class SettingsController extends Controller
                     'display_name' => $user->display_name,
                     'avatar_url' => $user->avatar_url,
                     'email' => $user->email,
+                    'pending_email' => $user->pending_email,
                     'phone_number' => $user->phone_number,
                     'email_verified_at' => $user->email_verified_at?->toISOString(),
+                    'pending_email_verification_sent_at' => $user->pending_email_verification_sent_at?->toISOString(),
+                    'pending_email_verification_expires_at' => $user->pending_email_verification_expires_at?->toISOString(),
                     'status' => $user->status,
                 ],
                 'business' => $business === null ? null : [
@@ -82,9 +85,6 @@ class SettingsController extends Controller
         $phoneNumber = isset($payload['phone_number']) && $payload['phone_number'] !== null
             ? trim((string) $payload['phone_number'])
             : null;
-        $previousEmail = $user->email;
-        $emailChanged = $email !== $previousEmail;
-
         $user->forceFill([
             'display_name' => $displayName,
             'email' => $email,
@@ -92,14 +92,9 @@ class SettingsController extends Controller
             'avatar_url' => isset($payload['avatar_url']) && $payload['avatar_url'] !== null
                 ? trim((string) $payload['avatar_url'])
                 : null,
-            'email_verified_at' => $emailChanged ? null : $user->email_verified_at,
             'last_activity_at' => now(),
             'updated_by_user_id' => $user->id,
         ])->save();
-
-        if ($emailChanged) {
-            $this->sendEmailVerification($request, $user);
-        }
 
         return $this->show($request);
     }
@@ -110,15 +105,73 @@ class SettingsController extends Controller
         $businessId = $this->currentBusinessId($user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
-        abort_if($user->email_verified_at !== null, 422, 'This email address is already verified.');
-
-        $this->sendEmailVerification($request, $user);
+        if ($user->pending_email !== null && $user->pending_email !== '') {
+            $this->sendPendingEmailVerification($request, $user, $user->pending_email);
+        } else {
+            abort_if($user->email_verified_at !== null, 422, 'This email address is already verified.');
+            $this->sendCurrentEmailVerification($request, $user);
+        }
 
         return response()->json([
             'data' => [
                 'message' => 'Verification email sent successfully.',
             ],
         ]);
+    }
+
+    public function requestOwnEmailChange(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
+
+        $payload = $request->validate([
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+        ]);
+
+        $pendingEmail = mb_strtolower(trim((string) $payload['email']));
+
+        abort_if($pendingEmail === mb_strtolower((string) $user->email), 422, 'This email is already the active account email.');
+
+        $this->sendPendingEmailVerification($request, $user, $pendingEmail);
+
+        return $this->show($request);
+    }
+
+    public function verifyOwnEmailCode(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
+
+        $payload = $request->validate([
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        abort_if($user->pending_email === null || $user->pending_email === '', 422, 'No pending email verification is available.');
+        abort_if(
+            $user->pending_email_verification_expires_at === null || $user->pending_email_verification_expires_at->isPast(),
+            422,
+            'The verification code has expired. Request a new email verification.',
+        );
+
+        $expectedHash = (string) $user->pending_email_verification_code_hash;
+        $submittedHash = hash('sha256', (string) $payload['code']);
+
+        abort_unless(hash_equals($expectedHash, $submittedHash), 422, 'The verification code is invalid.');
+
+        $user->forceFill([
+            'email' => $user->pending_email,
+            'pending_email' => null,
+            'pending_email_verification_code_hash' => null,
+            'pending_email_verification_sent_at' => null,
+            'pending_email_verification_expires_at' => null,
+            'email_verified_at' => now(),
+            'last_activity_at' => now(),
+            'updated_by_user_id' => $user->id,
+        ])->save();
+
+        return $this->show($request);
     }
 
     public function updateOwnPassword(Request $request): JsonResponse
@@ -273,8 +326,9 @@ class SettingsController extends Controller
         return rtrim(config('app.url'), '/').sprintf('/api/public/media/avatars/%s/%s', $userId, $fileName);
     }
 
-    private function sendEmailVerification(Request $request, User $user): void
+    private function sendCurrentEmailVerification(Request $request, User $user): void
     {
+        $verificationCode = $this->generateVerificationCode();
         $verificationUrl = URL::temporarySignedRoute(
             'auth.email.verify',
             now()->addHours(24),
@@ -287,6 +341,42 @@ class SettingsController extends Controller
             ],
         );
 
-        Mail::to($user->email)->send(new SettingsEmailVerificationMail($user, $verificationUrl));
+        Mail::to($user->email)->send(
+            new SettingsEmailVerificationMail($user, $verificationUrl, $verificationCode, $user->email),
+        );
+    }
+
+    private function sendPendingEmailVerification(Request $request, User $user, string $pendingEmail): void
+    {
+        $verificationCode = $this->generateVerificationCode();
+
+        $user->forceFill([
+            'pending_email' => $pendingEmail,
+            'pending_email_verification_code_hash' => hash('sha256', $verificationCode),
+            'pending_email_verification_sent_at' => now(),
+            'pending_email_verification_expires_at' => now()->addMinutes(15),
+            'updated_by_user_id' => $user->id,
+        ])->save();
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'auth.email.verify',
+            now()->addHours(24),
+            [
+                'id' => $user->id,
+                'hash' => sha1($pendingEmail),
+                'redirect' => FrontendUrlResolver::settingsUrl($request, [
+                    'emailVerified' => '1',
+                ]),
+            ],
+        );
+
+        Mail::to($pendingEmail)->send(
+            new SettingsEmailVerificationMail($user, $verificationUrl, $verificationCode, $pendingEmail),
+        );
+    }
+
+    private function generateVerificationCode(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 }

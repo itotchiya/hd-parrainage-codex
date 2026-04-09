@@ -384,7 +384,7 @@ export function AppShell() {
                     type="button"
                     size="sm"
                     className="h-7 rounded-full bg-amber-500 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-400"
-                    onClick={() => navigate('/iacrm?tab=settings')}
+                    onClick={() => navigate('/settings?tab=api')}
                   >
                     Configurer l&apos;API
                   </Button>
@@ -394,7 +394,7 @@ export function AppShell() {
                   variant="outline"
                   size="sm"
                   className="h-8 rounded-full border-amber-300/80 bg-amber-50/80 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100 dark:hover:bg-amber-900/70 xl:hidden"
-                  onClick={() => navigate('/iacrm?tab=settings')}
+                  onClick={() => navigate('/settings?tab=api')}
                 >
                   API IACRM
                 </Button>

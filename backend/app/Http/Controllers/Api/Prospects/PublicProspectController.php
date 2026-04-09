@@ -81,10 +81,10 @@ class PublicProspectController extends Controller
 
         $businessId = $agent->business_id;
 
-        $contactEmail = $validated['contact_email'] === null
+        $contactEmail = ($validated['contact_email'] ?? null) === null
             ? null
             : mb_strtolower(trim((string) $validated['contact_email']));
-        $contactPhoneRaw = $validated['contact_phone_raw'] === null
+        $contactPhoneRaw = ($validated['contact_phone_raw'] ?? null) === null
             ? null
             : trim((string) $validated['contact_phone_raw']);
         $contactPhoneE164 = $this->normalizePhone($contactPhoneRaw);

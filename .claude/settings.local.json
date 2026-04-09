@@ -61,7 +61,8 @@
       "Bash(docker exec hd-parrainage-backend:*)",
       "WebFetch(domain:iacrm-api-simulator-production.up.railway.app)",
       "Bash(docker cp:*)",
-      "Bash(docker exec hd-parrainage-scheduler:*)"
+      "Bash(docker exec hd-parrainage-scheduler:*)",
+      "Bash(grep -E \"\\\\.php$\")"
     ]
   },
   "enabledMcpjsonServers": [

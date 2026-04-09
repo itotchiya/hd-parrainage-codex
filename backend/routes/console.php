@@ -13,3 +13,6 @@ Schedule::command('iacrm:sync')->everyMinute()->withoutOverlapping();
 
 // Pull stage changes from IACRM back into HD Parrainage every minute
 Schedule::command('iacrm:pull-stages')->everyMinute()->withoutOverlapping();
+
+// Pull invoices from IACRM and create/update Transactions + award points when paid
+Schedule::command('iacrm:pull-invoices')->everyMinute()->withoutOverlapping();

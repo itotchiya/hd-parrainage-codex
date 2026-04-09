@@ -32,6 +32,7 @@ class User extends Authenticatable
         'avatar_url',
         'avatar_storage_path',
         'email',
+        'pending_email',
         'phone_number',
         'password_hash',
         'status',
@@ -53,6 +54,7 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password_hash',
+        'pending_email_verification_code_hash',
         'remember_token',
     ];
 
@@ -65,6 +67,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'pending_email_verification_sent_at' => 'datetime',
+            'pending_email_verification_expires_at' => 'datetime',
             'invited_at' => 'datetime',
             'activated_at' => 'datetime',
             'suspended_at' => 'datetime',
