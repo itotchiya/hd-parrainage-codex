@@ -121,7 +121,7 @@ export function ExchangePacksPage() {
     return (
       <section className="app-section">
         <PageHeader
-          title="Exchange packs"
+          title="Packs d'échange"
           right={
             <PageHeaderToolbar>
               <div className="h-8 w-full rounded-md bg-muted sm:w-[320px]" />

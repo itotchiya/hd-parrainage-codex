@@ -511,7 +511,7 @@ export function ProgramsPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Programs"
+        title="Programmes"
         right={
           <PageHeaderToolbar>
           <Field className="w-full sm:min-w-[180px] sm:max-w-[360px] sm:flex-1">
@@ -554,16 +554,16 @@ export function ProgramsPage() {
             disabled={scopeFilter === 'archived'}
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Status</SelectLabel>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                {cardMode === 'owner' ? <SelectItem value="draft">Draft</SelectItem> : null}
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectLabel>Statut</SelectLabel>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="active">Actif</SelectItem>
+                {cardMode === 'owner' ? <SelectItem value="draft">Brouillon</SelectItem> : null}
+                <SelectItem value="paused">En pause</SelectItem>
+                <SelectItem value="suspended">Suspendu</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -617,11 +617,11 @@ export function ProgramsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Exchange mode</SelectLabel>
-                <SelectItem value="all">All modes</SelectItem>
+                <SelectLabel>Mode d'échange</SelectLabel>
+                <SelectItem value="all">Tous les modes</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="reward">Rewards</SelectItem>
-                <SelectItem value="both">Mixed</SelectItem>
+                <SelectItem value="reward">Récompenses</SelectItem>
+                <SelectItem value="both">Mixte</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -641,14 +641,14 @@ export function ProgramsPage() {
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[108px] sm:shrink-0">
               <ArrowUpDown className="size-4 text-muted-foreground" aria-hidden />
-              <SelectValue placeholder="Recent" />
+              <SelectValue placeholder="Récents" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Sort programs</SelectLabel>
-                <SelectItem value="newest">Recent</SelectItem>
-                <SelectItem value="oldest">Oldest</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
+                <SelectLabel>Trier les programmes</SelectLabel>
+                <SelectItem value="newest">Récents</SelectItem>
+                <SelectItem value="oldest">Anciens</SelectItem>
+                <SelectItem value="status">Statut</SelectItem>
                 <SelectItem value="points-high">Points ↓</SelectItem>
                 <SelectItem value="points-low">Points ↑</SelectItem>
                 {cardMode === 'owner' ? (
@@ -682,7 +682,7 @@ export function ProgramsPage() {
               className="gap-2 sm:shrink-0"
             >
               <Plus className="size-4" aria-hidden />
-              Create program
+              Créer un programme
             </Button>
           ) : null}
           <Tabs
@@ -701,11 +701,11 @@ export function ProgramsPage() {
             <TabsList>
               <TabsTrigger value="programs">
                 <FolderKanban className="size-4" />
-                Programs
+                Programmes
               </TabsTrigger>
               <TabsTrigger value="archived">
                 <Archive className="size-4" />
-                Archived
+                Archivés
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -715,9 +715,9 @@ export function ProgramsPage() {
 
       {filteredPrograms.length === 0 ? (
         <article className="app-panel">
-          <p className="app-eyebrow">Program inventory</p>
+          <p className="app-eyebrow">Catalogue de programmes</p>
           <h2 className="mt-2 text-lg font-semibold text-foreground">
-            No programs match the current filter.
+            Aucun programme ne correspond au filtre actuel.
           </h2>
         </article>
       ) : (
@@ -779,8 +779,8 @@ export function ProgramsPage() {
 
       <ProgramFormDialog
         open={dialogOpen}
-        title={editingProgram ? 'Update program' : 'Create program'}
-        submitLabel={editingProgram ? 'Save changes' : 'Create program'}
+        title={editingProgram ? 'Modifier le programme' : 'Créer un programme'}
+        submitLabel={editingProgram ? 'Enregistrer' : 'Créer'}
         packs={packs}
         initialProgram={editingProgram}
         isSubmitting={createMutation.isPending || updateMutation.isPending}

@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Points;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Points\PointsLedgerResource;
+use App\Models\ExchangeRequest;
 use App\Models\PointsLedger;
 use App\Models\Prospect;
 use App\Models\Program;
 use App\Models\User;
+use App\Support\Points\PointsWalletMetrics;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,26 +26,23 @@ class PointsController extends Controller
 
         $ledgerEntries = $this->filteredLedgerEntries($request, $user);
         $openProspects = $this->filteredOpenProspects($request, $user);
+        $exchangeRequests = $this->filteredExchangeRequests($request, $user);
 
         $projectedPoints = $this->forecastPointsForProspects($openProspects);
+        $walletSummary = PointsWalletMetrics::summarize($ledgerEntries, $exchangeRequests);
 
         return response()->json([
             'data' => [
                 'forecast_points' => $projectedPoints,
                 'projected_points' => $projectedPoints,
                 'pending_points' => $this->sumLedgerPointsByStatus($ledgerEntries, 'pending'),
-                'available_points' => $this->sumLedgerPointsByStatus($ledgerEntries, 'available'),
-                'locked_points' => $this->sumAbsoluteLedgerPointsByStatus($ledgerEntries, 'locked'),
-                'consumed_points' => $this->sumAbsoluteLedgerPointsByStatus($ledgerEntries, 'consumed'),
-                'reversed_points' => $this->sumAbsoluteLedgerPointsByStatus($ledgerEntries, 'reversed'),
+                'available_points' => $walletSummary['available_points'],
+                'locked_points' => $walletSummary['locked_points'],
+                'consumed_points' => $walletSummary['consumed_points'],
+                'reversed_points' => $walletSummary['reversed_points'],
                 'open_prospect_count' => $openProspects->count(),
                 'ledger_entry_count' => $ledgerEntries->count(),
-                'active_exchange_request_count' => $ledgerEntries
-                    ->where('entry_status', 'locked')
-                    ->pluck('exchange_request_id')
-                    ->filter()
-                    ->unique()
-                    ->count(),
+                'active_exchange_request_count' => $walletSummary['active_exchange_request_count'],
             ],
         ]);
     }
@@ -112,9 +111,11 @@ class PointsController extends Controller
 
         $ledgerEntries = $this->filteredLedgerEntries($request, $user);
         $openProspects = $this->filteredOpenProspects($request, $user);
+        $exchangeRequests = $this->filteredExchangeRequests($request, $user);
         $programIds = $ledgerEntries
             ->pluck('program_id')
             ->merge($openProspects->pluck('program_id'))
+            ->merge($exchangeRequests->pluck('program_id'))
             ->filter()
             ->unique()
             ->values();
@@ -127,19 +128,24 @@ class PointsController extends Controller
 
         $groupedLedger = $ledgerEntries->groupBy('program_id');
         $groupedProspects = $openProspects->groupBy('program_id');
+        $groupedExchangeRequests = $exchangeRequests->groupBy('program_id');
 
-        $data = $programIds->map(function (string $programId) use ($groupedLedger, $groupedProspects, $programs): array {
+        $data = $programIds->map(function (string $programId) use ($groupedExchangeRequests, $groupedLedger, $groupedProspects, $programs): array {
             $program = $programs->get($programId);
             $entries = $groupedLedger->get($programId, collect());
             $prospects = $groupedProspects->get($programId, collect());
+            $programExchangeRequests = $groupedExchangeRequests->get($programId, collect());
 
             $projectedPoints = $this->forecastPointsForProspects($prospects);
+            $walletSummary = PointsWalletMetrics::summarize($entries, $programExchangeRequests);
 
             return [
                 'program_id' => $programId,
                 'program_name' => $program?->name,
                 'program_slug' => $program?->slug,
+                'program_status' => $program?->status,
                 'exchange_mode' => $program?->exchange_mode,
+                'points_per_euro' => $program?->points_per_euro,
                 'exchange_pack_name' => $program?->exchangePack?->name,
                 'exchange_pack_items' => $program?->exchangePack?->items
                     ?->where('status', 'active')
@@ -154,12 +160,13 @@ class PointsController extends Controller
                 'forecast_points' => $projectedPoints,
                 'projected_points' => $projectedPoints,
                 'pending_points' => $this->sumLedgerPointsByStatus($entries, 'pending'),
-                'available_points' => $this->sumLedgerPointsByStatus($entries, 'available'),
-                'locked_points' => $this->sumAbsoluteLedgerPointsByStatus($entries, 'locked'),
-                'consumed_points' => $this->sumAbsoluteLedgerPointsByStatus($entries, 'consumed'),
-                'reversed_points' => $this->sumAbsoluteLedgerPointsByStatus($entries, 'reversed'),
+                'available_points' => $walletSummary['available_points'],
+                'locked_points' => $walletSummary['locked_points'],
+                'consumed_points' => $walletSummary['consumed_points'],
+                'reversed_points' => $walletSummary['reversed_points'],
                 'open_prospect_count' => $prospects->count(),
                 'ledger_entry_count' => $entries->count(),
+                'active_exchange_request_count' => $walletSummary['active_exchange_request_count'],
             ];
         })->sortByDesc('available_points')->values();
 
@@ -184,6 +191,14 @@ class PointsController extends Controller
         return $query
             ->with(['program', 'transactions'])
             ->get();
+    }
+
+    private function filteredExchangeRequests(Request $request, User $user): Collection
+    {
+        $query = $this->exchangeRequestsQuery($user);
+        $this->applyScopedFilters($query, $request, 'requested_at');
+
+        return $query->get();
     }
 
     private function applyScopedFilters(Builder $query, Request $request, string $dateColumn): void
@@ -233,6 +248,27 @@ class PointsController extends Controller
         $query = Prospect::query()
             ->where('conversion_status', 'open')
             ->whereNull('deleted_at');
+
+        if ($roleSlugs->contains('agent') && ! $roleSlugs->contains('business-owner')) {
+            $agent = $user->agentProfile;
+
+            abort_if($agent === null, 403, 'No agent profile is available for this action.');
+
+            return $query->where('agent_id', $agent->id);
+        }
+
+        if ($businessId !== null && $roleSlugs->contains('business-owner')) {
+            return $query->where('business_id', $businessId);
+        }
+
+        return $query;
+    }
+
+    private function exchangeRequestsQuery(User $user): Builder
+    {
+        $businessId = $this->currentBusinessId($user);
+        $roleSlugs = $this->activeRoleSlugs($user, $businessId);
+        $query = ExchangeRequest::query();
 
         if ($roleSlugs->contains('agent') && ! $roleSlugs->contains('business-owner')) {
             $agent = $user->agentProfile;

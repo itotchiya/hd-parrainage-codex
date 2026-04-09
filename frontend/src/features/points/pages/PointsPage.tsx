@@ -514,11 +514,11 @@ export function PointsPage() {
         <DashboardSectionHeader title="Program Wallets" description="Operational wallet view by program, with usable balance, reserved volume, and open prospect load." />
 
         {totalWallets === 0 ? (
-          <p className="rounded-lg bg-background/40 px-4 py-5 text-sm text-muted-foreground">
+          <p className="rounded-lg border border-border px-4 py-5 text-sm text-muted-foreground">
             No wallet is available for the current scope.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg bg-background/40">
+          <div className="overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -537,7 +537,7 @@ export function PointsPage() {
                     <TableRow key={wallet.program_id}>
                       <TableCell className="min-w-[240px]">
                         <div className="space-y-1">
-                          <Link to={`/programs/${wallet.program_id}`} className="font-medium text-foreground transition-colors hover:text-primary">{wallet.program_name ?? wallet.program_slug ?? 'Program'}</Link>
+                          <Link to={`/programs/${wallet.program_id}`} className="font-medium text-foreground underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{wallet.program_name ?? wallet.program_slug ?? 'Program'}</Link>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span>{wallet.ledger_entry_count.toLocaleString('fr-FR')} ledger entries</span>
                             {wallet.exchange_pack_name ? <span>{wallet.exchange_pack_name}</span> : null}
@@ -631,11 +631,11 @@ export function PointsPage() {
         />
 
         {totalLedgerEntries === 0 ? (
-          <p className="rounded-lg bg-background/40 px-4 py-5 text-sm text-muted-foreground">
+          <p className="rounded-lg border border-border px-4 py-5 text-sm text-muted-foreground">
             No ledger entry matches the current filters.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg bg-background/40">
+          <div className="overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -660,20 +660,20 @@ export function PointsPage() {
                             <p className="font-medium text-foreground">{ledgerEntryLabel(entry)}</p>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span>{ledgerEntryDescription(entry)}</span>
-                              {entry.exchange_request_id ? <Link to={`/payouts/${entry.exchange_request_id}`} className="transition-colors hover:text-primary">Open exchange</Link> : null}
+                              {entry.exchange_request_id ? <Link to={`/payouts/${entry.exchange_request_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">Open exchange</Link> : null}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell><Badge className={statusPresentation[entry.entry_status].className}>{statusPresentation[entry.entry_status].label}</Badge></TableCell>
                         <TableCell className={`text-right font-medium ${ledgerDeltaClassName(entry)}`}>{formatSignedPoints(entry.points_delta)}</TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          {entry.program_id ? <Link to={`/programs/${entry.program_id}`} className="transition-colors hover:text-primary">{entry.program_name ?? 'Program'}</Link> : <span className="text-muted-foreground">No program</span>}
+                          {entry.program_id ? <Link to={`/programs/${entry.program_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.program_name ?? 'Program'}</Link> : <span className="text-muted-foreground">No program</span>}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
-                          {prospectPath ? <Link to={prospectPath} className="transition-colors hover:text-primary">{entry.prospect_name ?? 'Prospect'}</Link> : <span className="text-muted-foreground">No prospect</span>}
+                          {prospectPath ? <Link to={prospectPath} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.prospect_name ?? 'Prospect'}</Link> : <span className="text-muted-foreground">No prospect</span>}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
-                          {entry.transaction_id ? <Link to={`/transactions/${entry.transaction_id}`} className="transition-colors hover:text-primary">{entry.transaction_reference ?? 'Open transaction'}</Link> : <span className="text-muted-foreground">No transaction</span>}
+                          {entry.transaction_id ? <Link to={`/transactions/${entry.transaction_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.transaction_reference ?? 'Open transaction'}</Link> : <span className="text-muted-foreground">No transaction</span>}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">{entry.effective_at ? formatDashboardDateFr(entry.effective_at) : 'Unavailable'}</TableCell>
                       </TableRow>

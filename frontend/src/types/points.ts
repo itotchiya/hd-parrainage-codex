@@ -31,7 +31,9 @@ export interface PointsProgramBalanceRecord {
   program_id: string
   program_name: string | null
   program_slug: string | null
+  program_status?: string | null
   exchange_mode: string | null
+  points_per_euro?: number | null
   exchange_pack_name: string | null
   exchange_pack_items: Array<{
     id: string

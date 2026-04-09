@@ -30,7 +30,9 @@ class User extends Authenticatable
     protected $fillable = [
         'display_name',
         'avatar_url',
+        'avatar_storage_path',
         'email',
+        'phone_number',
         'password_hash',
         'status',
         'invited_at',

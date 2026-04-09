@@ -40,7 +40,7 @@ export function DashboardSectionHeader({
         ) : null}
       </div>
       {normalizedActions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">{normalizedActions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 [&_[data-slot=input]]:h-8 [&_[data-slot=select-trigger]]:h-8 [&_[data-slot=select-trigger]]:rounded-md [&_[data-slot=select-trigger]]:px-2.5 [&_[data-slot=select-trigger]]:py-1.5 [&_[data-slot=select-trigger]]:text-xs [&_button]:h-8">{normalizedActions}</div>
       ) : null}
     </div>
   )

@@ -17,6 +17,16 @@ export async function updateOwnSettings(payload: {
   })
 }
 
+export async function uploadOwnAvatar(file: File) {
+  const body = new FormData()
+  body.append('avatar', file)
+
+  return apiRequest<SettingsEnvelope>('/v1/settings/own/avatar', {
+    method: 'POST',
+    body,
+  })
+}
+
 export async function updateBusinessSettings(payload: {
   display_name: string
   contact_email?: string | null

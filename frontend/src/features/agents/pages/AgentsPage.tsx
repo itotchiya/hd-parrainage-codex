@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
+import { Eye, Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents, inviteAgent, reactivateAgent, suspendAgent } from '../api'
@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { AgentRecord } from '@/types/agents'
 
 type AgentSortKey = 'agent' | 'status' | 'joined'
@@ -467,7 +468,7 @@ export function AgentsPage() {
                             </AgentAvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                            <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
                               {displayName}
                             </p>
                             <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -510,13 +511,68 @@ export function AgentsPage() {
                         {formatDashboardDateFr(joinedAt)}
                       </TableCell>
                       <TableCell className="pe-2 text-end">
-                        <DropdownMenu>
+                        <TooltipProvider delayDuration={150}>
+                          <div className="flex justify-end gap-2">
+                            <div className="hidden items-center justify-end gap-2 md:flex">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                                  >
+                                    <Link to={`/agents/${agent.id}`} aria-label={`Voir le profil de ${displayName}`}>
+                                      <Eye className="size-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Voir le profil</TooltipContent>
+                              </Tooltip>
+                              {showSuspend ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      disabled={actionsBusy}
+                                      className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
+                                      onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
+                                      aria-label={`Suspendre ${displayName}`}
+                                    >
+                                      <UserX className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Suspendre</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                              {showReactivate ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      disabled={actionsBusy}
+                                      className="border border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-500 dark:text-emerald-400"
+                                      onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
+                                      aria-label={`Réactiver ${displayName}`}
+                                    >
+                                      <UserCheck className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Réactiver</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                            </div>
+                            <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              className="text-muted-foreground"
+                              className="text-muted-foreground md:hidden"
                               aria-label={`Actions pour ${displayName}`}
                             >
                               <MoreHorizontal className="size-4" aria-hidden />
@@ -524,7 +580,10 @@ export function AgentsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-[10rem]">
                             <DropdownMenuItem asChild>
-                              <Link to={`/agents/${agent.id}`}>Voir le profil</Link>
+                              <Link to={`/agents/${agent.id}`}>
+                                <Eye className="size-4 text-primary" />
+                                <span>Voir le profil</span>
+                              </Link>
                             </DropdownMenuItem>
                             {(showSuspend || showReactivate) && (
                               <DropdownMenuSeparator />
@@ -535,19 +594,24 @@ export function AgentsPage() {
                                 disabled={actionsBusy}
                                 onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
                               >
-                                Suspendre
+                                <UserX className="size-4 text-destructive" />
+                                <span>Suspendre</span>
                               </DropdownMenuItem>
                             ) : null}
                             {showReactivate ? (
                               <DropdownMenuItem
                                 disabled={actionsBusy}
+                                className="text-emerald-600 focus:text-emerald-600 dark:text-emerald-400 dark:focus:text-emerald-400"
                                 onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
                               >
-                                Réactiver
+                                <UserCheck className="size-4 text-emerald-500" />
+                                <span>Réactiver</span>
                               </DropdownMenuItem>
                             ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                          </div>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   )
@@ -570,3 +634,4 @@ export function AgentsPage() {
     </>
   )
 }
+

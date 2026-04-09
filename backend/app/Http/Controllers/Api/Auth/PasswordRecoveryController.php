@@ -64,6 +64,7 @@ class PasswordRecoveryController extends Controller
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['required', 'string', 'min:8'],
         ]);
 
         $email = mb_strtolower(trim((string) $payload['email']));

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Briefcase,
@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import type { AppModuleRoute, NavigationIconKey } from '../app/navigation'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface AppSidebarProps {
   collapsed: boolean
@@ -23,6 +24,7 @@ interface AppSidebarProps {
   logoutPending: boolean
   mode: 'drawer' | 'collapsed-desktop' | 'normal-desktop'
   onNavigate?: () => void
+  iacrmConfigured?: boolean
 }
 
 const routeIcons: Record<NavigationIconKey, React.ComponentType<{ className?: string }>> = {
@@ -47,7 +49,10 @@ export function AppSidebar({
   logoutPending,
   mode,
   onNavigate,
+  iacrmConfigured = true,
 }: AppSidebarProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const isMobile = mode === 'drawer'
   // In drawer mode, sidebar is always visually expanded (w-64 with labels)
   const visuallyCollapsed = isMobile ? false : collapsed
@@ -86,34 +91,88 @@ export function AppSidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = routeIcons[item.icon]
+      <TooltipProvider delayDuration={100}>
+        <nav className="flex-1 overflow-y-auto px-2 py-3">
+          <ul className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = routeIcons[item.icon]
+              const isIacrmLocked = item.path === '/iacrm' && !iacrmConfigured
 
-            return (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    [
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                      isActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                      visuallyCollapsed ? 'justify-center px-2' : '',
-                    ].join(' ')
-                  }
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" />
-                  {!visuallyCollapsed ? <span className="truncate font-medium">{item.label}</span> : null}
-                </NavLink>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+              // Pre-compute active state to avoid function className conflicting with Radix Slot
+              const isActive =
+                location.pathname === item.path ||
+                location.pathname.startsWith(`${item.path}/`)
+              const linkClassName = [
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                isActive
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                visuallyCollapsed ? 'justify-center px-2' : '',
+              ].join(' ')
+
+              if (isIacrmLocked) {
+                return (
+                  <li key={item.path}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/iacrm?tab=settings')}
+                          className={[
+                            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                            'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                            visuallyCollapsed ? 'justify-center px-2' : '',
+                          ].join(' ')}
+                        >
+                          <span className="relative shrink-0">
+                            <Icon className="h-4.5 w-4.5" />
+                            {visuallyCollapsed && (
+                              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-1 ring-background" />
+                            )}
+                          </span>
+                          {!visuallyCollapsed && (
+                            <>
+                              <span className="truncate font-medium">{item.label}</span>
+                              <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                                No API
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {visuallyCollapsed
+                          ? 'IACRM — API non configurée'
+                          : "Cliquez pour configurer l'API IACRM"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </li>
+                )
+              }
+
+              return (
+                <li key={item.path}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <NavLink
+                        to={item.path}
+                        onClick={onNavigate}
+                        className={linkClassName}
+                      >
+                        <Icon className="h-4.5 w-4.5 shrink-0" />
+                        {!visuallyCollapsed ? <span className="truncate font-medium">{item.label}</span> : null}
+                      </NavLink>
+                    </TooltipTrigger>
+                    {visuallyCollapsed && (
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    )}
+                  </Tooltip>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+      </TooltipProvider>
 
       <div className="p-2">
         <button

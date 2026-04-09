@@ -9,6 +9,7 @@ use App\Models\ExchangeRequest;
 use App\Models\PointsLedger;
 use App\Models\Program;
 use App\Models\User;
+use App\Support\Points\PointsWalletMetrics;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -206,6 +207,8 @@ class ExchangeRequestController extends Controller
                 'requested_at' => now(),
             ]);
 
+            $this->ensureRequestReserved($record, $user);
+
             return $record->loadMissing([
                 'business',
                 'program.exchangePack.items',
@@ -234,37 +237,14 @@ class ExchangeRequestController extends Controller
             ->where('status', 'requested')
             ->findOrFail($exchangeRequestId);
 
-        $availablePoints = $this->availablePointsForAgentProgram($record->agent_id, $record->program_id);
-
-        if ($availablePoints < $record->points_amount) {
-            throw ValidationException::withMessages([
-                'points_amount' => 'The agent no longer has enough available points for approval.',
-            ]);
-        }
-
         DB::transaction(function () use ($record, $user): void {
+            $this->ensureRequestReserved($record, $user);
+
             $record->forceFill([
                 'status' => 'approved',
                 'approved_by_user_id' => $user->id,
                 'approved_at' => now(),
             ])->save();
-
-            PointsLedger::query()->create([
-                'business_id' => $record->business_id,
-                'program_id' => $record->program_id,
-                'agent_id' => $record->agent_id,
-                'prospect_id' => null,
-                'transaction_id' => null,
-                'exchange_request_id' => $record->id,
-                'created_by_user_id' => $user->id,
-                'entry_type' => 'hold',
-                'entry_status' => 'locked',
-                'points_delta' => -1 * $record->points_amount,
-                'source' => "exchange_{$record->request_type}_approved",
-                'description' => 'Approved exchange request locked points pending fulfillment.',
-                'idempotency_key' => "exchange-{$record->id}-locked",
-                'effective_at' => $record->approved_at ?? now(),
-            ]);
         });
 
         $record->loadMissing([
@@ -294,11 +274,17 @@ class ExchangeRequestController extends Controller
             ->where('status', 'requested')
             ->findOrFail($exchangeRequestId);
 
-        $record->forceFill([
-            'status' => 'rejected',
-            'approved_by_user_id' => $user->id,
-            'rejected_at' => now(),
-        ])->save();
+        DB::transaction(function () use ($record, $user): void {
+            $record->forceFill([
+                'status' => 'rejected',
+                'approved_by_user_id' => $user->id,
+                'rejected_at' => now(),
+            ])->save();
+
+            if ($this->requestHasReservedPoints($record)) {
+                $this->releaseReservedPoints($record, $user, 'rejected', 'rejected');
+            }
+        });
 
         $record->loadMissing([
             'business',
@@ -359,30 +345,15 @@ class ExchangeRequestController extends Controller
             ->findOrFail($exchangeRequestId);
 
         DB::transaction(function () use ($record, $user): void {
+            $this->ensureRequestReserved($record, $user);
+
             $record->forceFill([
                 'status' => 'completed',
                 'completed_at' => now(),
                 'processed_at' => $record->processed_at ?? now(),
             ])->save();
 
-            PointsLedger::query()->firstOrCreate(
-                ['idempotency_key' => "exchange-{$record->id}-consumed"],
-                [
-                    'business_id' => $record->business_id,
-                    'program_id' => $record->program_id,
-                    'agent_id' => $record->agent_id,
-                    'prospect_id' => null,
-                    'transaction_id' => null,
-                    'exchange_request_id' => $record->id,
-                    'created_by_user_id' => $user->id,
-                    'entry_type' => 'spend',
-                    'entry_status' => 'consumed',
-                    'points_delta' => -1 * $record->points_amount,
-                    'source' => "exchange_{$record->request_type}_completed",
-                    'description' => 'Completed exchange request consumed locked points.',
-                    'effective_at' => $record->completed_at ?? now(),
-                ],
-            );
+            $this->moveLockedPointsToConsumed($record, $user);
         });
 
         $record->loadMissing([
@@ -406,14 +377,21 @@ class ExchangeRequestController extends Controller
             ->whereIn('status', ['requested', 'approved', 'processing'])
             ->findOrFail($exchangeRequestId);
 
+        $agentProfileId = $user->agentProfile?->id;
+        $isRequester = $record->requested_by_user_id === $user->id
+            || ($agentProfileId !== null && $record->agent_id === $agentProfileId);
         $ownerBusinessId = $user->primaryBusinessAssignment?->business_id;
-        $isOwner = $ownerBusinessId !== null && $record->business_id === $ownerBusinessId;
-        $isRequester = $record->requested_by_user_id === $user->id;
+        $isOwner = ! $isRequester
+            && $ownerBusinessId !== null
+            && $record->business_id === $ownerBusinessId
+            && $this->activeRoleSlugs($user, $ownerBusinessId)->contains('business-owner');
 
-        if ($isOwner) {
+        if ($isRequester) {
+            // Request owners can always cancel their own in-flight exchange.
+        } elseif ($isOwner) {
             $this->assertPermission($user, 'exchange-request.approve', $record->business_id);
         } else {
-            abort_unless($isRequester, 403, 'Forbidden.');
+            abort(403, 'Forbidden.');
         }
 
         DB::transaction(function () use ($record, $user): void {
@@ -424,25 +402,8 @@ class ExchangeRequestController extends Controller
                 'cancelled_at' => now(),
             ])->save();
 
-            if (in_array($previousStatus, ['approved', 'processing'], true)) {
-                PointsLedger::query()->firstOrCreate(
-                    ['idempotency_key' => "exchange-{$record->id}-released"],
-                    [
-                        'business_id' => $record->business_id,
-                        'program_id' => $record->program_id,
-                        'agent_id' => $record->agent_id,
-                        'prospect_id' => null,
-                        'transaction_id' => null,
-                        'exchange_request_id' => $record->id,
-                        'created_by_user_id' => $user->id,
-                        'entry_type' => 'release',
-                        'entry_status' => 'available',
-                        'points_delta' => $record->points_amount,
-                        'source' => "exchange_{$record->request_type}_cancelled",
-                        'description' => 'Cancelled exchange request released locked points back to available.',
-                        'effective_at' => $record->cancelled_at ?? now(),
-                    ],
-                );
+            if (in_array($previousStatus, ['requested', 'approved', 'processing'], true) && $this->requestHasReservedPoints($record)) {
+                $this->releaseReservedPoints($record, $user, 'cancelled', 'cancelled');
             }
         });
 
@@ -516,17 +477,248 @@ class ExchangeRequestController extends Controller
         return $item;
     }
 
-    private function availablePointsForAgentProgram(string $agentId, ?string $programId): int
+    private function availablePointsForAgentProgram(string $agentId, ?string $programId, ?string $ignoreExchangeRequestId = null): int
     {
         if ($programId === null) {
             return 0;
         }
 
-        return (int) PointsLedger::query()
+        $ledgerEntries = PointsLedger::query()
             ->where('agent_id', $agentId)
             ->where('program_id', $programId)
+            ->get();
+        $exchangeRequestsQuery = ExchangeRequest::query()
+            ->where('agent_id', $agentId)
+            ->where('program_id', $programId);
+
+        if ($ignoreExchangeRequestId !== null) {
+            $exchangeRequestsQuery->where('id', '!=', $ignoreExchangeRequestId);
+        }
+
+        $exchangeRequests = $exchangeRequestsQuery->get();
+        $walletSummary = PointsWalletMetrics::summarize($ledgerEntries, $exchangeRequests);
+
+        return $walletSummary['available_points'];
+    }
+
+    private function ensureRequestReserved(ExchangeRequest $record, User $user): void
+    {
+        $availableNet = (int) PointsLedger::query()
+            ->where('exchange_request_id', $record->id)
             ->where('entry_status', 'available')
             ->sum('points_delta');
+        $lockedNet = (int) PointsLedger::query()
+            ->where('exchange_request_id', $record->id)
+            ->where('entry_status', 'locked')
+            ->sum('points_delta');
+
+        if ($availableNet <= -1 * $record->points_amount && $lockedNet >= $record->points_amount) {
+            return;
+        }
+
+        if ($availableNet === 0 && $lockedNet === 0) {
+            $availablePoints = $this->availablePointsForAgentProgram(
+                $record->agent_id,
+                $record->program_id,
+                $record->id,
+            );
+
+            if ($availablePoints < $record->points_amount) {
+                throw ValidationException::withMessages([
+                    'points_amount' => 'Insufficient available points for this request.',
+                ]);
+            }
+
+            PointsLedger::query()->firstOrCreate(
+                ['idempotency_key' => "exchange-{$record->id}-available-reserved"],
+                [
+                    'business_id' => $record->business_id,
+                    'program_id' => $record->program_id,
+                    'agent_id' => $record->agent_id,
+                    'prospect_id' => null,
+                    'transaction_id' => null,
+                    'exchange_request_id' => $record->id,
+                    'created_by_user_id' => $user->id,
+                    'entry_type' => 'hold',
+                    'entry_status' => 'available',
+                    'points_delta' => -1 * $record->points_amount,
+                    'source' => "exchange_{$record->request_type}_reserved",
+                    'description' => 'Exchange request reserved spendable points from the available wallet bucket.',
+                    'effective_at' => $record->requested_at ?? now(),
+                ],
+            );
+
+            PointsLedger::query()->firstOrCreate(
+                ['idempotency_key' => "exchange-{$record->id}-locked-held"],
+                [
+                    'business_id' => $record->business_id,
+                    'program_id' => $record->program_id,
+                    'agent_id' => $record->agent_id,
+                    'prospect_id' => null,
+                    'transaction_id' => null,
+                    'exchange_request_id' => $record->id,
+                    'created_by_user_id' => $user->id,
+                    'entry_type' => 'hold',
+                    'entry_status' => 'locked',
+                    'points_delta' => $record->points_amount,
+                    'source' => "exchange_{$record->request_type}_reserved",
+                    'description' => 'Exchange request moved spendable points into the pending approval bucket.',
+                    'effective_at' => $record->requested_at ?? now(),
+                ],
+            );
+
+            return;
+        }
+
+        if ($availableNet === 0 && $lockedNet < 0) {
+            $availablePoints = $this->availablePointsForAgentProgram(
+                $record->agent_id,
+                $record->program_id,
+                $record->id,
+            );
+
+            if ($availablePoints < $record->points_amount) {
+                throw ValidationException::withMessages([
+                    'points_amount' => 'Insufficient available points for this request.',
+                ]);
+            }
+
+            PointsLedger::query()->firstOrCreate(
+                ['idempotency_key' => "exchange-{$record->id}-available-normalized"],
+                [
+                    'business_id' => $record->business_id,
+                    'program_id' => $record->program_id,
+                    'agent_id' => $record->agent_id,
+                    'prospect_id' => null,
+                    'transaction_id' => null,
+                    'exchange_request_id' => $record->id,
+                    'created_by_user_id' => $user->id,
+                    'entry_type' => 'hold',
+                    'entry_status' => 'available',
+                    'points_delta' => -1 * $record->points_amount,
+                    'source' => "exchange_{$record->request_type}_normalized",
+                    'description' => 'Exchange request normalized a legacy reservation into the available wallet bucket.',
+                    'effective_at' => $record->approved_at ?? $record->requested_at ?? now(),
+                ],
+            );
+
+            PointsLedger::query()->firstOrCreate(
+                ['idempotency_key' => "exchange-{$record->id}-locked-normalized"],
+                [
+                    'business_id' => $record->business_id,
+                    'program_id' => $record->program_id,
+                    'agent_id' => $record->agent_id,
+                    'prospect_id' => null,
+                    'transaction_id' => null,
+                    'exchange_request_id' => $record->id,
+                    'created_by_user_id' => $user->id,
+                    'entry_type' => 'hold',
+                    'entry_status' => 'locked',
+                    'points_delta' => $record->points_amount,
+                    'source' => "exchange_{$record->request_type}_normalized",
+                    'description' => 'Exchange request normalized a legacy reservation into the locked bucket.',
+                    'effective_at' => $record->approved_at ?? $record->requested_at ?? now(),
+                ],
+            );
+        }
+    }
+
+    private function requestHasReservedPoints(ExchangeRequest $record): bool
+    {
+        $availableNet = (int) PointsLedger::query()
+            ->where('exchange_request_id', $record->id)
+            ->where('entry_status', 'available')
+            ->sum('points_delta');
+        $lockedNet = (int) PointsLedger::query()
+            ->where('exchange_request_id', $record->id)
+            ->where('entry_status', 'locked')
+            ->sum('points_delta');
+
+        return $availableNet < 0 || $lockedNet !== 0;
+    }
+
+    private function releaseReservedPoints(ExchangeRequest $record, User $user, string $sourceSuffix, string $effectiveDateField): void
+    {
+        $releaseMoment = $record->{$effectiveDateField . '_at'} ?? now();
+
+        PointsLedger::query()->firstOrCreate(
+            ['idempotency_key' => "exchange-{$record->id}-available-restored-{$sourceSuffix}"],
+            [
+                'business_id' => $record->business_id,
+                'program_id' => $record->program_id,
+                'agent_id' => $record->agent_id,
+                'prospect_id' => null,
+                'transaction_id' => null,
+                'exchange_request_id' => $record->id,
+                'created_by_user_id' => $user->id,
+                'entry_type' => 'release',
+                'entry_status' => 'available',
+                'points_delta' => $record->points_amount,
+                'source' => "exchange_{$record->request_type}_{$sourceSuffix}",
+                'description' => 'Exchange request returned reserved points back to the available wallet bucket.',
+                'effective_at' => $releaseMoment,
+            ],
+        );
+
+        PointsLedger::query()->firstOrCreate(
+            ['idempotency_key' => "exchange-{$record->id}-locked-released-{$sourceSuffix}"],
+            [
+                'business_id' => $record->business_id,
+                'program_id' => $record->program_id,
+                'agent_id' => $record->agent_id,
+                'prospect_id' => null,
+                'transaction_id' => null,
+                'exchange_request_id' => $record->id,
+                'created_by_user_id' => $user->id,
+                'entry_type' => 'release',
+                'entry_status' => 'locked',
+                'points_delta' => -1 * $record->points_amount,
+                'source' => "exchange_{$record->request_type}_{$sourceSuffix}",
+                'description' => 'Exchange request removed reserved points from the locked bucket.',
+                'effective_at' => $releaseMoment,
+            ],
+        );
+    }
+
+    private function moveLockedPointsToConsumed(ExchangeRequest $record, User $user): void
+    {
+        PointsLedger::query()->firstOrCreate(
+            ['idempotency_key' => "exchange-{$record->id}-locked-cleared-completed"],
+            [
+                'business_id' => $record->business_id,
+                'program_id' => $record->program_id,
+                'agent_id' => $record->agent_id,
+                'prospect_id' => null,
+                'transaction_id' => null,
+                'exchange_request_id' => $record->id,
+                'created_by_user_id' => $user->id,
+                'entry_type' => 'release',
+                'entry_status' => 'locked',
+                'points_delta' => -1 * $record->points_amount,
+                'source' => "exchange_{$record->request_type}_completed",
+                'description' => 'Completed exchange request cleared the locked points bucket.',
+                'effective_at' => $record->completed_at ?? now(),
+            ],
+        );
+
+        PointsLedger::query()->firstOrCreate(
+            ['idempotency_key' => "exchange-{$record->id}-consumed-booked-completed"],
+            [
+                'business_id' => $record->business_id,
+                'program_id' => $record->program_id,
+                'agent_id' => $record->agent_id,
+                'prospect_id' => null,
+                'transaction_id' => null,
+                'exchange_request_id' => $record->id,
+                'created_by_user_id' => $user->id,
+                'entry_type' => 'spend',
+                'entry_status' => 'consumed',
+                'points_delta' => $record->points_amount,
+                'source' => "exchange_{$record->request_type}_completed",
+                'description' => 'Completed exchange request moved points into the consumed bucket.',
+                'effective_at' => $record->completed_at ?? now(),
+            ],
+        );
     }
 
     private function scopedExchangeRequestsQuery(User $user): Builder

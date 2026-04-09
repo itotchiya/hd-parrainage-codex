@@ -524,6 +524,7 @@ export function ProgramFormDialog({
                   id="prog-points-per-tx"
                   type="number"
                   min="1"
+                  max="9999999"
                   value={form.points_per_transaction}
                   onChange={(e) => { patchForm({ points_per_transaction: e.target.value }); clearError('points_per_transaction') }}
                   placeholder="1000"
@@ -598,6 +599,7 @@ export function ProgramFormDialog({
                     id="prog-points-per-eur"
                     type="number"
                     min="1"
+                    max="9999999"
                     value={form.points_per_euro}
                     onChange={(e) => { patchForm({ points_per_euro: e.target.value }); clearError('points_per_euro') }}
                     placeholder="100"

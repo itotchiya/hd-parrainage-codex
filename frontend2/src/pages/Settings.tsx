@@ -15,9 +15,10 @@ import {
   Building2,
   Save,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiRequest } from '@/lib/api';
-import { fetchSettings, updateBusinessSettings, updateOwnSettings } from '@/lib/live-data';
+import { compressAvatarFile, validateAvatarFile } from '@/lib/avatar-upload';
+import { fetchSettings, updateBusinessSettings, updateOwnSettings, uploadOwnAvatar } from '@/lib/live-data';
 import type { UserRole } from '@/types';
 import { toast } from 'sonner';
 
@@ -57,6 +58,8 @@ export function SettingsPage({ role }: SettingsProps) {
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [accountName, setAccountName] = useState('');
   const [iban, setIban] = useState('');
   const [bic, setBic] = useState('');
@@ -116,6 +119,14 @@ export function SettingsPage({ role }: SettingsProps) {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl !== null) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
+
   const initials = useMemo(() => {
     const value = `${firstName} ${lastName}`.trim();
     if (!value) {
@@ -128,6 +139,8 @@ export function SettingsPage({ role }: SettingsProps) {
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('');
   }, [firstName, lastName]);
+
+  const resolvedAvatarPreview = avatarPreviewUrl ?? (avatarUrl.trim() || null);
 
   const persistLocalPrototypeSettings = (nextValues: Frontend2LocalSettings) => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextValues));
@@ -143,9 +156,17 @@ export function SettingsPage({ role }: SettingsProps) {
     setSavePending(true);
 
     try {
+      let nextAvatarUrl = avatarUrl.trim() || null;
+
+      if (avatarFile !== null) {
+        const compressedAvatar = await compressAvatarFile(avatarFile);
+        const avatarPayload = await uploadOwnAvatar(compressedAvatar);
+        nextAvatarUrl = avatarPayload.user.avatar_url;
+      }
+
       await updateOwnSettings({
         displayName,
-        avatarUrl: avatarUrl.trim() || null,
+        avatarUrl: nextAvatarUrl,
       });
 
       if (role === 'business-owner') {
@@ -161,6 +182,12 @@ export function SettingsPage({ role }: SettingsProps) {
           ? 'Profil et entreprise mis a jour.'
           : 'Profil mis a jour. Les champs email et telephone restent informatifs.'
       );
+      setAvatarFile(null);
+      if (avatarPreviewUrl !== null) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+      setAvatarPreviewUrl(null);
+      setAvatarUrl(nextAvatarUrl ?? '');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Impossible d enregistrer les modifications.');
     } finally {
@@ -258,19 +285,40 @@ export function SettingsPage({ role }: SettingsProps) {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
+                  {resolvedAvatarPreview ? <AvatarImage src={resolvedAvatarPreview} alt={`${firstName} ${lastName}`.trim() || 'Avatar'} /> : null}
                   <AvatarFallback className="bg-gradient-to-br from-[hsl(var(--myhd-primary))] to-[hsl(var(--myhd-cyan))] text-white text-2xl">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <Label htmlFor="avatarUrl" className="mb-2 block">URL de la photo</Label>
+                  <Label htmlFor="avatarFile" className="mb-2 block">Photo de profil</Label>
                   <Input
-                    id="avatarUrl"
-                    value={avatarUrl}
-                    onChange={(event) => setAvatarUrl(event.target.value)}
-                    placeholder="https://example.com/avatar.jpg"
+                    id="avatarFile"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => {
+                      const nextFile = event.target.files?.[0] ?? null;
+
+                      if (nextFile === null) {
+                        return;
+                      }
+
+                      try {
+                        validateAvatarFile(nextFile);
+                        if (avatarPreviewUrl !== null) {
+                          URL.revokeObjectURL(avatarPreviewUrl);
+                        }
+                        setAvatarFile(nextFile);
+                        setAvatarPreviewUrl(URL.createObjectURL(nextFile));
+                        toast.success('Nouvelle photo prete. Enregistrez le profil pour l envoyer vers R2.');
+                      } catch (error) {
+                        setAvatarFile(null);
+                        event.currentTarget.value = '';
+                        toast.error(error instanceof Error ? error.message : 'Image invalide.');
+                      }
+                    }}
                   />
-                  <p className="text-xs text-gray-500 mt-2">Utilisez une image publique. Sinon, les initiales restent affichees.</p>
+                  <p className="text-xs text-gray-500 mt-2">JPG, PNG ou WebP. L image est compressee en WebP 512x512 avant l envoi vers R2.</p>
                 </div>
               </div>
 

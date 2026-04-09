@@ -7,9 +7,14 @@ use App\Models\Business;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController extends Controller
 {
+    private const AVATAR_DISK = 'r2';
+
     public function show(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
@@ -99,6 +104,72 @@ class SettingsController extends Controller
         return $this->show($request);
     }
 
+    public function uploadOwnAvatar(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
+
+        $payload = $request->validate([
+            'avatar' => ['required', 'file', 'mimes:webp', 'max:5120'],
+        ]);
+
+        $avatar = $payload['avatar'];
+        $path = sprintf('avatars/%s/%s.webp', $user->id, (string) Str::uuid());
+
+        $disk = Storage::disk(self::AVATAR_DISK);
+
+        if ($user->avatar_storage_path !== null && $user->avatar_storage_path !== '') {
+            $disk->delete($user->avatar_storage_path);
+        }
+
+        $stream = fopen($avatar->getRealPath(), 'rb');
+        abort_if($stream === false, 422, 'The avatar file could not be processed.');
+
+        $disk->writeStream($path, $stream, [
+            'ContentType' => 'image/webp',
+            'CacheControl' => 'public, max-age=31536000, immutable',
+        ]);
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        $user->forceFill([
+            'avatar_url' => $this->avatarUrl($user->id, basename($path)),
+            'avatar_storage_path' => $path,
+            'updated_by_user_id' => $user->id,
+        ])->save();
+
+        return $this->show($request);
+    }
+
+    public function showAvatar(string $userId, string $fileName): StreamedResponse
+    {
+        $path = sprintf('avatars/%s/%s', $userId, $fileName);
+        $disk = Storage::disk(self::AVATAR_DISK);
+
+        abort_unless($disk->exists($path), 404);
+
+        $stream = $disk->readStream($path);
+        abort_if($stream === false, 404);
+
+        return response()->stream(
+            static function () use ($stream): void {
+                fpassthru($stream);
+
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            },
+            200,
+            [
+                'Content-Type' => 'image/webp',
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ],
+        );
+    }
+
     private function resolveApiUser(Request $request): User
     {
         /** @var User|null $user */
@@ -124,5 +195,10 @@ class SettingsController extends Controller
         $businessId = $user->primaryBusinessAssignment?->business_id;
         abort_if($businessId === null, 403, 'No business scope is available for this action.');
         return $businessId;
+    }
+
+    private function avatarUrl(string $userId, string $fileName): string
+    {
+        return rtrim(config('app.url'), '/').sprintf('/api/public/media/avatars/%s/%s', $userId, $fileName);
     }
 }

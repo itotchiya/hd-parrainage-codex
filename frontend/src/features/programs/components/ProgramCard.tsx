@@ -70,11 +70,11 @@ import type { ProgramRecord, ProgramStatus } from '@/types/programs'
 import { SuspensionDeadlineCountdown } from './SuspensionDeadlineCountdown'
 
 const statusLabel: Record<ProgramStatus, string> = {
-  active: 'Active',
-  draft: 'Draft',
-  paused: 'Paused',
-  suspended: 'Suspended',
-  archived: 'Archived',
+  active: 'Actif',
+  draft: 'Brouillon',
+  paused: 'En pause',
+  suspended: 'Suspendu',
+  archived: 'Archivé',
 }
 
 const cashBadgeClass =
@@ -96,11 +96,11 @@ type ProgramInfoCardKey =
 function roleSummary(program: ProgramRecord) {
   if (program.commission_type === 'per-transaction') {
     return program.points_per_transaction === null
-      ? 'Per transaction'
+      ? 'Par transaction'
       : `${program.points_per_transaction.toLocaleString()} pts / transaction`
   }
 
-  return 'Revenue tier'
+  return 'Paliers CA'
 }
 
 function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
@@ -108,7 +108,7 @@ function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
     return {
       icon: Briefcase,
       tileClass: 'bg-blue-500 text-white',
-      label: 'Rewards + cash',
+      label: 'Récompenses + Cash',
       badgeClass: 'border-blue-500/25 bg-blue-500/10 text-blue-800 dark:text-blue-300',
     }
   }
@@ -116,14 +116,14 @@ function exchangeModeConfig(mode: ProgramRecord['exchange_mode']) {
     return {
       icon: HandCoins,
       tileClass: 'bg-emerald-500 text-white',
-      label: 'Cash only',
+      label: 'Cash uniquement',
       badgeClass: cashBadgeClass,
     }
   }
   return {
     icon: Gift,
     tileClass: 'bg-amber-500 text-white',
-    label: 'Rewards only',
+    label: 'Récompenses uniquement',
     badgeClass: rewardBadgeClass,
   }
 }
@@ -156,46 +156,46 @@ function agentInitials(displayName: string | null | undefined, email: string | n
 function agentAvailability(program: ProgramRecord, canSubmitProspect: boolean) {
   if (!canSubmitProspect) {
     return {
-      label: 'Read only',
+      label: 'Lecture seule',
       toneClass: 'border-border bg-muted/40 text-muted-foreground',
-      helper: 'Prospect submission is not enabled for this workspace.',
+      helper: "La soumission de prospects n'est pas activée pour cet espace.",
     }
   }
 
   if (program.status === 'active') {
     return {
-      label: 'Ready for prospects',
+      label: 'Prêt pour les prospects',
       toneClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-      helper: 'You can open the program or submit a new prospect immediately.',
+      helper: "Ouvrez le programme ou soumettez un nouveau prospect immédiatement.",
     }
   }
 
   if (program.status === 'paused') {
     return {
-      label: 'Temporarily paused',
+      label: 'Temporairement en pause',
       toneClass: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-      helper: 'Review the program details. New prospect intake is paused for now.',
+      helper: "Consultez les détails du programme. La soumission de prospects est en pause.",
     }
   }
 
   if (program.status === 'suspended') {
     return {
-      label: 'Intake blocked',
+      label: 'Soumission bloquée',
       toneClass: 'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-300',
-      helper: 'The owner is winding this program down. New prospects are blocked.',
+      helper: "Le propriétaire clôture ce programme. Les nouveaux prospects sont bloqués.",
     }
   }
 
   return {
-    label: 'Unavailable',
+    label: 'Indisponible',
     toneClass: 'border-border bg-muted/40 text-muted-foreground',
-    helper: 'This program is not currently open for new submissions.',
+    helper: "Ce programme n'est pas ouvert aux nouvelles soumissions.",
   }
 }
 
 function compactDate(value: string | null | undefined) {
-  if (!value) return 'Not started'
-  return new Date(value).toLocaleDateString('en-GB', {
+  if (!value) return 'Non démarré'
+  return new Date(value).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -204,18 +204,18 @@ function compactDate(value: string | null | undefined) {
 
 function programTimelineLabel(program: ProgramRecord) {
   if (program.status === 'suspended') {
-    return `Suspended ${compactDate(program.suspended_at)}`
+    return `Suspendu ${compactDate(program.suspended_at)}`
   }
   if (program.status === 'paused') {
-    return `Paused ${compactDate(program.paused_at)}`
+    return `En pause ${compactDate(program.paused_at)}`
   }
   if (program.status === 'active') {
-    return `Activated ${compactDate(program.activated_at ?? program.created_at)}`
+    return `Activé ${compactDate(program.activated_at ?? program.created_at)}`
   }
   if (program.status === 'archived') {
-    return `Archived ${compactDate(program.updated_at)}`
+    return `Archivé ${compactDate(program.updated_at)}`
   }
-  return `Created ${compactDate(program.created_at)}`
+  return `Créé ${compactDate(program.created_at)}`
 }
 
 function CompactMetaItem({
@@ -376,7 +376,7 @@ export function ProgramCard({
   const [activeInfoCard, setActiveInfoCard] = useState<ProgramInfoCardKey | null>(null)
   const pointsSummary =
     program.points_per_transaction === null
-      ? 'Configured later'
+      ? 'À configurer'
       : `${program.points_per_transaction.toLocaleString()} pts`
   const isInfoDialogOpen = activeInfoCard !== null
   const editDisabledReason = canEditGeneral
@@ -495,53 +495,53 @@ export function ProgramCard({
 
   const infoDialogCopy: Record<ProgramInfoCardKey, { title: string; description: string }> = {
     business: {
-      title: 'Business scope',
+      title: 'Périmètre business',
       description:
         mode === 'agent'
-          ? 'This is the business owning the program. It defines who controls rules, rewards, and assignments.'
-          : 'Business context for this program.',
+          ? 'Le business propriétaire du programme. Il définit qui contrôle les règles, les récompenses et les assignations.'
+          : 'Contexte business de ce programme.',
     },
     attribution: {
       title: 'Attribution',
       description:
         mode === 'owner'
-          ? 'Defines how affiliates earn points from business outcomes. Keep this clear so payout logic remains predictable.'
-          : 'Shows how this program awards points from your activity.',
+          ? 'Définit comment les agents gagnent des points à partir des résultats commerciaux. Gardez cette configuration claire pour que la logique de paiement reste prévisible.'
+          : 'Indique comment ce programme attribue des points pour vos activités.',
     },
     points: {
       title: 'Points',
       description:
         mode === 'owner'
-          ? 'Current point rate used by this program. This value directly impacts affiliate earning speed.'
-          : 'Current point value for this program. This controls what your actions generate.',
+          ? 'Taux de points actuel utilisé par ce programme. Cette valeur impacte directement la vitesse de gain des agents.'
+          : 'Valeur de points actuelle pour ce programme. Cela contrôle ce que vos actions génèrent.',
     },
     exchange: {
-      title: 'Exchange mode',
+      title: "Mode d'échange",
       description:
         mode === 'agent'
-          ? 'Shows whether this program supports cash, rewards, or both redemption paths.'
-          : 'Redemption configuration for this program.',
+          ? 'Indique si ce programme propose du cash, des récompenses ou les deux chemins de conversion.'
+          : 'Configuration des échanges pour ce programme.',
     },
     cash: {
-      title: 'Cash conversion',
+      title: 'Conversion cash',
       description:
         mode === 'owner'
-          ? 'Defines the exchange ratio from points to € for cash redemptions.'
-          : 'This is the conversion rate used when cash redemption is available.',
+          ? 'Définit le ratio de conversion des points en € pour les échanges cash.'
+          : "Taux de conversion utilisé lorsque l'échange cash est disponible.",
     },
     rewards: {
-      title: 'Rewards pack',
+      title: 'Pack récompenses',
       description:
         mode === 'owner'
-          ? 'Lists the reward catalog linked to this program and its point costs.'
-          : 'Shows available reward items and the required points for each one.',
+          ? 'Catalogue de récompenses lié à ce programme et les coûts en points associés.'
+          : 'Articles disponibles en récompense et les points nécessaires pour chacun.',
     },
     assignments: {
-      title: 'Assignments',
+      title: 'Assignations',
       description:
         mode === 'owner'
-          ? 'Assigned agents currently linked to this program. Assignment count helps track ownership and execution coverage.'
-          : 'Assignment context for this program.',
+          ? "Agents actuellement liés à ce programme. Le nombre d'assignations aide à suivre la couverture et l'exécution."
+          : "Contexte d'assignation pour ce programme.",
     },
   }
 
@@ -590,7 +590,7 @@ export function ProgramCard({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                aria-label="Program actions"
+                aria-label="Actions du programme"
               >
                 <MoreVertical className="size-4" />
               </Button>
@@ -602,7 +602,7 @@ export function ProgramCard({
                     <DropdownMenuItem asChild>
                       <Link to={`/programs/${program.id}`} className="flex cursor-pointer items-center gap-2">
                         <ExternalLink className="size-4" />
-                        Open program
+                        Voir le programme
                       </Link>
                     </DropdownMenuItem>
                     {withDisabledTooltip(
@@ -612,7 +612,7 @@ export function ProgramCard({
                         className="flex cursor-pointer items-center gap-2"
                       >
                         <Zap className="size-4" />
-                        Add prospect
+                        Ajouter un prospect
                       </DropdownMenuItem>,
                       addProspectDisabledReason,
                     )}
@@ -622,7 +622,7 @@ export function ProgramCard({
                     <DropdownMenuItem asChild>
                       <Link to={`/programs/${program.id}`} className="flex cursor-pointer items-center gap-2">
                         <ExternalLink className="size-4" />
-                        Open program
+                        Voir le programme
                       </Link>
                     </DropdownMenuItem>
                     {withDisabledTooltip(
@@ -633,7 +633,7 @@ export function ProgramCard({
                         }}
                       >
                         <Pencil className="size-4" />
-                        Edit
+                        Modifier
                       </DropdownMenuItem>,
                       editDisabledReason,
                     )}
@@ -646,7 +646,7 @@ export function ProgramCard({
                             }}
                           >
                             <HandCoins className="size-4" />
-                            Edit cash
+                            Modifier le cash
                           </DropdownMenuItem>,
                           editCashDisabledReason,
                         )
@@ -660,7 +660,7 @@ export function ProgramCard({
                             }}
                           >
                             <Package className="size-4" />
-                            Manage reward pack
+                            Gérer le pack récompenses
                           </DropdownMenuItem>,
                           editRewardsDisabledReason,
                         )
@@ -674,7 +674,7 @@ export function ProgramCard({
                             }}
                           >
                             <Zap className="size-4" />
-                            Activate program
+                            Activer le programme
                           </DropdownMenuItem>,
                           activateDisabledReason,
                         )
@@ -688,7 +688,7 @@ export function ProgramCard({
                           }}
                         >
                           <Undo2 className="size-4" />
-                          Lift suspension
+                          Lever la suspension
                         </DropdownMenuItem>,
                         liftSuspensionDisabledReason,
                       )
@@ -702,7 +702,7 @@ export function ProgramCard({
                             }}
                           >
                             {isPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
-                            {isPaused ? 'Reactivate' : 'Pause'}
+                            {isPaused ? 'Réactiver' : 'Mettre en pause'}
                           </DropdownMenuItem>,
                           pauseDisabledReason,
                         )}
@@ -714,7 +714,7 @@ export function ProgramCard({
                             }}
                           >
                             <OctagonAlert className="size-4" />
-                            Suspend
+                            Suspendre
                           </DropdownMenuItem>,
                           suspendDisabledReason,
                         )}
@@ -728,7 +728,7 @@ export function ProgramCard({
                         }}
                       >
                         <Archive className="size-4" />
-                        Archive
+                        Archiver
                       </DropdownMenuItem>,
                       archiveDisabledReason,
                     )}
@@ -740,7 +740,7 @@ export function ProgramCard({
                         }}
                       >
                         <UserPlus className="size-4" />
-                        Assign agents
+                        Assigner des agents
                       </DropdownMenuItem>,
                       assignDisabledReason,
                     )}
@@ -753,7 +753,7 @@ export function ProgramCard({
                         }}
                       >
                         <Trash2 className="size-4" />
-                        Delete
+                        Supprimer
                       </DropdownMenuItem>,
                       deleteDisabledReason,
                     )}
@@ -844,7 +844,7 @@ export function ProgramCard({
               </p>
               <div className="mt-1.5">
                 {assignedTotal === 0 ? (
-                  <p className="text-xs text-muted-foreground">No agents assigned</p>
+                  <p className="text-xs text-muted-foreground">Aucun agent assigné</p>
                 ) : (
                   <AvatarGroup className="min-h-8">
                     {assignmentAvatars.map((agent) => (
@@ -891,9 +891,9 @@ export function ProgramCard({
         <Dialog open={isInfoDialogOpen} onOpenChange={(open) => !open && setActiveInfoCard(null)}>
           <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{activeInfoCard ? infoDialogCopy[activeInfoCard].title : 'Program detail'}</DialogTitle>
+              <DialogTitle>{activeInfoCard ? infoDialogCopy[activeInfoCard].title : 'Détail du programme'}</DialogTitle>
               <DialogDescription>
-                {activeInfoCard ? infoDialogCopy[activeInfoCard].description : 'Program information.'}
+                {activeInfoCard ? infoDialogCopy[activeInfoCard].description : 'Informations du programme.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -910,9 +910,9 @@ export function ProgramCard({
                       </Avatar>
                     </ItemMedia>
                     <ItemContent>
-                      <ItemTitle>{program.business_name ?? 'Unknown business'}</ItemTitle>
+                      <ItemTitle>{program.business_name ?? 'Business inconnu'}</ItemTitle>
                       <ItemDescription>
-                        {businessPrograms.length} program{businessPrograms.length === 1 ? '' : 's'} available
+                        {businessPrograms.length} programme{businessPrograms.length === 1 ? '' : 's'} disponible{businessPrograms.length === 1 ? '' : 's'}
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>
@@ -925,7 +925,7 @@ export function ProgramCard({
                           setActiveInfoCard(null)
                         }}
                       >
-                        View all programs
+                        Voir tous les programmes
                       </Button>
                     </ItemActions>
                   </Item>
@@ -953,14 +953,13 @@ export function ProgramCard({
                       ))}
                       {businessPrograms.length > 6 ? (
                         <p className="text-xs text-muted-foreground">
-                          +{businessPrograms.length - 6} more program
-                          {businessPrograms.length - 6 === 1 ? '' : 's'}
+                          +{businessPrograms.length - 6} programme{businessPrograms.length - 6 === 1 ? '' : 's'} supplémentaire{businessPrograms.length - 6 === 1 ? '' : 's'}
                         </p>
                       ) : null}
                     </div>
                   ) : (
                     <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                      No other programs found for this business.
+                      Aucun autre programme trouvé pour ce business.
                     </p>
                   )}
                 </div>
@@ -1044,7 +1043,7 @@ export function ProgramCard({
                         ))
                       ) : (
                         <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                          No agents assigned.
+                          Aucun agent assigné.
                         </p>
                       )}
                     </div>
@@ -1119,7 +1118,7 @@ export function ProgramCard({
 
       {isPaused && isRevenueTier ? (
         <p className="px-3 pb-3 text-xs text-amber-700 dark:text-amber-400 sm:px-4">
-          Revenue-tier programs stay paused until tier rules are modeled in the backend.
+          Les programmes à paliers CA restent en pause jusqu'à ce que les règles de paliers soient configurées.
         </p>
       ) : null}
       {isSuspended ? (
@@ -1128,8 +1127,7 @@ export function ProgramCard({
             <SuspensionDeadlineCountdown deadlineIso={program.suspension_deadline_at} />
           ) : null}
           <p>
-            Suspended: wind-down mode. New prospects blocked; you can lift suspension to return to
-            active, or archive after the deadline.
+            Suspendu : mode de clôture progressive. Les nouveaux prospects sont bloqués. Vous pouvez lever la suspension pour revenir à l'état actif, ou archiver le programme après la date limite.
           </p>
         </div>
       ) : null}

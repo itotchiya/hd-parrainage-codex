@@ -6,7 +6,9 @@ import {
   Banknote,
   CircleDollarSign,
   Coins,
+  Eye,
   Link2,
+  MoreHorizontal,
   Search,
 } from 'lucide-react'
 
@@ -22,6 +24,12 @@ import { SortableTableHead, type SortDirection } from '@/components/app/Sortable
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -42,6 +50,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ApiError } from '@/lib/api'
 import type { TransactionQueryParams, TransactionRecord, TransactionStatus } from '@/types/transactions'
 
@@ -524,7 +533,7 @@ export function TransactionsPage() {
         />
 
         {totalItems === 0 ? (
-          <article className="rounded-lg bg-background/40 px-4 py-6 text-sm text-muted-foreground">
+          <article className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
             <p className="app-eyebrow">Ledger transactionnel</p>
             <h2 className="mt-2 text-lg font-semibold text-foreground">Aucune transaction ne correspond aux filtres.</h2>
             <p className="mt-2 max-w-2xl">
@@ -532,7 +541,7 @@ export function TransactionsPage() {
             </p>
           </article>
         ) : (
-          <div className="mt-4 overflow-hidden rounded-lg bg-background/40">
+          <div className="mt-4 overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -611,7 +620,7 @@ export function TransactionsPage() {
                     >
                       Survenue
                     </SortableTableHead>
-                    <TableHead className="w-[84px] pe-3 text-right">Voir</TableHead>
+                    <TableHead className="w-[84px] pe-3 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -634,7 +643,7 @@ export function TransactionsPage() {
                             to={`/transactions/${transaction.id}`}
                             className="group -m-1 block cursor-pointer rounded-md p-1 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           >
-                            <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                            <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
                               {transaction.product_name}
                             </p>
                             <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -651,7 +660,7 @@ export function TransactionsPage() {
                               to={prospectHref}
                               className="group -m-1 block cursor-pointer rounded-md p-1 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
-                              <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                              <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
                                 {transaction.prospect_name ?? 'Prospect lié'}
                               </p>
                               <p className="truncate text-[11px] text-muted-foreground">
@@ -671,7 +680,7 @@ export function TransactionsPage() {
                               to={`/programs/${transaction.program_id}`}
                               className="group -m-1 block cursor-pointer rounded-md p-1 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
-                              <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                              <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
                                 {transaction.program_name}
                               </p>
                               <p className="truncate text-[11px] text-muted-foreground">
@@ -708,9 +717,46 @@ export function TransactionsPage() {
                           {formatDashboardDateFr(transaction.occurred_at)}
                         </TableCell>
                         <TableCell className="pe-3 text-right">
-                          <Button asChild variant="outline" size="sm">
-                            <Link to={`/transactions/${transaction.id}`}>Voir</Link>
-                          </Button>
+                          <TooltipProvider delayDuration={150}>
+                            <div className="flex justify-end gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="hidden border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary md:inline-flex"
+                                  >
+                                    <Link to={`/transactions/${transaction.id}`} aria-label="Voir la transaction">
+                                      <Eye className="size-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Voir la transaction</TooltipContent>
+                              </Tooltip>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="md:hidden"
+                                    aria-label="Plus d’options"
+                                  >
+                                    <MoreHorizontal className="size-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/transactions/${transaction.id}`}>
+                                      <Eye className="size-4 text-primary" />
+                                      <span>Voir la transaction</span>
+                                    </Link>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TooltipProvider>
                         </TableCell>
                       </TableRow>
                     )

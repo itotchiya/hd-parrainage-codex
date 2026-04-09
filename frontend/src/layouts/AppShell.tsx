@@ -559,6 +559,7 @@ export function AppShell() {
           <AppSidebar
             collapsed={false}
             navItems={visibleNavigation}
+            iacrmConfigured={iacrmConfigured}
             onLogout={async () => {
               await logout()
               navigate('/login', { replace: true })
@@ -590,6 +591,7 @@ export function AppShell() {
       <AppSidebar
         collapsed={sidebarCollapsed}
         navItems={visibleNavigation}
+        iacrmConfigured={iacrmConfigured}
         onLogout={async () => {
           await logout()
           navigate('/login', { replace: true })

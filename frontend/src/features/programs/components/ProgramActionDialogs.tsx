@@ -75,7 +75,7 @@ function agentInitials(agent: AgentRecord): string {
 }
 
 function rewardItemsLabel(count: number) {
-  return `${count} item${count === 1 ? '' : 's'}`
+  return `${count} cadeau${count === 1 ? '' : 'x'}`
 }
 
 function activeRewardItemCount(pack: ExchangePackRecord | null | undefined) {
@@ -145,6 +145,7 @@ export function ProgramCashRulesDialog({
                 id="program-cash-points"
                 type="number"
                 min="1"
+                max="9999999"
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 placeholder="Exemple : 100"
@@ -225,7 +226,7 @@ export function ProgramRewardPackDialog({
           <div className="flex items-center gap-3">
             <IconTile icon={Gift} size="sm" className="bg-amber-500 text-white" />
             <div className="min-w-0">
-              <p className="app-eyebrow text-amber-900 dark:text-amber-300">Reward pack</p>
+              <p className="app-eyebrow text-amber-900 dark:text-amber-300">Pack récompenses</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Choisissez le catalogue que les agents peuvent utiliser avec leurs points.
               </p>

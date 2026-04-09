@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'iacrm' => [
+        'base_url' => env('IACRM_BASE_URL'),
+        'api_key'  => env('IACRM_API_KEY'),
+    ],
+
 ];

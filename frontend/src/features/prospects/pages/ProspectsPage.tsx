@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer } from 'lucide-react'
+import { BadgeCheck, Eye, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer, Trash2, User } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
@@ -52,6 +52,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type {
   ProspectPipelineStage,
   ProspectRecord,
@@ -727,7 +728,7 @@ export function ProspectsPage() {
                           })}
                           className="group -m-1 block rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                          <p className="truncate font-medium text-primary underline-offset-2 group-hover:underline">
+                          <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
                             {prospect.contact_name}
                           </p>
                           {prospect.company_name ? (
@@ -761,7 +762,7 @@ export function ProspectsPage() {
                           {prospect.contact_email ? (
                             <a
                               href={`mailto:${prospect.contact_email}`}
-                              className="truncate text-primary underline-offset-2 hover:underline"
+                              className="truncate text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {prospect.contact_email}
@@ -772,7 +773,7 @@ export function ProspectsPage() {
                           {prospect.contact_phone_raw ? (
                             <a
                               href={`tel:${prospect.contact_phone_e164 ?? prospect.contact_phone_raw}`}
-                              className="truncate text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+                              className="truncate text-muted-foreground underline underline-offset-4 decoration-border hover:text-primary hover:decoration-primary"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {prospect.contact_phone_raw}
@@ -786,7 +787,7 @@ export function ProspectsPage() {
                         {prospect.agent_id ? (
                           <Link
                             to={`/agents/${prospect.agent_id}`}
-                            className="text-primary underline-offset-2 hover:underline"
+                            className="text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {prospect.agent_name ?? '—'}
@@ -835,7 +836,7 @@ export function ProspectsPage() {
                               agentId: prospect.agent_id,
                               hash: '#prospect-history',
                             })}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <History className="size-3.5 shrink-0" aria-hidden />
@@ -854,59 +855,149 @@ export function ProspectsPage() {
                         </TableCell>
                       ) : null}
                       <TableCell className="pe-2 text-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-muted-foreground"
-                              aria-label={`Actions for ${prospect.contact_name}`}
-                            >
-                              <MoreHorizontal className="size-4" aria-hidden />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-[10rem]">
-                            <DropdownMenuItem asChild>
-                              <Link
-                                to={buildProspectDetailPath({
-                                  prospectId: prospect.id,
-                                  agentId: prospect.agent_id,
-                                })}
-                              >
-                                Open detail
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link
-                                to={buildProspectDetailPath({
-                                  prospectId: prospect.id,
-                                  agentId: prospect.agent_id,
-                                  hash: '#prospect-history',
-                                })}
-                              >
-                                View timeline
-                              </Link>
-                            </DropdownMenuItem>
-                            {prospect.agent_id ? (
-                              <DropdownMenuItem asChild>
-                                <Link to={`/agents/${prospect.agent_id}`}>Open agent</Link>
-                              </DropdownMenuItem>
-                            ) : null}
-                            {prospect.actions.can_delete ? (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  disabled={busy}
-                                  onClick={() => setDeleteTarget(prospect)}
+                        <TooltipProvider delayDuration={150}>
+                          <div className="flex justify-end gap-2">
+                            <div className="hidden items-center justify-end gap-2 md:flex">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                                  >
+                                    <Link
+                                      to={buildProspectDetailPath({
+                                        prospectId: prospect.id,
+                                        agentId: prospect.agent_id,
+                                      })}
+                                      aria-label="Ouvrir le prospect"
+                                    >
+                                      <Eye className="size-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Ouvrir le prospect</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="border border-blue-500/30 text-blue-600 hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-500 dark:text-blue-400"
+                                  >
+                                    <Link
+                                      to={buildProspectDetailPath({
+                                        prospectId: prospect.id,
+                                        agentId: prospect.agent_id,
+                                        hash: '#prospect-history',
+                                      })}
+                                      aria-label="Voir l’historique"
+                                    >
+                                      <History className="size-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Voir l’historique</TooltipContent>
+                              </Tooltip>
+                              {prospect.agent_id ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      asChild
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                                    >
+                                      <Link to={`/agents/${prospect.agent_id}`} aria-label="Voir l’agent">
+                                        <User className="size-4" />
+                                      </Link>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Voir l’agent</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                              {prospect.actions.can_delete ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      disabled={busy}
+                                      className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
+                                      onClick={() => setDeleteTarget(prospect)}
+                                      aria-label="Supprimer le prospect"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Supprimer le prospect</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="text-muted-foreground md:hidden"
+                                  aria-label={`Actions for ${prospect.contact_name}`}
                                 >
-                                  Delete
+                                  <MoreHorizontal className="size-4" aria-hidden />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-[10rem]">
+                                <DropdownMenuItem asChild>
+                                  <Link
+                                    to={buildProspectDetailPath({
+                                      prospectId: prospect.id,
+                                      agentId: prospect.agent_id,
+                                    })}
+                                  >
+                                    <Eye className="size-4 text-primary" />
+                                    <span>Open detail</span>
+                                  </Link>
                                 </DropdownMenuItem>
-                              </>
-                            ) : null}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                <DropdownMenuItem asChild>
+                                  <Link
+                                    to={buildProspectDetailPath({
+                                      prospectId: prospect.id,
+                                      agentId: prospect.agent_id,
+                                      hash: '#prospect-history',
+                                    })}
+                                  >
+                                    <History className="size-4 text-blue-500" />
+                                    <span>View timeline</span>
+                                  </Link>
+                                </DropdownMenuItem>
+                                {prospect.agent_id ? (
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/agents/${prospect.agent_id}`}>
+                                      <User className="size-4 text-primary" />
+                                      <span>Open agent</span>
+                                    </Link>
+                                  </DropdownMenuItem>
+                                ) : null}
+                                {prospect.actions.can_delete ? (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      disabled={busy}
+                                      onClick={() => setDeleteTarget(prospect)}
+                                    >
+                                      <Trash2 className="size-4 text-destructive" />
+                                      <span>Delete</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                ) : null}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   )

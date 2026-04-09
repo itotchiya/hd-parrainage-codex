@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\Auth\CurrentUserController;
+use App\Http\Controllers\Api\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\Auth\InvitationActivationController;
 use App\Http\Controllers\Api\Auth\PasswordRecoveryController;
 use App\Http\Controllers\Api\Agents\AgentController;
@@ -24,6 +25,9 @@ Route::prefix('auth')->middleware('web')->group(function (): void {
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('guest');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth:sanctum');
     Route::get('/me', CurrentUserController::class)->middleware('auth:sanctum');
+    Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+        ->middleware('signed')
+        ->name('auth.email.verify');
     Route::post('/invitation/validate', [InvitationActivationController::class, 'validateToken'])->middleware('guest');
     Route::post('/invitation/activate', [InvitationActivationController::class, 'activate'])->middleware('guest');
     Route::post('/password/forgot', [PasswordRecoveryController::class, 'sendResetToken'])->middleware('guest');
@@ -92,6 +96,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::post('/sync/jobs/{jobId}/retry', [SyncJobController::class, 'retry']);
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::patch('/settings/own', [SettingsController::class, 'updateOwn']);
+    Route::post('/settings/own/avatar', [SettingsController::class, 'uploadOwnAvatar']);
+    Route::post('/settings/own/email/resend-verification', [SettingsController::class, 'resendOwnEmailVerification']);
+    Route::patch('/settings/own/password', [SettingsController::class, 'updateOwnPassword']);
     Route::patch('/settings/business', [SettingsController::class, 'updateBusiness']);
     Route::get('/exchange-requests', [ExchangeRequestController::class, 'index']);
     Route::post('/exchange-requests/reward', [ExchangeRequestController::class, 'storeReward']);
@@ -107,6 +114,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
 Route::prefix('public')->group(function (): void {
     Route::get('/programs/{programId}/portal-info', [PublicProspectController::class, 'portalInfo']);
     Route::post('/prospects', [PublicProspectController::class, 'store']);
+    Route::get('/media/avatars/{userId}/{fileName}', [SettingsController::class, 'showAvatar'])
+        ->where('fileName', '.*');
 });
 
 require __DIR__.'/api_frontend2.php';

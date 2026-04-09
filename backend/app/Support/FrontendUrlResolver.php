@@ -20,6 +20,27 @@ class FrontendUrlResolver
         return $frontendUrl.'/password/reset?email='.urlencode($email).'&token='.urlencode($token);
     }
 
+    /**
+     * @param array<string, string> $query
+     */
+    public static function settingsUrl(Request $request, array $query = []): string
+    {
+        $frontendUrl = self::fromRequest($request);
+
+        if ($query === []) {
+            return $frontendUrl.'/settings';
+        }
+
+        return $frontendUrl.'/settings?'.http_build_query($query);
+    }
+
+    public static function isTrustedFrontendUrl(string $url): bool
+    {
+        $origin = self::originFromHeader($url);
+
+        return $origin !== null && in_array($origin, self::trustedOrigins(), true);
+    }
+
     public static function fromRequest(Request $request): string
     {
         $trustedOrigins = self::trustedOrigins();

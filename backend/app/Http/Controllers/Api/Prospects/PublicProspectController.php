@@ -9,6 +9,7 @@ use App\Models\Prospect;
 use App\Models\ProspectStatusHistory;
 use App\Models\SyncJob;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -108,22 +109,7 @@ class PublicProspectController extends Controller
 
         abort_if($program === null, 403, 'Program not available for this agent.');
 
-        $duplicateQuery = Prospect::query()
-            ->where('business_id', $businessId)
-            ->where('program_id', $program->id);
-
-        if ($contactPhoneE164 !== null) {
-            $duplicateQuery->where('contact_phone_e164', $contactPhoneE164);
-        } elseif ($contactEmail !== null) {
-            $duplicateQuery->whereRaw('lower(contact_email) = ?', [$contactEmail]);
-        }
-
-        if ($duplicateQuery->exists()) {
-            throw ValidationException::withMessages([
-                'contact_email' => 'An active prospect already exists for this contact in the selected program.',
-            ]);
-        }
-
+        try {
         $prospect = Prospect::query()->create([
             'business_id' => $businessId,
             'program_id' => $program->id,
@@ -185,6 +171,11 @@ class PublicProspectController extends Controller
                 'contact_name' => $prospect->contact_name,
             ],
         ], 201);
+        } catch (QueryException) {
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la soumission. Veuillez réessayer.',
+            ], 500);
+        }
     }
 
     private function normalizePhone(?string $value): ?string

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
+import { compressAvatarFile, validateAvatarFile } from '../../../lib/avatar-upload'
 import { useAuthSession } from '../../auth/session'
-import { fetchSettings, fetchSyncOverview, updateBusinessSettings, updateOwnSettings } from '../api'
+import { fetchSettings, fetchSyncOverview, updateBusinessSettings, updateOwnSettings, uploadOwnAvatar } from '../api'
 import { PageHeader } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { IacrmApiSettingsTab } from '../components/IacrmApiSettingsTab'
 
 type SettingsTabId = 'profile' | 'notifications' | 'security' | 'payment' | 'api'
@@ -105,6 +107,8 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>('profile')
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
   const [businessName, setBusinessName] = useState('')
   const [businessEmail, setBusinessEmail] = useState('')
   const [businessPhone, setBusinessPhone] = useState('')
@@ -135,10 +139,36 @@ export function SettingsPage() {
     setBusinessTimezone(query.data.data.business?.timezone ?? '')
   }, [query.data])
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl !== null) {
+        URL.revokeObjectURL(avatarPreviewUrl)
+      }
+    }
+  }, [avatarPreviewUrl])
+
   const ownMutation = useMutation({
-    mutationFn: updateOwnSettings,
+    mutationFn: async (payload: { display_name: string; avatar_url?: string | null }) => {
+      let nextAvatarUrl = payload.avatar_url ?? null
+
+      if (avatarFile !== null) {
+        const compressedAvatar = await compressAvatarFile(avatarFile)
+        const avatarResponse = await uploadOwnAvatar(compressedAvatar)
+        nextAvatarUrl = avatarResponse.data.user.avatar_url
+      }
+
+      return updateOwnSettings({
+        display_name: payload.display_name,
+        avatar_url: nextAvatarUrl,
+      })
+    },
     onSuccess: async () => {
       setFeedback('Profile settings updated.')
+      setAvatarFile(null)
+      if (avatarPreviewUrl !== null) {
+        URL.revokeObjectURL(avatarPreviewUrl)
+      }
+      setAvatarPreviewUrl(null)
       await queryClient.invalidateQueries({ queryKey: ['settings'] })
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
     },
@@ -165,6 +195,18 @@ export function SettingsPage() {
       return `${role.name ?? role.slug ?? 'Role'} / ${scope}`
     })
   }, [user])
+
+  const profileInitials = useMemo(() => {
+    const source = displayName.trim() || user?.display_name || 'HD Parrainage'
+
+    return source
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('')
+  }, [displayName, user?.display_name])
+
+  const resolvedAvatarPreview = avatarPreviewUrl ?? (avatarUrl.trim() || null)
 
   if (query.isPending) {
     return (
@@ -267,6 +309,49 @@ export function SettingsPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <InfoRow label="Email" value={payload.user.email} />
               <InfoRow label="Current business" value={payload.business?.display_name ?? 'Global platform'} />
+              <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                  <Avatar className="size-20 border border-border bg-card">
+                    {resolvedAvatarPreview ? <AvatarImage src={resolvedAvatarPreview} alt={displayName || payload.user.display_name} /> : null}
+                    <AvatarFallback className="text-lg font-semibold">{profileInitials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="avatar_file">
+                      Profile image
+                    </label>
+                    <Input
+                      id="avatar_file"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="mt-2"
+                      onChange={(event) => {
+                        const nextFile = event.target.files?.[0] ?? null
+
+                        if (nextFile === null) {
+                          return
+                        }
+
+                        try {
+                          validateAvatarFile(nextFile)
+                          if (avatarPreviewUrl !== null) {
+                            URL.revokeObjectURL(avatarPreviewUrl)
+                          }
+                          setAvatarFile(nextFile)
+                          setAvatarPreviewUrl(URL.createObjectURL(nextFile))
+                          setFeedback('New avatar ready. Save profile to upload it to Cloudflare R2.')
+                        } catch (error) {
+                          setAvatarFile(null)
+                          event.currentTarget.value = ''
+                          setFeedback(error instanceof Error ? error.message : 'The image could not be selected.')
+                        }
+                      }}
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      JPG, PNG, or WebP only. The browser compresses the image to a centered 512x512 WebP before the backend stores it in R2.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
                 <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="display_name">
                   Display name
@@ -278,21 +363,6 @@ export function SettingsPage() {
                   className="mt-2"
                   placeholder="Display name"
                 />
-              </div>
-              <div className="md:col-span-2 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <label className="text-xs uppercase tracking-[0.22em] text-muted-foreground" htmlFor="avatar_url">
-                  Avatar image URL
-                </label>
-                <Input
-                  id="avatar_url"
-                  value={avatarUrl}
-                  onChange={(event) => setAvatarUrl(event.target.value)}
-                  className="mt-2"
-                  placeholder="https://example.com/avatar.jpg"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Use a public image URL. Leave empty to fallback to initials.
-                </p>
               </div>
             </div>
 

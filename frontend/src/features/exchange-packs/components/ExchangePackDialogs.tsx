@@ -60,7 +60,9 @@ export function ExchangePackFormDialog({
               <div>
                 <p className="app-eyebrow text-primary">Pack rewards</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Vous pourrez ajouter les cadeaux après la création du pack.
+                  {pack
+                    ? 'Modifiez les informations du pack. Gérez les cadeaux depuis la page du pack.'
+                    : 'Vous pourrez ajouter les cadeaux après la création du pack.'}
                 </p>
               </div>
             </div>
@@ -179,6 +181,7 @@ export function ExchangePackItemDialog({
               id="exchange-pack-item-points"
               type="number"
               min="1"
+              max="9999999"
               value={pointsCost}
               onChange={(event) => setPointsCost(event.target.value)}
               placeholder="Exemple : 500"
