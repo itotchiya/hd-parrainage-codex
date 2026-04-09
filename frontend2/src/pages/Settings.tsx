@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +17,16 @@ import {
   Save,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { apiRequest } from '@/lib/api';
 import { compressAvatarFile, validateAvatarFile } from '@/lib/avatar-upload';
-import { fetchSettings, updateBusinessSettings, updateOwnSettings, uploadOwnAvatar } from '@/lib/live-data';
+import {
+  fetchSettings,
+  resendOwnEmailVerification,
+  updateBusinessSettings,
+  updateOwnPassword,
+  updateOwnSettings,
+  uploadOwnAvatar,
+} from '@/lib/live-data';
+import { useAuthSession } from '@/lib/auth-session';
 import type { UserRole } from '@/types';
 import { toast } from 'sonner';
 
@@ -40,6 +48,7 @@ interface Frontend2LocalSettings {
 
 function splitDisplayName(displayName: string) {
   const parts = displayName.trim().split(/\s+/).filter(Boolean);
+
   return {
     firstName: parts[0] ?? '',
     lastName: parts.slice(1).join(' '),
@@ -47,11 +56,15 @@ function splitDisplayName(displayName: string) {
 }
 
 export function SettingsPage({ role }: SettingsProps) {
+  const { refreshSession } = useAuthSession();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [marketingEmails, setMarketingEmails] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [savePending, setSavePending] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [passwordPending, setPasswordPending] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -60,6 +73,10 @@ export function SettingsPage({ role }: SettingsProps) {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [emailVerifiedAt, setEmailVerifiedAt] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [accountName, setAccountName] = useState('');
   const [iban, setIban] = useState('');
   const [bic, setBic] = useState('');
@@ -99,9 +116,10 @@ export function SettingsPage({ role }: SettingsProps) {
         setFirstName(identity.firstName);
         setLastName(identity.lastName);
         setEmail(payload.user.email);
-        setPhone(payload.business?.contact_phone ?? '');
+        setPhone(payload.user.phone_number ?? '');
         setCompany(payload.business?.display_name ?? '');
         setAvatarUrl(payload.user.avatar_url ?? '');
+        setEmailVerifiedAt(payload.user.email_verified_at ?? null);
         setAccountName(payload.user.display_name);
       } catch (error) {
         if (!cancelled) {
@@ -118,6 +136,18 @@ export function SettingsPage({ role }: SettingsProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('emailVerified') !== '1') {
+      return;
+    }
+
+    toast.success('Adresse email verifiee.');
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('emailVerified');
+    setSearchParams(nextParams, { replace: true });
+    setEmailVerifiedAt(new Date().toISOString());
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     return () => {
@@ -141,6 +171,7 @@ export function SettingsPage({ role }: SettingsProps) {
   }, [firstName, lastName]);
 
   const resolvedAvatarPreview = avatarPreviewUrl ?? (avatarUrl.trim() || null);
+  const emailVerified = emailVerifiedAt !== null;
 
   const persistLocalPrototypeSettings = (nextValues: Frontend2LocalSettings) => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextValues));
@@ -150,6 +181,11 @@ export function SettingsPage({ role }: SettingsProps) {
     const displayName = `${firstName} ${lastName}`.trim();
     if (!displayName) {
       toast.error('Le nom du profil est requis.');
+      return;
+    }
+
+    if (!email.trim()) {
+      toast.error('L email est requis.');
       return;
     }
 
@@ -164,34 +200,54 @@ export function SettingsPage({ role }: SettingsProps) {
         nextAvatarUrl = avatarPayload.user.avatar_url;
       }
 
-      await updateOwnSettings({
+      const ownSettings = await updateOwnSettings({
         displayName,
+        email: email.trim(),
+        phoneNumber: phone.trim() || null,
         avatarUrl: nextAvatarUrl,
       });
 
-      if (role === 'business-owner') {
+      if (role === 'business-owner' && company.trim()) {
         await updateBusinessSettings({
-          displayName: company.trim() || displayName,
-          contactEmail: email.trim(),
-          contactPhone: phone.trim(),
+          displayName: company.trim(),
         });
       }
 
-      toast.success(
-        role === 'business-owner'
-          ? 'Profil et entreprise mis a jour.'
-          : 'Profil mis a jour. Les champs email et telephone restent informatifs.'
-      );
+      await refreshSession();
+
       setAvatarFile(null);
       if (avatarPreviewUrl !== null) {
         URL.revokeObjectURL(avatarPreviewUrl);
       }
       setAvatarPreviewUrl(null);
-      setAvatarUrl(nextAvatarUrl ?? '');
+      setAvatarUrl(ownSettings.user.avatar_url ?? '');
+      setEmail(ownSettings.user.email);
+      setPhone(ownSettings.user.phone_number ?? '');
+      setEmailVerifiedAt(ownSettings.user.email_verified_at ?? null);
+      setAccountName(ownSettings.user.display_name);
+
+      if (ownSettings.user.email_verified_at === null) {
+        toast.success('Profil mis a jour. Verifiez votre nouvelle adresse email via le message Resend.');
+      } else {
+        toast.success(role === 'business-owner' ? 'Profil et entreprise mis a jour.' : 'Profil mis a jour.');
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Impossible d enregistrer les modifications.');
     } finally {
       setSavePending(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setVerificationPending(true);
+
+    try {
+      await resendOwnEmailVerification();
+      toast.success('Email de verification renvoye.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de renvoyer l email de verification.');
+    } finally {
+      setVerificationPending(false);
     }
   };
 
@@ -209,26 +265,34 @@ export function SettingsPage({ role }: SettingsProps) {
     toast.success('Preferences de notification enregistrees pour ce prototype.');
   };
 
-  const handleSendPasswordReset = async () => {
-    if (!email.trim()) {
-      toast.error('Aucun email de compte n est disponible.');
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Tous les champs de mot de passe sont requis.');
       return;
     }
 
+    if (newPassword !== confirmPassword) {
+      toast.error('La confirmation du mot de passe ne correspond pas.');
+      return;
+    }
+
+    setPasswordPending(true);
+
     try {
-      await apiRequest('/auth/password/forgot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-        }),
+      const response = await updateOwnPassword({
+        currentPassword,
+        password: newPassword,
+        passwordConfirmation: confirmPassword,
       });
 
-      toast.success('Email de reinitialisation envoye.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      toast.success(response.message ?? 'Mot de passe mis a jour.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Impossible d envoyer l email de reinitialisation.');
+      toast.error(error instanceof Error ? error.message : 'Impossible de mettre a jour le mot de passe.');
+    } finally {
+      setPasswordPending(false);
     }
   };
 
@@ -280,13 +344,13 @@ export function SettingsPage({ role }: SettingsProps) {
           <Card>
             <CardHeader>
               <CardTitle>Informations personnelles</CardTitle>
-              <CardDescription>Mettez a jour vos informations de profil</CardDescription>
+              <CardDescription>Mettez a jour votre profil, votre email, votre telephone et votre avatar.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   {resolvedAvatarPreview ? <AvatarImage src={resolvedAvatarPreview} alt={`${firstName} ${lastName}`.trim() || 'Avatar'} /> : null}
-                  <AvatarFallback className="bg-gradient-to-br from-[hsl(var(--myhd-primary))] to-[hsl(var(--myhd-cyan))] text-white text-2xl">
+                  <AvatarFallback className="bg-gradient-to-br from-[hsl(var(--myhd-primary))] to-[hsl(var(--myhd-cyan))] text-2xl text-white">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -318,11 +382,11 @@ export function SettingsPage({ role }: SettingsProps) {
                       }
                     }}
                   />
-                  <p className="text-xs text-gray-500 mt-2">JPG, PNG ou WebP. L image est compressee en WebP 512x512 avant l envoi vers R2.</p>
+                  <p className="mt-2 text-xs text-gray-500">JPG, PNG ou WebP. L image est compressee en WebP 512x512 avant l envoi vers R2.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">Prenom</Label>
                   <Input id="firstName" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
@@ -331,17 +395,31 @@ export function SettingsPage({ role }: SettingsProps) {
                   <Label htmlFor="lastName">Nom</Label>
                   <Input id="lastName" value={lastName} onChange={(event) => setLastName(event.target.value)} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="email">Email</Label>
+                    <span className={`text-xs font-medium ${emailVerified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {emailVerified ? 'Verifie' : 'Verification requise'}
+                    </span>
+                  </div>
                   <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                  {!emailVerified ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <span>Validez votre email pour securiser le compte. Un message Resend est envoye apres changement.</span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void handleResendVerification()} disabled={verificationPending}>
+                        {verificationPending ? 'Envoi...' : 'Renvoyer'}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="phone">Telephone</Label>
                   <Input id="phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
+                  <p className="text-xs text-gray-500">Aucune verification SMS n est requise pour le moment.</p>
                 </div>
               </div>
 
-              {role === 'business-owner' && (
+              {role === 'business-owner' ? (
                 <div className="space-y-2">
                   <Label htmlFor="company">Entreprise</Label>
                   <div className="relative">
@@ -349,10 +427,10 @@ export function SettingsPage({ role }: SettingsProps) {
                     <Input id="company" value={company} onChange={(event) => setCompany(event.target.value)} className="pl-10" />
                   </div>
                 </div>
-              )}
+              ) : null}
 
               <Button
-                className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 gap-2"
+                className="gap-2 bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90"
                 onClick={() => void handleSaveProfile()}
                 disabled={savePending}
               >
@@ -372,7 +450,7 @@ export function SettingsPage({ role }: SettingsProps) {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-[hsl(var(--myhd-primary))]/10 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--myhd-primary))]/10">
                     <Mail size={20} className="text-[hsl(var(--myhd-primary))]" />
                   </div>
                   <div>
@@ -385,7 +463,7 @@ export function SettingsPage({ role }: SettingsProps) {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-[hsl(var(--myhd-cyan))]/10 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--myhd-cyan))]/10">
                     <Phone size={20} className="text-[hsl(var(--myhd-cyan))]" />
                   </div>
                   <div>
@@ -398,7 +476,7 @@ export function SettingsPage({ role }: SettingsProps) {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
                     <Bell size={20} className="text-emerald-600" />
                   </div>
                   <div>
@@ -420,27 +498,28 @@ export function SettingsPage({ role }: SettingsProps) {
           <Card>
             <CardHeader>
               <CardTitle>Securite du compte</CardTitle>
-              <CardDescription>Gerez la securite de votre compte</CardDescription>
+              <CardDescription>Modifiez directement votre mot de passe.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Mot de passe actuel</Label>
-                <Input id="currentPassword" type="password" />
+                <Input id="currentPassword" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-                <Input id="newPassword" type="password" />
+                <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                <Input id="confirmPassword" type="password" />
+                <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
               </div>
               <Button
-                className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 gap-2"
-                onClick={() => void handleSendPasswordReset()}
+                className="gap-2 bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90"
+                onClick={() => void handleChangePassword()}
+                disabled={passwordPending}
               >
                 <Save size={16} />
-                Envoyer le lien de reinitialisation
+                {passwordPending ? 'Mise a jour...' : 'Mettre a jour le mot de passe'}
               </Button>
             </CardContent>
           </Card>
@@ -453,7 +532,7 @@ export function SettingsPage({ role }: SettingsProps) {
               <CardDescription>Gerez vos coordonnees bancaires pour les retraits</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="accountName">Nom du titulaire</Label>
                   <Input id="accountName" value={accountName} onChange={(event) => setAccountName(event.target.value)} />
@@ -472,7 +551,7 @@ export function SettingsPage({ role }: SettingsProps) {
                 </div>
               </div>
               <Button
-                className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 gap-2"
+                className="gap-2 bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90"
                 onClick={handleSavePaymentSettings}
               >
                 <Save size={16} />

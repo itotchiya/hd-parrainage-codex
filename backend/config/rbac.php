@@ -131,6 +131,8 @@ return [
             'exchange-request.reject',
             'notification.view',
             'notification.mark-read',
+            'settings.view-own',
+            'settings.update-own',
             'settings.view-business',
             'settings.update-business',
             'iacrm.sync-view',

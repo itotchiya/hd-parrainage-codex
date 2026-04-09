@@ -14,6 +14,7 @@ interface AuthSessionContextValue {
   logoutPending: boolean;
   login: (payload: LoginPayload) => Promise<AuthenticatedUser>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<AuthenticatedUser | null>;
   hasPermission: (...permissionIds: string[]) => boolean;
 }
 
@@ -172,6 +173,12 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
       } finally {
         setLogoutPending(false);
       }
+    },
+    refreshSession: async () => {
+      const nextUser = await fetchCurrentUser();
+      setUser(nextUser);
+      setStatus(nextUser ? 'authenticated' : 'unauthenticated');
+      return nextUser;
     },
     hasPermission: (...permissionIds) => permissionIds.some((permissionId) => permissionSet.has(permissionId)),
   };

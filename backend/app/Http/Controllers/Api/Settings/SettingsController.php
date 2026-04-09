@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers\Api\Settings;
 
+use App\Mail\SettingsEmailVerificationMail;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\User;
+use App\Support\FrontendUrlResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsController extends Controller
@@ -35,6 +41,8 @@ class SettingsController extends Controller
                     'display_name' => $user->display_name,
                     'avatar_url' => $user->avatar_url,
                     'email' => $user->email,
+                    'phone_number' => $user->phone_number,
+                    'email_verified_at' => $user->email_verified_at?->toISOString(),
                     'status' => $user->status,
                 ],
                 'business' => $business === null ? null : [
@@ -64,18 +72,81 @@ class SettingsController extends Controller
 
         $payload = $request->validate([
             'display_name' => ['required', 'string', 'max:160'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone_number' => ['nullable', 'string', 'max:40'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
         ]);
 
+        $displayName = trim((string) $payload['display_name']);
+        $email = mb_strtolower(trim((string) $payload['email']));
+        $phoneNumber = isset($payload['phone_number']) && $payload['phone_number'] !== null
+            ? trim((string) $payload['phone_number'])
+            : null;
+        $previousEmail = $user->email;
+        $emailChanged = $email !== $previousEmail;
+
         $user->forceFill([
-            'display_name' => trim((string) $payload['display_name']),
+            'display_name' => $displayName,
+            'email' => $email,
+            'phone_number' => $phoneNumber !== '' ? $phoneNumber : null,
             'avatar_url' => isset($payload['avatar_url']) && $payload['avatar_url'] !== null
                 ? trim((string) $payload['avatar_url'])
                 : null,
+            'email_verified_at' => $emailChanged ? null : $user->email_verified_at,
+            'last_activity_at' => now(),
             'updated_by_user_id' => $user->id,
         ])->save();
 
+        if ($emailChanged) {
+            $this->sendEmailVerification($request, $user);
+        }
+
         return $this->show($request);
+    }
+
+    public function resendOwnEmailVerification(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
+
+        abort_if($user->email_verified_at !== null, 422, 'This email address is already verified.');
+
+        $this->sendEmailVerification($request, $user);
+
+        return response()->json([
+            'data' => [
+                'message' => 'Verification email sent successfully.',
+            ],
+        ]);
+    }
+
+    public function updateOwnPassword(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->currentBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
+
+        $payload = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['required', 'string', 'min:8'],
+        ]);
+
+        abort_unless(Hash::check((string) $payload['current_password'], (string) $user->password_hash), 422, 'The current password is incorrect.');
+
+        $user->forceFill([
+            'password_hash' => (string) $payload['password'],
+            'remember_token' => Str::random(60),
+            'last_activity_at' => now(),
+            'updated_by_user_id' => $user->id,
+        ])->save();
+
+        return response()->json([
+            'data' => [
+                'message' => 'Password updated successfully.',
+            ],
+        ]);
     }
 
     public function updateBusiness(Request $request): JsonResponse
@@ -200,5 +271,22 @@ class SettingsController extends Controller
     private function avatarUrl(string $userId, string $fileName): string
     {
         return rtrim(config('app.url'), '/').sprintf('/api/public/media/avatars/%s/%s', $userId, $fileName);
+    }
+
+    private function sendEmailVerification(Request $request, User $user): void
+    {
+        $verificationUrl = URL::temporarySignedRoute(
+            'auth.email.verify',
+            now()->addHours(24),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->email),
+                'redirect' => FrontendUrlResolver::settingsUrl($request, [
+                    'emailVerified' => '1',
+                ]),
+            ],
+        );
+
+        Mail::to($user->email)->send(new SettingsEmailVerificationMail($user, $verificationUrl));
     }
 }

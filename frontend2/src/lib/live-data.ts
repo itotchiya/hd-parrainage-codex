@@ -139,6 +139,8 @@ interface SettingsRecord {
     display_name: string;
     avatar_url: string | null;
     email: string;
+    phone_number: string | null;
+    email_verified_at: string | null;
     status: string;
   };
   business: {
@@ -1147,7 +1149,12 @@ export async function fetchSettings() {
   return response.data;
 }
 
-export async function updateOwnSettings(payload: { displayName: string; avatarUrl?: string | null }) {
+export async function updateOwnSettings(payload: {
+  displayName: string;
+  email: string;
+  phoneNumber?: string | null;
+  avatarUrl?: string | null;
+}) {
   const response = await apiRequest<SettingsEnvelope>('/v1/settings/own', {
     method: 'PATCH',
     headers: {
@@ -1155,7 +1162,41 @@ export async function updateOwnSettings(payload: { displayName: string; avatarUr
     },
     body: JSON.stringify({
       display_name: payload.displayName,
+      email: payload.email,
+      phone_number: payload.phoneNumber ?? null,
       avatar_url: payload.avatarUrl ?? null,
+    }),
+  });
+
+  return response.data;
+}
+
+export async function resendOwnEmailVerification() {
+  const response = await apiRequest<{ data: { message: string } }>('/v1/settings/own/email/resend-verification', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+
+  return response.data;
+}
+
+export async function updateOwnPassword(payload: {
+  currentPassword: string;
+  password: string;
+  passwordConfirmation: string;
+}) {
+  const response = await apiRequest<{ data: { message: string } }>('/v1/settings/own/password', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      current_password: payload.currentPassword,
+      password: payload.password,
+      password_confirmation: payload.passwordConfirmation,
     }),
   });
 
