@@ -160,6 +160,86 @@ For each flow provided by the user:
 
 ---
 
+### Session: Business Owner Invitation Activation Flow - 2026-04-10
+
+**Tester:** AI Agent  
+**Environment:** Vercel Production  
+**Browser:** Chrome  
+**Viewport:** Desktop  
+**Flow:** Logout → Use Invitation Link → Create Password → Verify Email → Login as Business Owner
+
+#### Flow Steps Executed
+1. ✅ Logout from Super Admin account
+2. ✅ Navigate to invitation activation link with token
+3. ✅ Page loaded with pre-filled email: `linksomoney@gmail.com`
+4. ✅ Welcome message shows: "Welcome, mustapha boufous"
+5. ✅ Filled password: `SecurePass123!`
+6. ✅ Filled password confirmation: `SecurePass123!`
+7. ✅ Clicked "Create account" - Account created successfully (200)
+8. ✅ Verification pending page displayed
+9. ✅ Used email verification link - Email verified successfully
+10. ✅ Redirected to login page
+11. ✅ Filled email: `linksomoney@gmail.com`
+12. ✅ Filled password: `SecurePass123!`
+13. ✅ Clicked "Sign in" - **Login successful!**
+14. ✅ Business Owner dashboard loaded
+
+#### Console Analysis
+
+| Level | Message | Source | Fix Required |
+|-------|---------|--------|--------------|
+| error | `Failed to load resource: 401` | `/api/auth/me` | No - expected for unauthenticated users |
+| verbose | `[DOM] Input elements should have autocomplete attributes` | Activation page | **Yes** - accessibility |
+| issue | `An element doesn't have an autocomplete attribute` | Activation page | **Yes** - accessibility |
+| - | (After login - no console messages) | Dashboard | ✅ Clean |
+
+#### Network Analysis
+
+| Request | Status | Duration | Issue |
+|---------|--------|----------|-------|
+| `POST /api/auth/logout` | 200 | ~150ms | OK |
+| `GET /activate-invitation?token=...` | 200 | ~200ms | OK |
+| `POST /api/auth/invitation/validate` | 200 | ~180ms | OK |
+| `POST /api/auth/invitation/activate` | **200** | ~400ms | **OK - Account created** |
+| `GET /api/auth/email/verify/...` | 302 | ~300ms | **OK - Email verified** |
+| `POST /api/auth/login` | 200 | ~250ms | **OK - Login successful** |
+| `GET /api/v1/programs` | 200 | ~150ms | OK |
+| `GET /api/v1/dashboard/business-summary` | 200 | ~180ms | OK |
+| `GET /api/v1/prospects` | 200 | ~140ms | OK |
+| `GET /api/v1/transactions` | 200 | ~120ms | OK |
+| `GET /api/v1/points/ledger` | 200 | ~110ms | OK |
+| `GET /api/v1/agents` | 200 | ~130ms | OK |
+
+**Activation Response:**
+```json
+{
+  "code": "ACTIVATION_SUCCESS_VERIFY_EMAIL",
+  "message": "Account created. Please check your email to verify your address before logging in."
+}
+```
+
+#### UI/UX Observations
+- ✅ Invitation link pre-filled email correctly
+- ✅ User name displayed correctly: "mustapha boufous"
+- ✅ Password form validation working
+- ✅ Success message clear: "Account created. Please check your email..."
+- ✅ Email verification flow works perfectly
+- ✅ Post-verification redirect to login works
+- ✅ Business Owner dashboard loads with correct role-based navigation
+- ✅ User sees Programs, Affiliates, Referrals, Transactions, Points & Wallet, Requests
+- ✅ "IACRM API NOT CONFIGURED" warning shows (expected for new business)
+- ⚠️ **Minor**: Missing `autocomplete` attributes on password fields (accessibility)
+
+#### Fix Checklist
+- [ ] **Low Priority**: Add `autocomplete="new-password"` to password fields on activation page
+- [ ] **Low Priority**: Add `autocomplete="username"` to email field on activation page
+
+#### Screenshots
+- ![Account Created - Verification Pending](testing-screenshots/account-created-verification-pending.png)
+- ![Business Owner Dashboard Logged In](testing-screenshots/business-owner-dashboard-logged-in.png)
+
+---
+
 ## Known Issues (Backlog)
 
 | Issue | First Seen | Severity | Status | Related Session |
@@ -167,6 +247,8 @@ For each flow provided by the user:
 | Login form accessibility - missing label | 2026-04-10 | Low | Open | Business Invitation Flow |
 | Login form field missing id/name attribute | 2026-04-10 | Low | Open | Business Invitation Flow |
 | IACRM sidebar status needs manual refresh | 2026-04-10 | Low | Open | Business Invitation Flow |
+| Activation page missing autocomplete attributes | 2026-04-10 | Low | Open | Business Owner Invitation Activation Flow |
+| Password field missing autocomplete attribute | 2026-04-10 | Low | Open | Business Owner Invitation Activation Flow |
 
 ## Testing Tips
 
