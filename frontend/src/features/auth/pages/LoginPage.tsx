@@ -20,17 +20,25 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useAuthSession } from '../session'
 
-const loginSchema = (t: (key: string) => string) => z.object({
+const createLoginSchema = (t: (key: string) => string) => z.object({
   email: z.email(t('auth.emailPlaceholder')),
   password: z.string().min(1, t('auth.passwordPlaceholder')),
   remember: z.boolean(),
 })
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type LoginFormValues = z.infer<ReturnType<typeof createLoginSchema>>
 
 const demoPassword = 'Password123!'
 
-const useDemoAccounts = () => {
+type DemoAccount = {
+  id: string
+  label: string
+  subtitle: string
+  email: string
+  icon: 'shield' | 'building' | 'users'
+}
+
+const useDemoAccounts = (): DemoAccount[] => {
   const { t } = useTranslation()
   return [
     {
@@ -54,10 +62,10 @@ const useDemoAccounts = () => {
       email: 'agent@havetdigital.test',
       icon: 'users',
     },
-  ] as const
+  ]
 }
 
-function DemoIcon({ icon }: { icon: (typeof demoAccounts)[number]['icon'] }) {
+function DemoIcon({ icon }: { icon: DemoAccount['icon'] }) {
   if (icon === 'shield') {
     return <Shield className="size-4" />
   }
@@ -74,7 +82,7 @@ function DemoAccountCard({
   selected,
   onSelect,
 }: {
-  account: (typeof demoAccounts)[number]
+  account: DemoAccount
   selected: boolean
   onSelect: () => void
 }) {
@@ -120,7 +128,7 @@ export function LoginPage() {
     watch,
     formState: { errors },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema(t)),
+    resolver: zodResolver(createLoginSchema(t)),
   })
 
   const onSubmit = handleSubmit(async (values) => {

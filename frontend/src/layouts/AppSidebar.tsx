@@ -15,12 +15,13 @@ import {
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { AppModuleRoute, NavigationIconKey } from '../app/navigation'
+import type { TranslatedRoute } from '../app/useNavigation'
+import type { NavigationIconKey } from '../app/navigation'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface AppSidebarProps {
   collapsed: boolean
-  navItems: AppModuleRoute[]
+  navItems: TranslatedRoute[]
   onLogout: () => Promise<void>
   logoutPending: boolean
   mode: 'drawer' | 'collapsed-desktop' | 'normal-desktop'

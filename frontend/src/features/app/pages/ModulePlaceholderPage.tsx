@@ -1,11 +1,13 @@
 import type { AppModuleRoute } from '../../../app/navigation'
 import { useAuthSession } from '../../auth/session'
+import { useTranslation } from 'react-i18next'
 
 export function ModulePlaceholderPage({
   route,
 }: {
   route: AppModuleRoute
 }) {
+  const { t } = useTranslation()
   const { user } = useAuthSession()
 
   const roleNames = user?.roles
@@ -16,11 +18,11 @@ export function ModulePlaceholderPage({
     <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
       <article className="rounded-[2rem] border border-border bg-card/90 p-8 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700">
-          {route.eyebrow}
+          {t(route.eyebrowKey)}
         </p>
-        <h1 className="app-dialog-title mt-4">{route.title}</h1>
+        <h1 className="app-dialog-title mt-4">{t(route.titleKey)}</h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
-          {route.description}
+          {t(route.descriptionKey)}
         </p>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-[1.5rem] border border-border bg-muted/30 p-5">
