@@ -25,6 +25,7 @@ interface AppSidebarProps {
   mode: 'drawer' | 'collapsed-desktop' | 'normal-desktop'
   onNavigate?: () => void
   iacrmConfigured?: boolean
+  navBadges?: Partial<Record<string, string>>
 }
 
 const routeIcons: Record<NavigationIconKey, React.ComponentType<{ className?: string }>> = {
@@ -50,6 +51,7 @@ export function AppSidebar({
   mode,
   onNavigate,
   iacrmConfigured = true,
+  navBadges,
 }: AppSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -60,7 +62,7 @@ export function AppSidebar({
   return (
     <aside
       className={[
-        'flex h-screen flex-col text-foreground transition-all duration-300',
+        'flex h-screen flex-col text-foreground transition-[width] duration-300',
         'bg-background',
         // Soft divider like shadcn docs (no harsh border).
         "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gradient-to-b after:from-transparent after:via-border/70 after:to-transparent",
@@ -97,6 +99,7 @@ export function AppSidebar({
             {navItems.map((item) => {
               const Icon = routeIcons[item.icon]
               const isIacrmLocked = item.path === '/iacrm' && !iacrmConfigured
+              const navBadge = navBadges?.[item.path]
 
               // Pre-compute active state to avoid function className conflicting with Radix Slot
               const isActive =
@@ -134,7 +137,7 @@ export function AppSidebar({
                             <>
                               <span className="truncate font-medium">{item.label}</span>
                               <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
-                                No API
+                                Info API
                               </span>
                             </>
                           )}
@@ -160,11 +163,24 @@ export function AppSidebar({
                         className={linkClassName}
                       >
                         <Icon className="h-4.5 w-4.5 shrink-0" />
-                        {!visuallyCollapsed ? <span className="truncate font-medium">{item.label}</span> : null}
+                        {!visuallyCollapsed ? (
+                          <>
+                            <span className="truncate font-medium">{item.label}</span>
+                            {navBadge ? (
+                              <span className="ml-auto shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                {navBadge}
+                              </span>
+                            ) : null}
+                          </>
+                        ) : navBadge ? (
+                          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-background" />
+                        ) : null}
                       </NavLink>
                     </TooltipTrigger>
                     {visuallyCollapsed && (
-                      <TooltipContent side="right">{item.label}</TooltipContent>
+                      <TooltipContent side="right">
+                        {navBadge ? `${item.label} (${navBadge})` : item.label}
+                      </TooltipContent>
                     )}
                   </Tooltip>
                 </li>
@@ -184,7 +200,7 @@ export function AppSidebar({
           }`}
         >
           <LogOut className="h-4.5 w-4.5 shrink-0" />
-          {!visuallyCollapsed ? <span className="font-medium">{logoutPending ? 'Signing out...' : 'Deconnexion'}</span> : null}
+          {!visuallyCollapsed ? <span className="font-medium">{logoutPending ? 'Déconnexion en cours...' : 'Déconnexion'}</span> : null}
         </button>
       </div>
     </aside>

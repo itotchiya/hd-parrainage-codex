@@ -52,6 +52,7 @@ class SettingsController extends Controller
                     'id' => $business->id,
                     'slug' => $business->slug,
                     'display_name' => $business->display_name,
+                    'logo_url' => $business->logo_url,
                     'legal_name' => $business->legal_name,
                     'contact_email' => $business->contact_email,
                     'contact_phone' => $business->contact_phone,
@@ -268,9 +269,76 @@ class SettingsController extends Controller
         return $this->show($request);
     }
 
+    public function uploadBusinessLogo(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-business', $businessId), 403, 'Forbidden.');
+
+        $payload = $request->validate([
+            'logo' => ['required', 'file', 'mimes:webp', 'max:5120'],
+        ]);
+
+        $logo = $payload['logo'];
+        $path = sprintf('logos/%s/%s.webp', $businessId, (string) Str::uuid());
+
+        $disk = Storage::disk(self::AVATAR_DISK);
+
+        $business = Business::query()->findOrFail($businessId);
+
+        if ($business->logo_storage_path !== null && $business->logo_storage_path !== '') {
+            $disk->delete($business->logo_storage_path);
+        }
+
+        $stream = fopen($logo->getRealPath(), 'rb');
+        abort_if($stream === false, 422, 'The logo file could not be processed.');
+
+        $disk->writeStream($path, $stream, [
+            'ContentType' => 'image/webp',
+            'CacheControl' => 'public, max-age=31536000, immutable',
+        ]);
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        $business->forceFill([
+            'logo_url' => $this->logoUrl($businessId, basename($path)),
+            'logo_storage_path' => $path,
+        ])->save();
+
+        return $this->show($request);
+    }
+
     public function showAvatar(string $userId, string $fileName): StreamedResponse
     {
         $path = sprintf('avatars/%s/%s', $userId, $fileName);
+        $disk = Storage::disk(self::AVATAR_DISK);
+
+        abort_unless($disk->exists($path), 404);
+
+        $stream = $disk->readStream($path);
+        abort_if($stream === false, 404);
+
+        return response()->stream(
+            static function () use ($stream): void {
+                fpassthru($stream);
+
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            },
+            200,
+            [
+                'Content-Type' => 'image/webp',
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ],
+        );
+    }
+
+    public function showLogo(string $businessId, string $fileName): StreamedResponse
+    {
+        $path = sprintf('logos/%s/%s', $businessId, $fileName);
         $disk = Storage::disk(self::AVATAR_DISK);
 
         abort_unless($disk->exists($path), 404);
@@ -324,6 +392,11 @@ class SettingsController extends Controller
     private function avatarUrl(string $userId, string $fileName): string
     {
         return rtrim(config('app.url'), '/').sprintf('/api/public/media/avatars/%s/%s', $userId, $fileName);
+    }
+
+    private function logoUrl(string $businessId, string $fileName): string
+    {
+        return rtrim(config('app.url'), '/').sprintf('/api/public/media/logos/%s/%s', $businessId, $fileName);
     }
 
     private function sendCurrentEmailVerification(Request $request, User $user): void

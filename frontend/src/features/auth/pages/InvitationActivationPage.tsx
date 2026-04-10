@@ -86,7 +86,7 @@ export function InvitationActivationPage() {
             onChange={(event) => setPasswordConfirmation(event.target.value)}
             type="password"
             className="rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-            placeholder="Confirm password"
+            placeholder="Confirmer le mot de passe"
           />
           {feedback ? (
             <p className={`text-sm ${isTokenValid === false ? 'text-red-700' : 'text-foreground'}`}>{feedback}</p>

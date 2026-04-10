@@ -43,9 +43,11 @@ Route::get('/health', function (): array {
 
 Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::get('/businesses', [BusinessController::class, 'index']);
+    Route::post('/businesses/invite', [BusinessController::class, 'invite']);
     Route::get('/businesses/{businessId}', [BusinessController::class, 'show']);
     Route::post('/businesses/{businessId}/approve', [BusinessController::class, 'approve']);
     Route::post('/businesses/{businessId}/reject', [BusinessController::class, 'reject']);
+    Route::post('/businesses/{businessId}/resend-invitation', [BusinessController::class, 'resendInvitation']);
     Route::get('/dashboard/business-summary', [BusinessDashboardController::class, 'summary']);
     Route::get('/agents', [AgentController::class, 'index']);
     Route::get('/agents/{agentId}', [AgentController::class, 'show']);
@@ -102,6 +104,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::post('/settings/own/email/verify-code', [SettingsController::class, 'verifyOwnEmailCode']);
     Route::patch('/settings/own/password', [SettingsController::class, 'updateOwnPassword']);
     Route::patch('/settings/business', [SettingsController::class, 'updateBusiness']);
+    Route::post('/settings/business/logo', [SettingsController::class, 'uploadBusinessLogo']);
     Route::get('/exchange-requests', [ExchangeRequestController::class, 'index']);
     Route::post('/exchange-requests/reward', [ExchangeRequestController::class, 'storeReward']);
     Route::post('/exchange-requests/cash', [ExchangeRequestController::class, 'storeCash']);
@@ -117,6 +120,8 @@ Route::prefix('public')->group(function (): void {
     Route::get('/programs/{programId}/portal-info', [PublicProspectController::class, 'portalInfo']);
     Route::post('/prospects', [PublicProspectController::class, 'store']);
     Route::get('/media/avatars/{userId}/{fileName}', [SettingsController::class, 'showAvatar'])
+        ->where('fileName', '.*');
+    Route::get('/media/logos/{businessId}/{fileName}', [SettingsController::class, 'showLogo'])
         ->where('fileName', '.*');
 });
 

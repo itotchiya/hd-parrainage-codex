@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   BadgeCheck,
@@ -7,19 +7,20 @@ import {
   CircleDollarSign,
   Coins,
   Eye,
+  FilterX,
   Link2,
   MoreHorizontal,
   Search,
 } from 'lucide-react'
 
-import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateFr, formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { useAuthSession } from '@/features/auth/session'
 import { fetchAgents } from '@/features/agents/api'
 import { fetchPrograms } from '@/features/programs/api'
 import { buildProspectDetailPath } from '@/features/prospects/paths'
-import { PageHeader } from '@/components/app/PageHeader'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
@@ -30,7 +31,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -68,8 +68,9 @@ type TransactionSortKey =
 
 const statusPresentation: Record<TransactionStatus, { label: string; className: string }> = {
   detected: {
-    label: 'Détectée',
-    className: 'border-transparent bg-muted text-muted-foreground',
+    label: 'En attente',
+    className:
+      'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
   },
   pending: {
     label: 'En attente',
@@ -94,11 +95,15 @@ const statusPresentation: Record<TransactionStatus, { label: string; className: 
 }
 
 const statusSortOrder: Record<TransactionStatus, number> = {
-  detected: 0,
+  detected: 1,
   pending: 1,
   validated: 2,
   rejected: 3,
   paid: 4,
+}
+
+function normalizeDisplayStatus(status: TransactionStatus): TransactionStatus {
+  return status === 'detected' ? 'pending' : status
 }
 
 function invoiceStatusLabel(status: TransactionRecord['invoice_status']) {
@@ -248,27 +253,44 @@ export function TransactionsPage() {
   const [sortKey, setSortKey] = useState<TransactionSortKey>('occurred')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
-  const queryParams = useMemo<TransactionQueryParams>(
+  const hasActiveFilters =
+    search !== '' ||
+    statusFilter !== 'all' ||
+    programFilter !== 'all' ||
+    agentFilter !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== ''
+
+  const kpiQueryParams = useMemo<TransactionQueryParams>(
     () => ({
-      search,
-      status: statusFilter,
       programId: programFilter,
       agentId: canViewAgents ? agentFilter : undefined,
       dateFrom,
       dateTo,
     }),
-    [agentFilter, canViewAgents, dateFrom, dateTo, programFilter, search, statusFilter],
+    [agentFilter, canViewAgents, dateFrom, dateTo, programFilter],
+  )
+
+  const tableQueryParams = useMemo<TransactionQueryParams>(
+    () => ({
+      ...kpiQueryParams,
+      search,
+      status: statusFilter,
+    }),
+    [kpiQueryParams, search, statusFilter],
   )
 
   const transactionsQuery = useQuery({
-    queryKey: ['transactions', 'list', queryParams],
-    queryFn: () => fetchTransactions(queryParams),
+    queryKey: ['transactions', 'list', tableQueryParams],
+    queryFn: () => fetchTransactions(tableQueryParams),
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   })
 
   const summaryQuery = useQuery({
-    queryKey: ['transactions', 'summary', queryParams],
-    queryFn: () => fetchTransactionSummary(queryParams),
+    queryKey: ['transactions', 'summary', kpiQueryParams],
+    queryFn: () => fetchTransactionSummary(kpiQueryParams),
+    placeholderData: keepPreviousData,
   })
 
   const programsQuery = useQuery({
@@ -285,6 +307,7 @@ export function TransactionsPage() {
 
   const transactions = transactionsQuery.data?.data ?? []
   const summary = summaryQuery.data?.data
+  const statusBreakdown = summary?.status_breakdown
 
   const programOptions = useMemo(() => {
     if (programsQuery.data?.data) {
@@ -356,7 +379,10 @@ export function TransactionsPage() {
     if (page !== safePage) setPage(safePage)
   }, [page, safePage])
 
-  if (transactionsQuery.isPending || summaryQuery.isPending) {
+  const isInitialLoading = transactionsQuery.isLoading || summaryQuery.isLoading
+  const isKpiLoading = summaryQuery.isFetching && summaryQuery.isPlaceholderData
+
+  if (isInitialLoading) {
     return <TransactionsPageSkeleton />
   }
 
@@ -378,159 +404,209 @@ export function TransactionsPage() {
 
   return (
     <section className="app-section">
-      <PageHeader title="Transactions" />
+      <PageHeader
+        title="Transactions"
+        right={
+          <PageHeaderToolbar>
+            {hasActiveFilters ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => {
+                        setSearch('')
+                        setStatusFilter('all')
+                        setProgramFilter('all')
+                        setAgentFilter('all')
+                        setDateFrom('')
+                        setDateTo('')
+                      }}
+                      aria-label="Effacer les filtres"
+                    >
+                      <FilterX className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Effacer les filtres</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <KpiCard
-          title="Volume total"
-          value={formatCurrency(summary?.total_amount ?? 0, 'EUR')}
-          description={`${summary?.transaction_count ?? 0} transactions dans le scope courant`}
-          badge={kpiSnapshotBadge('Ledger')}
-          icon={CircleDollarSign}
-          tone="primary"
-        />
-        <KpiCard
-          title="Transactions"
-          value={(summary?.transaction_count ?? 0).toLocaleString('fr-FR')}
-          description={`${summary?.linked_prospect_count ?? 0} reliées à un prospect`}
-          badge={kpiSnapshotBadge('Traçabilité')}
-          icon={Link2}
-          tone="info"
-        />
-        <KpiCard
-          title="Validé"
-          value={formatCurrency(summary?.validated_amount ?? 0, 'EUR')}
-          description="Montant reconnu après validation"
-          badge={kpiSnapshotBadge('Pipeline')}
-          icon={BadgeCheck}
-          tone="warning"
-        />
-        <KpiCard
-          title="Réglé"
-          value={formatCurrency(summary?.paid_amount ?? 0, 'EUR')}
-          description="Montant déjà payé"
-          badge={kpiSnapshotBadge('Cash')}
-          icon={Banknote}
-          tone="success"
-        />
-        <KpiCard
-          title="Points"
-          value={`${(summary?.points_awarded_total ?? 0).toLocaleString('fr-FR')} pts`}
-          description={isAgentView ? 'Points gagnés sur vos transactions' : 'Points générés pour les affiliés'}
-          badge={kpiSnapshotBadge('Récompense')}
-          icon={Coins}
-          tone="info"
-        />
-      </div>
+            <div className="relative w-full sm:w-[240px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="transactions-search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Référence, produit, prospect..."
+                className="pl-9"
+              />
+            </div>
 
-      <article className="rounded-lg bg-card p-3 sm:p-4">
-        <DashboardSectionHeader
-          title="Ledger transactionnel"
-          description="Lecture opérationnelle des transactions, de leur état métier et de leur traçabilité."
-          actions={
-            <>
-              <Field className="w-full sm:min-w-[220px] sm:max-w-[300px] sm:flex-1">
-                <FieldLabel htmlFor="transactions-search" className="sr-only">
-                  Rechercher une transaction
-                </FieldLabel>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="transactions-search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Référence, produit, prospect..."
-                    className="pl-9"
-                  />
-                </div>
-              </Field>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as 'all' | TransactionStatus)}
+            >
+              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="Tous statuts" /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Statut</SelectLabel>
+                  <SelectItem value="all">Tous statuts</SelectItem>
+                  {Object.entries(statusPresentation)
+                    .filter(([key]) => key !== 'detected')
+                    .map(([key, status]) => (
+                      <SelectItem key={key} value={key}>{status.label}</SelectItem>
+                    ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
 
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as 'all' | TransactionStatus)}
-              >
-                <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[138px] sm:shrink-0">
-                  <SelectValue placeholder="Tous statuts" />
-                </SelectTrigger>
+            {programOptions.length > 1 ? (
+              <Select value={programFilter} onValueChange={setProgramFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tous programmes" /></SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Statut</SelectLabel>
-                    <SelectItem value="all">Tous statuts</SelectItem>
-                    {Object.entries(statusPresentation).map(([key, status]) => (
-                      <SelectItem key={key} value={key}>
-                        {status.label}
-                      </SelectItem>
+                    <SelectLabel>Programme</SelectLabel>
+                    <SelectItem value="all">Tous programmes</SelectItem>
+                    {programOptions.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            ) : null}
 
-              {programOptions.length > 1 ? (
-                <Select value={programFilter} onValueChange={setProgramFilter}>
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[138px] sm:shrink-0">
-                    <SelectValue placeholder="Tous programmes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Programme</SelectLabel>
-                      <SelectItem value="all">Tous programmes</SelectItem>
-                      {programOptions.map((program) => (
-                        <SelectItem key={program.id} value={program.id}>
-                          {program.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              ) : null}
+            {canViewAgents && agentOptions.length > 1 ? (
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tous affiliés" /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Affilié</SelectLabel>
+                    <SelectItem value="all">Tous affiliés</SelectItem>
+                    {agentOptions.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
 
-              {canViewAgents && agentOptions.length > 1 ? (
-                <Select value={agentFilter} onValueChange={setAgentFilter}>
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[124px] sm:shrink-0">
-                    <SelectValue placeholder="Tous affiliés" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Affilié</SelectLabel>
-                      <SelectItem value="all">Tous affiliés</SelectItem>
-                      {agentOptions.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              ) : null}
+            <Input
+              id="transactions-date-from"
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de début"
+            />
+            <Input
+              id="transactions-date-to"
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de fin"
+            />
+          </PageHeaderToolbar>
+        }
+      />
 
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                <Field className="w-full sm:w-auto">
-                  <FieldLabel htmlFor="transactions-date-from" className="sr-only">
-                    Date de début
-                  </FieldLabel>
-                  <Input
-                    id="transactions-date-from"
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                    className="sm:w-[148px]"
-                  />
-                </Field>
-                <Field className="w-full sm:w-auto">
-                  <FieldLabel htmlFor="transactions-date-to" className="sr-only">
-                    Date de fin
-                  </FieldLabel>
-                  <Input
-                    id="transactions-date-to"
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => setDateTo(event.target.value)}
-                    className="sm:w-[148px]"
-                  />
-                </Field>
-              </div>
-            </>
-          }
+      <div className={`grid gap-3 sm:grid-cols-2 ${isAgentView ? 'xl:grid-cols-5' : 'xl:grid-cols-5'}`}>
+        {isAgentView ? (
+          <>
+            <KpiCard
+              title="En attente"
+              value={((statusBreakdown?.pending ?? 0) + (statusBreakdown?.detected ?? 0)).toLocaleString('fr-FR')}
+              description="Factures en cours"
+              icon={Link2}
+              tone="info"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Validées"
+              value={(statusBreakdown?.validated ?? 0).toLocaleString('fr-FR')}
+              description="Factures validées"
+              icon={BadgeCheck}
+              tone="warning"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Réglées"
+              value={(statusBreakdown?.paid ?? 0).toLocaleString('fr-FR')}
+              description="Factures payées"
+              icon={Banknote}
+              tone="success"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Rejetées"
+              value={(statusBreakdown?.rejected ?? 0).toLocaleString('fr-FR')}
+              description="Factures rejetées"
+              icon={CircleDollarSign}
+              tone="danger"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Points totaux"
+              value={`${(summary?.points_awarded_total ?? 0).toLocaleString('fr-FR')} pts`}
+              description="Points gagnés sur vos transactions"
+              icon={Coins}
+              tone="info"
+              isLoading={isKpiLoading}
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              title="Volume total"
+              value={formatCurrency(summary?.total_amount ?? 0, 'EUR')}
+              description={`${summary?.transaction_count ?? 0} transactions dans le scope courant`}
+              icon={CircleDollarSign}
+              tone="primary"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Transactions"
+              value={(summary?.transaction_count ?? 0).toLocaleString('fr-FR')}
+              description={`${summary?.linked_prospect_count ?? 0} reliées à un prospect`}
+              icon={Link2}
+              tone="info"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Validé"
+              value={formatCurrency(summary?.validated_amount ?? 0, 'EUR')}
+              description="Montant reconnu après validation"
+              icon={BadgeCheck}
+              tone="warning"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Réglé"
+              value={formatCurrency(summary?.paid_amount ?? 0, 'EUR')}
+              description="Montant déjà payé"
+              icon={Banknote}
+              tone="success"
+              isLoading={isKpiLoading}
+            />
+            <KpiCard
+              title="Points"
+              value={`${(summary?.points_awarded_total ?? 0).toLocaleString('fr-FR')} pts`}
+              description="Points générés pour les affiliés"
+              icon={Coins}
+              tone="info"
+              isLoading={isKpiLoading}
+            />
+          </>
+        )}
+      </div>
+
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <DashboardSectionHeader
+          title={isAgentView ? 'Mes transactions' : 'Toutes les transactions'}
         />
 
         {totalItems === 0 ? (
@@ -592,16 +668,18 @@ export function TransactionsPage() {
                     >
                       Sync
                     </SortableTableHead>
-                    <SortableTableHead
-                      sortKey="amount"
-                      activeKey={sortKey}
-                      direction={sortDirection}
-                      onSort={handleSort}
-                      className="hidden text-right sm:table-cell"
-                      align="right"
-                    >
-                      Montant
-                    </SortableTableHead>
+                    {!isAgentView ? (
+                      <SortableTableHead
+                        sortKey="amount"
+                        activeKey={sortKey}
+                        direction={sortDirection}
+                        onSort={handleSort}
+                        className="hidden text-right sm:table-cell"
+                        align="right"
+                      >
+                        Montant
+                      </SortableTableHead>
+                    ) : null}
                     <SortableTableHead
                       sortKey="points"
                       activeKey={sortKey}
@@ -627,7 +705,7 @@ export function TransactionsPage() {
                 <TableBody>
                   {pageSlice.map((transaction, index) => {
                     const rank = (safePage - 1) * pageSize + index + 1
-                    const status = statusPresentation[transaction.status]
+                    const status = statusPresentation[normalizeDisplayStatus(transaction.status)]
                     const sync = transactionSyncPresentation(transaction)
                     const prospectHref = transaction.prospect
                       ? buildProspectDetailPath({
@@ -650,9 +728,11 @@ export function TransactionsPage() {
                             <p className="truncate font-mono text-[11px] text-muted-foreground">
                               {transaction.transaction_reference}
                             </p>
-                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground sm:hidden">
-                              {formatCurrency(transaction.amount, transaction.currency_code)}
-                            </p>
+                            {!isAgentView ? (
+                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground sm:hidden">
+                                {formatCurrency(transaction.amount, transaction.currency_code)}
+                              </p>
+                            ) : null}
                           </Link>
                         </TableCell>
                         <TableCell className="hidden max-w-[12rem] md:table-cell">
@@ -706,9 +786,11 @@ export function TransactionsPage() {
                             <span className="text-[11px] text-muted-foreground">{sync.helper}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden text-right font-medium tabular-nums sm:table-cell">
-                          {formatCurrency(transaction.amount, transaction.currency_code)}
-                        </TableCell>
+                        {!isAgentView ? (
+                          <TableCell className="hidden text-right font-medium tabular-nums sm:table-cell">
+                            {formatCurrency(transaction.amount, transaction.currency_code)}
+                          </TableCell>
+                        ) : null}
                         <TableCell className="hidden text-right tabular-nums xl:table-cell">
                           {transaction.points_awarded === null
                             ? '—'

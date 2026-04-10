@@ -24,10 +24,16 @@ interface KpiCardProps {
   title: string
   value: string
   description: string
-  badge: DashboardMetricBadge
+  badge?: DashboardMetricBadge
   icon: ComponentType<{ className?: string }>
   tone: KpiTone
   help?: string
+  /** When true, replaces only the value with a skeleton pulse — title, icon & description stay visible. */
+  isLoading?: boolean
+  /** Visual variant of the card */
+  variant?: 'default' | 'solid'
+  /** Optional class string to pass to the root card, useful for layout */
+  className?: string
 }
 
 const toneStyles: Record<
@@ -82,24 +88,50 @@ export function KpiCard({
   icon,
   tone,
   help,
+  isLoading,
+  variant = 'default',
+  className,
 }: KpiCardProps) {
   const styles = toneStyles[tone]
-  const TrendIcon = badge.icon ? trendIcons[badge.icon] : null
-  const badgeText = badge.helper_text ? `${badge.label} ${badge.helper_text}` : badge.label
+  const TrendIcon = badge?.icon ? trendIcons[badge.icon] : null
+  const badgeText = badge ? (badge.helper_text ? `${badge.label} ${badge.helper_text}` : badge.label) : null
+
+  const isSolid = variant === 'solid'
+  
+  // Dynamic classes for solid variants based on tone
+  const solidCardStyles: Record<KpiTone, string> = {
+    primary: 'bg-primary text-primary-foreground',
+    success: 'bg-emerald-600 text-white',
+    warning: 'bg-amber-500 text-white',
+    info: 'bg-sky-500 text-white',
+    danger: 'bg-rose-500 text-white',
+  }
+  const solidMutedStyles: Record<KpiTone, string> = {
+    primary: 'text-primary-foreground/80',
+    success: 'text-emerald-50',
+    warning: 'text-amber-50',
+    info: 'text-sky-50',
+    danger: 'text-rose-50',
+  }
+
+  const iconClass = isSolid ? 'bg-white/20 text-white' : styles.icon
+  const cardClass = isSolid ? solidCardStyles[tone] : 'bg-card text-foreground'
+  const mutedClass = isSolid ? solidMutedStyles[tone] : 'text-muted-foreground'
+  const fillTextClass = isSolid ? '' : 'text-foreground' // empty when solid since it inherits from cardClass
 
   return (
-    <Card className="flex flex-col gap-3 rounded-lg border-0 bg-card shadow-none app-card-padding">
+    <Card className={cn("flex flex-col gap-3 rounded-lg border-0 shadow-none app-card-padding", cardClass, className)}>
       <div className="flex min-w-0 items-center gap-2.5">
-        <IconTile icon={icon} className={styles.icon} />
+        <IconTile icon={icon} className={iconClass} />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <p className="min-w-0 truncate text-sm font-medium text-foreground">{title}</p>
+          <p className={cn("min-w-0 truncate text-sm font-medium", fillTextClass)}>{title}</p>
           {help ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                    className={cn("shrink-0 transition-colors", isSolid ? "opacity-70 hover:opacity-100" : "text-muted-foreground hover:text-foreground")}
                     aria-label={`Explain ${title}`}
                   >
                     <CircleHelp className="size-3.5" />
@@ -114,19 +146,25 @@ export function KpiCard({
         </div>
       </div>
 
-      <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.04em] text-foreground md:text-[2rem]">
-        {value}
-      </p>
+      {isLoading ? (
+        <Skeleton className={cn("h-8 w-24", isSolid ? "bg-white/20" : "")} />
+      ) : (
+        <p className={cn("text-[1.75rem] font-semibold leading-none tracking-[-0.04em] md:text-[2rem]", fillTextClass)}>
+          {value}
+        </p>
+      )}
 
-      <Badge
-        variant="secondary"
-        className={cn('w-fit self-start border-0', badgeStyles[badge.tone])}
-      >
-        {TrendIcon ? <TrendIcon className="mr-1 h-3.5 w-3.5" /> : null}
-        {badgeText}
-      </Badge>
+      {badge ? (
+        <Badge
+          variant="secondary"
+          className={cn('w-fit self-start border-0', isSolid ? 'bg-white/20 text-white' : badgeStyles[badge.tone])}
+        >
+          {TrendIcon ? <TrendIcon className="mr-1 h-3.5 w-3.5" /> : null}
+          {badgeText}
+        </Badge>
+      ) : null}
 
-      <p className="truncate text-xs text-muted-foreground">{description}</p>
+      <p className={cn("truncate text-xs", mutedClass)}>{description}</p>
     </Card>
   )
 }

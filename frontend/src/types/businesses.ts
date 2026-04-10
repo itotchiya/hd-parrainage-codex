@@ -3,6 +3,7 @@ export interface BusinessRecord {
   slug: string
   legal_name: string
   display_name: string
+  logo_url?: string | null
   industry: string | null
   website_url: string | null
   contact_email: string | null
@@ -95,4 +96,12 @@ export interface BusinessListEnvelope {
 
 export interface BusinessEnvelope {
   data: BusinessDetailRecord
+}
+
+export interface BusinessInvitePayload {
+  iacrm_business_id: string
+  business_name: string
+  owner_email: string
+  owner_name: string
+  notes?: string
 }

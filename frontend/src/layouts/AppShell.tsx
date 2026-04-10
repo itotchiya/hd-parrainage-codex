@@ -1,11 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { createContext, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Bell, ChevronDown, LogOut, Monitor, Moon, PanelLeft, Settings, Sun, User } from 'lucide-react'
+import { AlertTriangle, Bell, ChevronDown, Gift, LogOut, Monitor, Moon, PanelLeft, Settings, Sun, User } from 'lucide-react'
 import { authenticatedNavigation } from '../app/navigation'
 import { useAuthSession } from '../features/auth/session'
 import { getIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
 import { fetchNotifications } from '../features/notifications/api'
+import { fetchPointsSummary } from '../features/points/api'
 import { AppSidebar } from './AppSidebar'
 import { Button } from '@/components/ui/button'
 import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
@@ -109,8 +110,14 @@ export function AppShell() {
     queryFn: fetchNotifications,
     staleTime: 30_000,
   })
-
   const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
+  const pointsSidebarQuery = useQuery({
+    queryKey: ['points', 'sidebar-available'],
+    queryFn: () => fetchPointsSummary(),
+    staleTime: 30_000,
+    enabled: hasPermission('points.view') && !isSuperAdmin,
+  })
+
   const isBusinessOwner = user?.agent_profile === null && hasPermission('settings.view-business')
   const shouldShowIacrmCta = !iacrmConfigured && (isSuperAdmin || isBusinessOwner)
   // These paths are business-scoped management surfaces — not relevant for platform admin
@@ -135,8 +142,13 @@ export function AppShell() {
 
   const unreadCount = notificationsQuery.data?.meta.unread_count ?? 0
   const recentNotifications = (notificationsQuery.data?.data ?? []).slice(0, 4)
+  const availablePointsRaw = pointsSidebarQuery.data?.data.available_points ?? 0
+  const availablePoints = Math.round(availablePointsRaw)
+  const availablePointsBadge = `${availablePoints.toLocaleString('fr-FR')} pts`
   const userInitial = user?.display_name?.trim().charAt(0).toUpperCase() ?? 'U'
   const displayName = user?.display_name?.trim() ?? 'User'
+  const isAgent = user?.roles.some((r) => r.slug === 'agent') ?? (user?.agent_profile !== undefined && user?.agent_profile !== null)
+  const shouldShowAgentPointsCta = isAgent && hasPermission('points.view')
 
   const pathSegments = location.pathname.split('/').filter(Boolean)
   const isExchangePackDetailRoute = pathSegments[0] === 'exchange-packs' && Boolean(pathSegments[1])
@@ -178,22 +190,49 @@ export function AppShell() {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const root = document.documentElement
     let transitionCleanupTimer: number | undefined
-    const applyTheme = () => {
+
+    const applyTheme = (animated = true) => {
       const nextTheme =
         theme === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : theme
 
-      root.classList.add('theme-transition')
-      setResolvedTheme(nextTheme)
-      root.dataset.theme = nextTheme
-      root.classList.toggle('dark', nextTheme === 'dark')
       window.localStorage.setItem('hd-parrainage-theme', theme)
 
-      if (transitionCleanupTimer) {
-        window.clearTimeout(transitionCleanupTimer)
+      // All DOM + React state changes go inside here so they're captured
+      // in the "new" screenshot when view transitions are active.
+      const applyClasses = () => {
+        setResolvedTheme(nextTheme)
+        root.dataset.theme = nextTheme
+        root.classList.toggle('dark', nextTheme === 'dark')
       }
-      transitionCleanupTimer = window.setTimeout(() => {
-        root.classList.remove('theme-transition')
-      }, 260)
+
+      if (
+        animated &&
+        typeof document !== 'undefined' &&
+        'startViewTransition' in document
+      ) {
+        // Add the suppressor class first, then force the browser to commit it
+        // (transition:none on every element) before the old screenshot is taken.
+        root.classList.add('theme-switching')
+        void root.getBoundingClientRect()
+
+        const vt = (
+          document as Document & {
+            startViewTransition: (cb: () => void) => { finished: Promise<void> }
+          }
+        ).startViewTransition(applyClasses)
+
+        vt.finished.finally(() => root.classList.remove('theme-switching'))
+      } else if (animated) {
+        // Fallback for browsers without View Transitions API
+        root.classList.add('theme-transition')
+        applyClasses()
+        if (transitionCleanupTimer) window.clearTimeout(transitionCleanupTimer)
+        transitionCleanupTimer = window.setTimeout(() => {
+          root.classList.remove('theme-transition')
+        }, 260)
+      } else {
+        applyClasses()
+      }
     }
 
     const handleSystemChange = () => {
@@ -202,14 +241,13 @@ export function AppShell() {
       }
     }
 
-    applyTheme()
+    // Initial mount: apply without animation to avoid flash
+    applyTheme(false)
     mediaQuery.addEventListener('change', handleSystemChange)
 
     return () => {
       mediaQuery.removeEventListener('change', handleSystemChange)
-      if (transitionCleanupTimer) {
-        window.clearTimeout(transitionCleanupTimer)
-      }
+      if (transitionCleanupTimer) window.clearTimeout(transitionCleanupTimer)
       root.classList.remove('theme-transition')
     }
   }, [theme])
@@ -401,6 +439,37 @@ export function AppShell() {
               </>
             ) : null}
 
+            {shouldShowAgentPointsCta ? (
+              <>
+                <div className="hidden items-center gap-3 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-foreground xl:flex">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Gift className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="font-medium">
+                    <span className="text-primary font-bold">{availablePoints.toLocaleString('fr-FR')} pts</span> disponibles
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                    onClick={() => navigate('/payouts')}
+                  >
+                    Utiliser mes points
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 xl:hidden"
+                  onClick={() => navigate('/payouts')}
+                >
+                  <Gift className="mr-2 h-4 w-4" />
+                  {availablePoints.toLocaleString('fr-FR')} pts
+                </Button>
+              </>
+            ) : null}
+
             <Button
               onClick={() =>
                 setTheme((current) => {
@@ -492,7 +561,7 @@ export function AppShell() {
                   className="cursor-pointer"
                 >
                   <Settings className="h-4 w-4" />
-                  <span>Settings</span>
+                  <span>Paramètres</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5">
@@ -560,6 +629,7 @@ export function AppShell() {
             collapsed={false}
             navItems={visibleNavigation}
             iacrmConfigured={iacrmConfigured}
+            navBadges={{ '/commissions': availablePointsBadge }}
             onLogout={async () => {
               await logout()
               navigate('/login', { replace: true })
@@ -592,6 +662,7 @@ export function AppShell() {
         collapsed={sidebarCollapsed}
         navItems={visibleNavigation}
         iacrmConfigured={iacrmConfigured}
+        navBadges={{ '/commissions': availablePointsBadge }}
         onLogout={async () => {
           await logout()
           navigate('/login', { replace: true })

@@ -31,6 +31,7 @@ class BusinessListResource extends JsonResource
             'slug' => $this->slug,
             'legal_name' => $this->legal_name,
             'display_name' => $this->display_name,
+            'logo_url' => $this->logo_url,
             'industry' => $this->industry,
             'website_url' => $this->website_url,
             'contact_email' => $this->contact_email,

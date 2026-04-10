@@ -1,4 +1,4 @@
-﻿import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
@@ -12,6 +12,7 @@ import {
   updateBusinessSettings,
   updateOwnPassword,
   updateOwnSettings,
+  uploadBusinessLogo,
   uploadOwnAvatar,
   verifyOwnEmailCode,
 } from '../api'
@@ -54,7 +55,7 @@ import {
 } from 'lucide-react'
 
 type SettingsTabId = 'profile' | 'notifications' | 'security' | 'api'
-type SettingsDialogId = 'name' | 'avatar' | 'email' | 'business' | 'notifications' | 'password' | 'sync-issues' | null
+type SettingsDialogId = 'name' | 'avatar' | 'email' | 'business' | 'business-logo' | 'notifications' | 'password' | 'sync-issues' | null
 type NotificationPreferenceKey = keyof NotificationPreferences
 
 const settingsQueryKey = ['settings', 'profile']
@@ -315,6 +316,8 @@ export function SettingsPage() {
   const [lastName, setLastName] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
   const [pendingEmailInput, setPendingEmailInput] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [businessName, setBusinessName] = useState('')
@@ -501,6 +504,23 @@ export function SettingsPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Impossible de mettre à jour la photo de profil.', { id: 'settings-toast' }),
   })
 
+  const logoMutation = useMutation({
+    mutationFn: async () => {
+      if (logoFile === null) throw new Error('Select an image before saving.')
+      const compressedLogo = await compressAvatarFile(logoFile)
+      return uploadBusinessLogo(compressedLogo)
+    },
+    onSuccess: async (response) => {
+      queryClient.setQueryData(settingsQueryKey, response)
+      setActiveDialog(null)
+      setLogoFile(null)
+      if (logoPreviewUrl !== null) URL.revokeObjectURL(logoPreviewUrl)
+      setLogoPreviewUrl(null)
+      toast.success('Logo business mis à jour.', { id: 'settings-toast' })
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Impossible de mettre à jour le logo.', { id: 'settings-toast' }),
+  })
+
   const emailChangeMutation = useMutation({
     mutationFn: async (payload: { email: string }) => requestOwnEmailChange(payload),
     onSuccess: async (response) => {
@@ -635,7 +655,7 @@ export function SettingsPage() {
                 media={<UserRound className="size-4" />}
                 title="Display name"
                 value={settingsData.user.display_name}
-                description="Identité affichée dans l’application"
+                description="Identité affichée dans l'application"
                 action={<ResponsiveActionButton label="Changer le nom affiché" onClick={() => setActiveDialog('name')} />}
               />
               <SettingsPreviewItem
@@ -652,7 +672,7 @@ export function SettingsPage() {
                     {emailVerified ? 'Vérifié' : 'En attente'}
                   </Badge>
                 }
-                action={<ResponsiveActionButton label="Changer l’adresse e-mail" onClick={() => setActiveDialog('email')} />}
+                action={<ResponsiveActionButton label="Changer l'adresse e-mail" onClick={() => setActiveDialog('email')} />}
               />
             </div>
           </SectionCard>
@@ -662,13 +682,36 @@ export function SettingsPage() {
               title="Business identity"
               action={
                 settingsData.permissions.can_update_business ? (
-                  <ResponsiveActionButton label="Modifier l’identité business" onClick={() => setActiveDialog('business')} />
+                  <ResponsiveActionButton label="Modifier l'identite business" onClick={() => setActiveDialog('business')} />
                 ) : null
               }
             />
 
             {settingsData.business ? (
               <div className="space-y-3">
+                <SettingsPreviewItem
+                  media={
+                    <Avatar className="size-8 rounded-md">
+                      <AvatarImage src={settingsData.business.logo_url ?? undefined} alt={settingsData.business.display_name} className="object-contain" />
+                      <AvatarFallback className="rounded-md text-xs font-semibold">
+                        {settingsData.business.display_name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  }
+                  title="Logo"
+                  value={settingsData.business.logo_url ? 'Logo défini' : 'Aucun logo'}
+                  badges={
+                    <Badge variant="outline" size="sm" className={cn('rounded-full', settingsToneBadgeClass(settingsData.business.logo_url ? 'success' : 'warning'))}>
+                      {settingsData.business.logo_url ? 'Défini' : 'Manquant'}
+                    </Badge>
+                  }
+                  description="Logo ou avatar affiché dans les programmes et tableaux"
+                  action={
+                    settingsData.permissions.can_update_business ? (
+                      <ResponsiveActionButton label="Changer le logo" onClick={() => setActiveDialog('business-logo')} />
+                    ) : null
+                  }
+                />
                 <SettingsPreviewItem
                   media={<BadgeCheck className="size-4" />}
                   title="Display name"
@@ -764,7 +807,7 @@ export function SettingsPage() {
               description="Queue changes, exchange events, and owner alerts."
               action={
                 <ResponsiveActionButton
-                  label="Modifier l’inbox"
+                  label="Modifier l'inbox"
                   onClick={() => {
                     setNotificationDialogKey('inbox')
                     setActiveDialog('notifications')
@@ -859,7 +902,7 @@ export function SettingsPage() {
                     Protégé
                   </Badge>
                 }
-                description="Modifier le mot de passe dans un dialogue dédié avec contrôle de l’ancien et du nouveau secret."
+                description="Modifier le mot de passe dans un dialogue dédié avec contrôle de l'ancien et du nouveau secret."
                 action={<Button type="button" variant="outline" size="sm" onClick={() => setActiveDialog('password')}>Changer le mot de passe</Button>}
               />
               <SettingsPreviewItem
@@ -950,8 +993,8 @@ export function SettingsPage() {
       <Dialog open={activeDialog === 'name'} onOpenChange={(open) => setActiveDialog(open ? 'name' : null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit display name</DialogTitle>
-            <DialogDescription>Update the first and last name shown across the shell and operational records.</DialogDescription>
+            <DialogTitle>Modifier le nom d'affichage</DialogTitle>
+            <DialogDescription>Mettre à jour le prénom et le nom affichés sur la plateforme.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -964,7 +1007,7 @@ export function SettingsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
             <Button
               type="button"
               disabled={saveNameMutation.isPending || fullName.length === 0}
@@ -986,7 +1029,7 @@ export function SettingsPage() {
       <Dialog open={activeDialog === 'avatar'} onOpenChange={(open) => setActiveDialog(open ? 'avatar' : null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit profile image</DialogTitle>
+            <DialogTitle>Modifier la photo de profil</DialogTitle>
             <DialogDescription>Upload a source image. The browser compresses it before the backend writes it to Cloudflare R2.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1022,7 +1065,7 @@ export function SettingsPage() {
                   } catch (error) {
                     setAvatarFile(null)
                     event.currentTarget.value = ''
-                    toast.error(error instanceof Error ? error.message : 'Impossible de sélectionner l’image.', {
+                    toast.error(error instanceof Error ? error.message : "Impossible de sélectionner l'image.", {
                       id: 'settings-toast',
                     })
                   }
@@ -1031,9 +1074,62 @@ export function SettingsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
             <Button type="button" disabled={avatarMutation.isPending || avatarFile === null} onClick={() => avatarMutation.mutate()}>
               {avatarMutation.isPending ? 'Uploading...' : 'Save avatar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={activeDialog === 'business-logo'} onOpenChange={(open) => setActiveDialog(open ? 'business-logo' : null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifier le logo du business</DialogTitle>
+            <DialogDescription>Upload a source image. The browser compresses it before the backend writes it to Cloudflare R2.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 rounded-2xl border border-border bg-muted/20 p-4">
+              <Avatar className="size-20 rounded-xl border border-border bg-card">
+                {(logoPreviewUrl ?? settingsData?.business?.logo_url) ? (
+                  <AvatarImage src={logoPreviewUrl ?? settingsData?.business?.logo_url ?? undefined} alt="Logo preview" className="object-contain p-1" />
+                ) : null}
+                <AvatarFallback className="rounded-xl text-lg font-semibold">
+                  {settingsData?.business?.display_name.slice(0, 2).toUpperCase() ?? 'BU'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Current preview</p>
+                <p className="mt-1 text-sm leading-7 text-muted-foreground">JPG, PNG, and WebP are accepted. Final storage format is 512x512 WebP.</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="settings-logo-file">Select image</label>
+              <Input
+                id="settings-logo-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0] ?? null
+                  if (nextFile === null) return
+                  try {
+                    validateAvatarFile(nextFile)
+                    if (logoPreviewUrl !== null) URL.revokeObjectURL(logoPreviewUrl)
+                    setLogoFile(nextFile)
+                    setLogoPreviewUrl(URL.createObjectURL(nextFile))
+                  } catch (error) {
+                    setLogoFile(null)
+                    event.currentTarget.value = ''
+                    toast.error(error instanceof Error ? error.message : "Impossible de sélectionner l'image.", { id: 'settings-toast' })
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
+            <Button type="button" disabled={logoMutation.isPending || logoFile === null} onClick={() => logoMutation.mutate()}>
+              {logoMutation.isPending ? 'Uploading...' : 'Save logo'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1090,7 +1186,7 @@ export function SettingsPage() {
 
             {pendingEmail ? (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-800">Pending verification</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-800">En attente de vérification</p>
                 <p className="mt-3 text-sm leading-7 text-amber-900">
                   <strong>{pendingEmail}</strong> is waiting for verification. Use the signed inbox link or enter the 6-digit code before {formatVerificationExpiry(settingsData.user.pending_email_verification_expires_at)}.
                 </p>
@@ -1122,7 +1218,7 @@ export function SettingsPage() {
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Close</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1130,7 +1226,7 @@ export function SettingsPage() {
       <Dialog open={activeDialog === 'business'} onOpenChange={(open) => setActiveDialog(open ? 'business' : null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit business identity</DialogTitle>
+            <DialogTitle>Modifier l'identité du business</DialogTitle>
             <DialogDescription>Group contact and public-facing fields into one focused edit flow.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1161,7 +1257,7 @@ export function SettingsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
             <Button
               type="button"
               disabled={businessMutation.isPending || businessName.trim().length === 0 || !businessEmailIsValid}
@@ -1228,7 +1324,7 @@ export function SettingsPage() {
             ))}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
             <Button
               type="button"
               onClick={() => {
@@ -1249,7 +1345,7 @@ export function SettingsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Incidents CRM sync</DialogTitle>
-            <DialogDescription>Vue rapide de l’état actuel des échecs et du dernier incident remonté par le backend.</DialogDescription>
+            <DialogDescription>Vue rapide de l'état actuel des échecs et du dernier incident remonté par le backend.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <SettingsPreviewItem
@@ -1313,7 +1409,7 @@ export function SettingsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>Confirm the current password before replacing it with a new one.</DialogDescription>
+            <DialogDescription>Confirmez le mot de passe actuel avant de le remplacer par un nouveau.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1325,12 +1421,12 @@ export function SettingsPage() {
               <Input id="settings-new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="settings-confirm-password">Confirm password</label>
+              <label className="text-sm font-medium text-foreground" htmlFor="settings-confirm-password">Confirmer le mot de passe</label>
               <Input id="settings-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
             <Button
               type="button"
               disabled={

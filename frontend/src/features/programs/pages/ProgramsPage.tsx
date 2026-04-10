@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArrowUpDown, FileText, FolderKanban, Search, Plus } from 'lucide-react'
+import { Archive, FileText, FolderKanban, Search, Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
@@ -43,7 +43,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
-import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import {
   ProgramAssignmentDialog,
   ProgramCashRulesDialog,
@@ -147,8 +147,8 @@ function toProgramUpdatePayload(
 
 function formatAgentAddedAt(agent: AgentRecord) {
   const raw = agent.activated_at ?? agent.invited_at ?? agent.created_at
-  if (!raw) return 'Unknown'
-  return new Date(raw).toLocaleDateString('en-GB', {
+  if (!raw) return 'Inconnu'
+  return new Date(raw).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -352,7 +352,7 @@ export function ProgramsPage() {
     },
   })
 
-  const programs = programsQuery.data?.data ?? []
+  const programs = useMemo(() => programsQuery.data?.data ?? [], [programsQuery.data])
   const packs = packsQuery.data?.data ?? []
   const rewardPacks = packs.filter((pack) => pack.status === 'active')
   const ownerCanCreate = hasPermission('program.create')
@@ -367,7 +367,7 @@ export function ProgramsPage() {
     const map = new Map<string, string>()
     for (const program of visiblePrograms) {
       if (!program.business_id) continue
-      map.set(program.business_id, program.business_name ?? 'Unknown business')
+      map.set(program.business_id, program.business_name ?? 'Business inconnu')
     }
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
@@ -516,7 +516,7 @@ export function ProgramsPage() {
           <PageHeaderToolbar>
           <Field className="w-full sm:min-w-[180px] sm:max-w-[360px] sm:flex-1">
             <FieldLabel htmlFor="programs-search" className="sr-only">
-              Search programs
+              Rechercher des programmes
             </FieldLabel>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -588,7 +588,7 @@ export function ProgramsPage() {
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Business</SelectLabel>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">Tous les business</SelectItem>
                   {businessFilterOptions.map((business) => (
                     <SelectItem key={business.id} value={business.id}>
                       {business.name}
@@ -640,7 +640,6 @@ export function ProgramsPage() {
             }}
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[108px] sm:shrink-0">
-              <ArrowUpDown className="size-4 text-muted-foreground" aria-hidden />
               <SelectValue placeholder="Récents" />
             </SelectTrigger>
             <SelectContent>
@@ -649,27 +648,29 @@ export function ProgramsPage() {
                 <SelectItem value="newest">Récents</SelectItem>
                 <SelectItem value="oldest">Anciens</SelectItem>
                 <SelectItem value="status">Statut</SelectItem>
-                <SelectItem value="points-high">Points ↓</SelectItem>
-                <SelectItem value="points-low">Points ↑</SelectItem>
+                <SelectItem value="points-high">Points (Décroissant)</SelectItem>
+                <SelectItem value="points-low">Points (Croissant)</SelectItem>
                 {cardMode === 'owner' ? (
                   <>
-                    <SelectItem value="agents-high">Agents ↓</SelectItem>
-                    <SelectItem value="agents-low">Agents ↑</SelectItem>
+                    <SelectItem value="agents-high">Nombre d'agents ↓</SelectItem>
+                    <SelectItem value="agents-low">Nombre d'agents ↑</SelectItem>
                   </>
                 ) : null}
               </SelectGroup>
             </SelectContent>
           </Select>
 
-          <Button
-            type="button"
-            variant="secondary"
-            className="gap-2 sm:shrink-0"
-            onClick={() => navigate('/programs/docs')}
-          >
-            <FileText className="size-4" aria-hidden />
-            Docs
-          </Button>
+          {cardMode === 'owner' ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="gap-2 sm:shrink-0"
+              onClick={() => navigate('/programs/docs')}
+            >
+              <FileText className="size-4" aria-hidden />
+              Documentation
+            </Button>
+          ) : null}
 
           {ownerCanCreate ? (
             <Button
@@ -962,6 +963,7 @@ export function ProgramsPage() {
                     <Item variant="outline" className={isLockedAssigned ? 'opacity-85' : undefined}>
                       <ItemMedia>
                         <Avatar className="size-10">
+                          <AvatarImage src={agent.avatar_url ?? undefined} alt={agent.display_name ?? agent.email ?? 'Agent'} />
                           <AgentAvatarFallback seed={agent.id}>
                             {agentInitials(agent)}
                           </AgentAvatarFallback>

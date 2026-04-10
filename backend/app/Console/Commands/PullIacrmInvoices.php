@@ -27,7 +27,7 @@ class PullIacrmInvoices extends Command
 
     /** Map IACRM invoice status → Transaction status */
     private const STATUS_MAP = [
-        'pending'   => 'detected',
+        'pending'   => 'pending',
         'unpaid'    => 'pending',
         'overdue'   => 'pending',
         'paid'      => 'paid',
@@ -105,7 +105,7 @@ class PullIacrmInvoices extends Command
                 continue;
             }
 
-            $txStatus      = self::STATUS_MAP[$iacrmStatus] ?? 'detected';
+            $txStatus      = self::STATUS_MAP[$iacrmStatus] ?? 'pending';
             $amount        = (float) ($inv['amount']    ?? 0);
             $currency      = (string) ($inv['currency'] ?? 'EUR');
             $productName   = (string) ($inv['product_name']      ?? 'Service IACRM');
@@ -134,7 +134,7 @@ class PullIacrmInvoices extends Command
                         'amount'                => $amount,
                         'currency_code'         => $currency,
                         'status'                => $txStatus,
-                        'invoice_status'        => $iacrmStatus === 'paid' ? 'paid' : ($iacrmStatus === 'overdue' ? 'overdue' : 'pending'),
+                        'invoice_status'        => $this->mapInvoiceStatus($iacrmStatus),
                         'occurred_at'           => $issuedAt ? now()->parse($issuedAt) : now(),
                         'paid_at'               => $paidAt ? now()->parse($paidAt) : null,
                         'last_synced_at'        => now(),
@@ -145,7 +145,7 @@ class PullIacrmInvoices extends Command
             } else {
                 // Existing invoice — check if status changed
                 $prevStatus = $existing->status;
-                if ($prevStatus === $txStatus && $existing->invoice_status === ($iacrmStatus === 'paid' ? 'paid' : ($iacrmStatus === 'overdue' ? 'overdue' : 'pending'))) {
+                if ($prevStatus === $txStatus && $existing->invoice_status === $this->mapInvoiceStatus($iacrmStatus)) {
                     $skipped++;
                     continue;
                 }
@@ -155,7 +155,7 @@ class PullIacrmInvoices extends Command
                 if (! $dryRun) {
                     $existing->update([
                         'status'            => $txStatus,
-                        'invoice_status'    => $iacrmStatus === 'paid' ? 'paid' : ($iacrmStatus === 'overdue' ? 'overdue' : 'pending'),
+                        'invoice_status'    => $this->mapInvoiceStatus($iacrmStatus),
                         'paid_at'           => $paidAt ? now()->parse($paidAt) : $existing->paid_at,
                         'last_synced_at'    => now(),
                         'raw_iacrm_payload' => $inv,
@@ -230,5 +230,22 @@ class PullIacrmInvoices extends Command
         }
 
         return 0;
+    }
+
+    private function mapInvoiceStatus(string $iacrmStatus): string
+    {
+        if ($iacrmStatus === 'paid') {
+            return 'paid';
+        }
+
+        if ($iacrmStatus === 'overdue') {
+            return 'overdue';
+        }
+
+        if ($iacrmStatus === 'unpaid') {
+            return 'unpaid';
+        }
+
+        return 'pending';
     }
 }

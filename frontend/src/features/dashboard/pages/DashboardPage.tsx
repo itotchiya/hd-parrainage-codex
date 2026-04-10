@@ -27,6 +27,7 @@ import { TopAffiliatesByProspectsTableSkeleton } from '../components/TopAffiliat
 import { RecentActivityTableSkeleton } from '../components/RecentActivityTable'
 import { ProgramsOverviewTableSkeleton } from '../components/ProgramsOverviewTable'
 import { PlatformDashboard } from '../components/PlatformDashboard'
+import { AgentDashboard } from '../components/AgentDashboard'
 
 function capitalize(value: string) {
   if (!value) return value
@@ -73,6 +74,8 @@ function DashboardPageSkeleton() {
 
 export function DashboardPage() {
   const { user } = useAuthSession()
+  const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
+  const isAgent = user?.roles.some((r) => r.slug === 'agent') ?? (user?.agent_profile != null)
   const isBusinessOwner = Boolean(
     user?.roles.some((role) => role.slug === 'business-owner' || role.name === 'Business Owner'),
   )
@@ -108,11 +111,11 @@ export function DashboardPage() {
     enabled: isBusinessOwner,
   })
 
-  const programs = programsQuery.data?.data ?? []
-  const prospects = prospectsQuery.data?.data ?? []
-  const transactions = transactionsQuery.data?.data ?? []
-  const pointsLedger = pointsLedgerQuery.data?.data ?? []
-  const agents = agentsQuery.data?.data ?? []
+  const programs = useMemo(() => programsQuery.data?.data ?? [], [programsQuery.data])
+  const prospects = useMemo(() => prospectsQuery.data?.data ?? [], [prospectsQuery.data])
+  const transactions = useMemo(() => transactionsQuery.data?.data ?? [], [transactionsQuery.data])
+  const pointsLedger = useMemo(() => pointsLedgerQuery.data?.data ?? [], [pointsLedgerQuery.data])
+  const agents = useMemo(() => agentsQuery.data?.data ?? [], [agentsQuery.data])
   const summaryCards = summaryQuery.data?.data.cards ?? []
 
   const sortedPrograms = useMemo(() => {
@@ -167,6 +170,7 @@ export function DashboardPage() {
         agentId: aff.id,
         displayName: agent?.display_name?.trim() || aff.name,
         email: agent?.email ?? null,
+        avatarUrl: agent?.avatar_url ?? null,
         status: agent?.status ?? null,
         joinedAt,
         prospectCount: aff.totalProspects,
@@ -193,7 +197,16 @@ export function DashboardPage() {
     points_auto_awarded: Wallet,
   }
 
+  // Role-based dashboard routing
+  // Priority: super-admin → business owner → agent → platform fallback
+  if (isSuperAdmin) {
+    return <PlatformDashboard />
+  }
+
   if (!isBusinessOwner) {
+    if (isAgent) {
+      return <AgentDashboard />
+    }
     return <PlatformDashboard />
   }
 
@@ -223,7 +236,7 @@ export function DashboardPage() {
       (transactionsQuery.error as ApiError | undefined)?.message ??
       (pointsLedgerQuery.error as ApiError | undefined)?.message ??
       (agentsQuery.error as ApiError | undefined)?.message ??
-      'Unable to load dashboard data.'
+      'Impossible de charger les données du tableau de bord.'
 
     return (
       <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
@@ -248,7 +261,7 @@ export function DashboardPage() {
             <Button asChild variant="default" size="sm" className="w-auto self-start gap-2">
               <Link to="/agents">
                 <Plus className="size-4" aria-hidden />
-                Add agent
+                Ajouter un affilié
               </Link>
             </Button>
           </PageHeaderToolbar>

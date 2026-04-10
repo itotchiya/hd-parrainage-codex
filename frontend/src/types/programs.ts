@@ -83,6 +83,7 @@ export interface ProgramRecord {
   id: string
   business_id: string
   business_name: string | null
+  business_logo_url?: string | null
   slug: string
   name: string
   description: string | null

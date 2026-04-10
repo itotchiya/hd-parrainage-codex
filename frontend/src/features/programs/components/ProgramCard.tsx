@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   Archive,
   Briefcase,
-  Building2,
   ExternalLink,
   Gift,
   HandCoins,
@@ -37,6 +36,7 @@ import {
 import {
   AgentAvatarFallback,
   Avatar,
+  AvatarFallback,
   AvatarGroup,
   AvatarGroupCount,
   AvatarImage,
@@ -553,9 +553,12 @@ export function ProgramCard({
             <EntityCardIdentity
               leading={
                 mode === 'agent' ? (
-                  <div className="flex size-10 items-center justify-center rounded-xl border border-border/70 bg-muted/30 text-sm font-semibold text-foreground">
-                    {businessInitials(program.business_name)}
-                  </div>
+                  <Avatar className="size-10 rounded-xl">
+                    <AvatarImage src={program.business_logo_url ?? undefined} alt={program.business_name ?? 'Business'} className="object-contain" />
+                    <AvatarFallback className="rounded-xl border border-border/70 bg-muted/30 text-sm font-semibold text-foreground">
+                      {businessInitials(program.business_name)}
+                    </AvatarFallback>
+                  </Avatar>
                 ) : (
                   <IconTile icon={modeConfig.icon} size="md" className={modeConfig.tileClass} />
                 )
@@ -868,17 +871,12 @@ export function ProgramCard({
 
         {mode === 'agent' ? (
           <div className="flex items-center gap-2 py-0.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-background text-muted-foreground">
-              {program.status === 'active' ? (
-                <Building2 className="size-4" />
-              ) : isSuspended ? (
-                <OctagonAlert className="size-4" />
-              ) : isPaused ? (
-                <Pause className="size-4" />
-              ) : (
-                <Gift className="size-4" />
-              )}
-            </div>
+            <Avatar className="size-8 rounded-lg shrink-0">
+              <AvatarImage src={program.business_logo_url ?? undefined} alt={program.business_name ?? 'Business'} className="object-contain" />
+              <AvatarFallback className="rounded-lg bg-background text-xs font-semibold text-muted-foreground">
+                {businessInitials(program.business_name)}
+              </AvatarFallback>
+            </Avatar>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">
                 {program.business_name ?? 'Business'}
@@ -903,10 +901,11 @@ export function ProgramCard({
                 <div className="space-y-2">
                   <Item variant="outline">
                     <ItemMedia>
-                      <Avatar className="size-10">
-                        <AgentAvatarFallback seed={program.business_id} className="text-xs">
+                      <Avatar className="size-10 rounded-md">
+                        <AvatarImage src={program.business_logo_url ?? undefined} alt={program.business_name ?? 'Business'} className="object-contain" />
+                        <AvatarFallback className="rounded-md text-xs font-semibold">
                           {businessInitials(program.business_name)}
-                        </AgentAvatarFallback>
+                        </AvatarFallback>
                       </Avatar>
                     </ItemMedia>
                     <ItemContent>

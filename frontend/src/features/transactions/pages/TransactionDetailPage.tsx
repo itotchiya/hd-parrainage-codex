@@ -28,6 +28,7 @@ import {
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { transactionStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
 import { buildProspectDetailPath } from '@/features/prospects/paths'
+import { useAuthSession } from '@/features/auth/session'
 import { useAppBreadcrumbTrail } from '@/layouts/AppShell'
 import { ApiError } from '@/lib/api'
 
@@ -238,6 +239,8 @@ function TransactionDetailSkeleton() {
 }
 
 export function TransactionDetailPage() {
+  const { user } = useAuthSession()
+  const isAgentView = Boolean(user?.agent_profile)
   const { transactionId } = useParams<{ transactionId: string }>()
   const [syncSortDirection, setSyncSortDirection] = useState<SortDirection>('desc')
   const [historySortDirection, setHistorySortDirection] = useState<SortDirection>('desc')
@@ -494,14 +497,16 @@ export function TransactionDetailPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          title="Montant"
-          value={formatCurrency(transaction.amount, transaction.currency_code)}
-          description="Valeur commerciale de la transaction"
-          badge={kpiSnapshotBadge(transaction.product_name)}
-          icon={Banknote}
-          tone="success"
-        />
+        {!isAgentView ? (
+          <KpiCard
+            title="Montant"
+            value={formatCurrency(transaction.amount, transaction.currency_code)}
+            description="Valeur commerciale de la transaction"
+            badge={kpiSnapshotBadge(transaction.product_name)}
+            icon={Banknote}
+            tone="success"
+          />
+        ) : null}
         <KpiCard
           title="Points attribués"
           value={
@@ -568,12 +573,14 @@ export function TransactionDetailPage() {
               <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Référence</p>
               <p className="mt-1 text-xs font-medium text-foreground">{transaction.transaction_reference}</p>
             </div>
-            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Montant</p>
-              <p className="mt-1 text-xs font-medium text-foreground">
-                {formatCurrency(transaction.amount, transaction.currency_code)}
-              </p>
-            </div>
+            {!isAgentView ? (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Montant</p>
+                <p className="mt-1 text-xs font-medium text-foreground">
+                  {formatCurrency(transaction.amount, transaction.currency_code)}
+                </p>
+              </div>
+            ) : null}
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Points</p>
               <p className="mt-1 text-xs font-medium text-foreground">

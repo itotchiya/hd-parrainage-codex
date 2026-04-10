@@ -68,7 +68,7 @@ export function IacrmPipelinePanel() {
         <h2 className="app-section-title mt-2">Prospect distribution by stage</h2>
 
         {stagesQuery.isPending ? (
-          <p className="mt-4 text-sm text-muted-foreground">Loading pipeline stages...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Chargement des étapes du pipeline...</p>
         ) : stagesQuery.isError ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             Failed to load pipeline stages.
@@ -112,7 +112,7 @@ export function IacrmPipelinePanel() {
         </p>
 
         {prospectsQuery.isPending ? (
-          <p className="mt-4 text-sm text-muted-foreground">Loading prospects...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Chargement des prospects...</p>
         ) : prospectsQuery.isError ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             Failed to load pipeline prospects.
@@ -128,7 +128,7 @@ export function IacrmPipelinePanel() {
                   <TableHead>Status</TableHead>
                   <TableHead>Agent</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <TableHead>Mis à jour</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

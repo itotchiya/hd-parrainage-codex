@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Banknote,
@@ -6,6 +6,7 @@ import {
   Clock3,
   Coins,
   Eye,
+  FilterX,
   Gift,
   Loader2,
   MoreHorizontal,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { parseISO, startOfDay, endOfDay } from 'date-fns'
 
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
@@ -60,7 +62,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthSession } from '@/features/auth/session'
-import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { fetchPointsByProgram, fetchPointsSummary } from '@/features/points/api'
@@ -266,10 +268,15 @@ export function ExchangesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | ExchangeRequestStatus>('all')
   const [programFilter, setProgramFilter] = useState('all')
   const [agentFilter, setAgentFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [sortKey, setSortKey] = useState<ExchangeSortKey>('requested')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+
+  const hasActiveFilters = search !== '' || statusFilter !== 'all' || programFilter !== 'all' || agentFilter !== 'all' || dateFrom !== '' || dateTo !== ''
+
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createStep, setCreateStep] = useState(1)
   const [requestType, setRequestType] = useState<'reward' | 'cash'>('reward')
@@ -280,6 +287,7 @@ export function ExchangesPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!canCreateReward && canCreateCash) setRequestType('cash')
     if (!canCreateCash && canCreateReward) setRequestType('reward')
@@ -412,11 +420,11 @@ export function ExchangesPage() {
     onSettled: () => setActiveActionId(null),
   })
 
-  const requests = exchangesQuery.data?.data ?? []
-  const programBalances = programBalancesQuery.data?.data ?? []
+  const requests = useMemo(() => exchangesQuery.data?.data ?? [], [exchangesQuery.data])
+  const programBalances = useMemo(() => programBalancesQuery.data?.data ?? [], [programBalancesQuery.data])
   const pointsSummary = pointsSummaryQuery.data?.data
 
-  function resetCreateDialog() {
+  const resetCreateDialog = useCallback(() => {
     setCreateStep(1)
     setRequestType(canCreateReward ? 'reward' : 'cash')
     setSelectedProgramId('')
@@ -424,7 +432,15 @@ export function ExchangesPage() {
     setNotes('')
     setPointsAmount('100')
     setFeedback(null)
-  }
+  }, [canCreateReward])
+
+  const kpiFilteredRequests = useMemo(() => {
+    return requests.filter((record) => {
+      const matchesProgram = programFilter === 'all' || record.program_id === programFilter
+      const matchesAgent = isAgentView || agentFilter === 'all' || record.agent_id === agentFilter
+      return matchesProgram && matchesAgent
+    })
+  }, [agentFilter, isAgentView, programFilter, requests])
 
   const filteredRequests = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -432,6 +448,11 @@ export function ExchangesPage() {
       const matchesStatus = statusFilter === 'all' || record.status === statusFilter
       const matchesProgram = programFilter === 'all' || record.program_id === programFilter
       const matchesAgent = isAgentView || agentFilter === 'all' || record.agent_id === agentFilter
+      
+      const d = record.created_at ? parseISO(record.created_at) : null
+      const matchesDateFrom = !dateFrom || (d && d >= startOfDay(parseISO(dateFrom)))
+      const matchesDateTo = !dateTo || (d && d <= endOfDay(parseISO(dateTo)))
+
       const matchesSearch =
         q.length === 0 ||
         exchangeRequestTitle(record).toLowerCase().includes(q) ||
@@ -440,9 +461,9 @@ export function ExchangesPage() {
         (record.business_name ?? '').toLowerCase().includes(q) ||
         (record.requested_reward_title ?? '').toLowerCase().includes(q)
 
-      return matchesStatus && matchesProgram && matchesAgent && matchesSearch
+      return matchesStatus && matchesProgram && matchesAgent && matchesDateFrom && matchesDateTo && matchesSearch
     })
-  }, [agentFilter, isAgentView, programFilter, requests, search, statusFilter])
+  }, [agentFilter, isAgentView, programFilter, requests, search, statusFilter, dateFrom, dateTo])
 
   const sortedRequests = useMemo(
     () =>
@@ -463,9 +484,10 @@ export function ExchangesPage() {
     setSortDirection(['points', 'requested'].includes(nextKey) ? 'desc' : 'asc')
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, programFilter, agentFilter])
+  }, [search, statusFilter, programFilter, agentFilter, dateFrom, dateTo])
 
   const totalItems = sortedRequests.length
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
@@ -475,6 +497,7 @@ export function ExchangesPage() {
     return sortedRequests.slice(start, start + pageSize)
   }, [pageSize, safePage, sortedRequests])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (page !== safePage) setPage(safePage)
   }, [page, safePage])
@@ -506,12 +529,14 @@ export function ExchangesPage() {
     return hasRewardItems ? ['reward'] : []
   }, [selectedPackItems.length, selectedProgram])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!isCreateOpen) {
       resetCreateDialog()
     }
-  }, [isCreateOpen])
+  }, [isCreateOpen, resetCreateDialog])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!selectedProgram) return
     if (supportedRequestTypes.length === 0) return
@@ -545,18 +570,20 @@ export function ExchangesPage() {
     [requests],
   )
 
-  const requestedCount = requests.filter((record) => record.status === 'requested').length
-  const inFulfillmentCount = requests.filter((record) =>
+  const requestedCount = kpiFilteredRequests.filter((record) => record.status === 'requested').length
+  const inFulfillmentCount = kpiFilteredRequests.filter((record) =>
     ['approved', 'processing'].includes(record.status),
   ).length
-  const completedCount = requests.filter((record) => record.status === 'completed').length
-  const totalPointsRequested = requests.reduce((sum, record) => sum + record.points_amount, 0)
-  const totalWalletPoints = isAgentView
-    ? (pointsSummary?.available_points ?? 0)
-    : 0
-  const totalAvailablePoints = !isAgentView
-    ? (pointsSummary?.available_points ?? 0)
-    : 0
+  const totalPointsRequested = kpiFilteredRequests.reduce((sum, record) => sum + record.points_amount, 0)
+  
+  // Wallet value calculation dynamically tracking the filter
+  const fetchWalletPoints = () => {
+    if (programFilter === 'all') return pointsSummary?.available_points ?? 0
+    return programBalances.find(p => p.program_id === programFilter)?.available_points ?? 0
+  }
+  
+  const totalWalletPoints = isAgentView ? fetchWalletPoints() : 0
+  const totalAvailablePoints = !isAgentView ? fetchWalletPoints() : 0
   const selectedReward = selectedPackItems.find((item) => item.id === rewardItemId)
   const parsedPointsAmount = Number(pointsAmount)
   const selectedProgramAvailablePoints = selectedProgram?.available_points ?? 0
@@ -595,10 +622,117 @@ export function ExchangesPage() {
     <section className="app-section">
       <PageHeader
         title={isAgentView ? 'My exchanges' : 'Exchange operations'}
-        titleAddon={<Badge variant="secondary">{isAgentView ? 'Agent view' : 'Business view'}</Badge>}
         right={
-          isAgentView && canCreate ? (
-            <PageHeaderToolbar>
+          <PageHeaderToolbar>
+            {hasActiveFilters ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => {
+                        setSearch('')
+                        setStatusFilter('all')
+                        setProgramFilter('all')
+                        setAgentFilter('all')
+                        setDateFrom('')
+                        setDateTo('')
+                      }}
+                      aria-label="Effacer les filtres"
+                    >
+                      <FilterX className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Effacer les filtres</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+
+            <div className="relative w-full sm:w-[240px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={isAgentView ? 'Rechercher mes demandes...' : 'Rechercher une demande...'}
+                className="pl-9"
+              />
+            </div>
+
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
+            >
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="Tous statuts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Statut</SelectLabel>
+                  <SelectItem value="all">Tous statuts</SelectItem>
+                  {Object.entries(statusPresentation).map(([value, presentation]) => (
+                    <SelectItem key={value} value={value}>
+                      {presentation.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <Select value={programFilter} onValueChange={setProgramFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Tous programmes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Programme</SelectLabel>
+                  <SelectItem value="all">Tous programmes</SelectItem>
+                  {programOptions.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            {!isAgentView ? (
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Tous affiliés" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Affilié</SelectLabel>
+                    <SelectItem value="all">Tous affiliés</SelectItem>
+                    {agentOptions.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de début"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de fin"
+            />
+
+            {isAgentView && canCreate ? (
               <Button
                 type="button"
                 onClick={() => {
@@ -607,98 +741,112 @@ export function ExchangesPage() {
                 }}
               >
                 <Plus className="mr-2 size-4" />
-                New request
+                Nouvelle demande
               </Button>
-            </PageHeaderToolbar>
-          ) : undefined
+            ) : null}
+          </PageHeaderToolbar>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {isAgentView ? (
           <>
             <KpiCard
-              title="Wallet"
+              title="Available wallet"
               value={`${totalWalletPoints.toLocaleString('fr-FR')} pts`}
               description="Spendable points across all programs"
-              badge={kpiSnapshotBadge('Total')}
               icon={WalletCards}
-              tone="primary"
+              tone="success"
+              variant="solid"
+              className="xl:col-span-3"
+              isLoading={pointsSummaryQuery.isFetching && !totalWalletPoints}
             />
             <KpiCard
-              title="My requests"
-              value={requests.length.toLocaleString('fr-FR')}
-              description="Submitted exchange requests"
-              badge={kpiSnapshotBadge('Workflow')}
+              title="Requested points"
+              value={`${totalPointsRequested.toLocaleString('fr-FR')} pts`}
+              description="Total points submitted for exchange"
               icon={Coins}
+              tone="warning"
+              variant="solid"
+              className="xl:col-span-3"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
+            />
+            <KpiCard
+              title="Queue total"
+              value={kpiFilteredRequests.length.toLocaleString('fr-FR')}
+              description="Your submitted exchange requests"
+              icon={WalletCards}
               tone="primary"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
               title="Pending approval"
               value={requestedCount.toLocaleString('fr-FR')}
               description="Waiting owner review"
-              badge={kpiSnapshotBadge('Review')}
               icon={Clock3}
               tone="warning"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
               title="In fulfillment"
               value={inFulfillmentCount.toLocaleString('fr-FR')}
               description="Approved or processing"
-              badge={kpiSnapshotBadge('Execution')}
               icon={Loader2}
               tone="info"
-            />
-            <KpiCard
-              title="Completed"
-              value={completedCount.toLocaleString('fr-FR')}
-              description="Successfully fulfilled"
-              badge={kpiSnapshotBadge('Fulfilled')}
-              icon={CheckCircle2}
-              tone="success"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
           </>
         ) : (
           <>
             <KpiCard
-              title="Queue total"
-              value={requests.length.toLocaleString('fr-FR')}
-              description="Open and historical requests"
-              badge={kpiSnapshotBadge('Workflow')}
-              icon={WalletCards}
-              tone="primary"
-            />
-            <KpiCard
               title="Available wallet"
               value={`${totalAvailablePoints.toLocaleString('fr-FR')} pts`}
               description="Spendable across affiliates"
-              badge={kpiSnapshotBadge('Wallet')}
               icon={Coins}
-              tone="primary"
-            />
-            <KpiCard
-              title="Pending approval"
-              value={requestedCount.toLocaleString('fr-FR')}
-              description="Needs review now"
-              badge={kpiSnapshotBadge('Review')}
-              icon={Clock3}
-              tone="warning"
-            />
-            <KpiCard
-              title="In fulfillment"
-              value={inFulfillmentCount.toLocaleString('fr-FR')}
-              description="Approved or processing"
-              badge={kpiSnapshotBadge('Execution')}
-              icon={Loader2}
-              tone="info"
+              tone="success"
+              variant="solid"
+              className="xl:col-span-3"
+              isLoading={pointsSummaryQuery.isFetching && !totalAvailablePoints}
             />
             <KpiCard
               title="Requested points"
               value={`${totalPointsRequested.toLocaleString('fr-FR')} pts`}
               description="Total points requested"
-              badge={kpiSnapshotBadge('Liability')}
               icon={Coins}
+              tone="warning"
+              variant="solid"
+              className="xl:col-span-3"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
+            />
+            <KpiCard
+              title="Queue total"
+              value={kpiFilteredRequests.length.toLocaleString('fr-FR')}
+              description="Open and historical requests"
+              icon={WalletCards}
               tone="primary"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
+            />
+            <KpiCard
+              title="Pending approval"
+              value={requestedCount.toLocaleString('fr-FR')}
+              description="Needs review now"
+              icon={Clock3}
+              tone="warning"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
+            />
+            <KpiCard
+              title="In fulfillment"
+              value={inFulfillmentCount.toLocaleString('fr-FR')}
+              description="Approved or processing"
+              icon={Loader2}
+              tone="info"
+              className="xl:col-span-2"
+              isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
           </>
         )}
@@ -706,81 +854,8 @@ export function ExchangesPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title={isAgentView ? 'My exchange requests' : 'Exchange operations queue'}
-          description={
-            isAgentView
-              ? 'Track approval, fulfillment, and the requests you can still cancel.'
-              : 'Review incoming requests, move them into fulfillment, and complete the lifecycle cleanly.'
-          }
+          title={isAgentView ? 'Mes demandes de virement' : 'Opérations de virement'}
         />
-
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <div className="relative w-full sm:max-w-[260px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={isAgentView ? 'Search my requests...' : 'Search the queue...'}
-              className="pl-9"
-            />
-          </div>
-
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
-          >
-            <SelectTrigger className="w-full sm:w-[170px]">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Status</SelectLabel>
-                <SelectItem value="all">All statuses</SelectItem>
-                {Object.entries(statusPresentation).map(([value, presentation]) => (
-                  <SelectItem key={value} value={value}>
-                    {presentation.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-
-          <Select value={programFilter} onValueChange={setProgramFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="All programs" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Program</SelectLabel>
-                <SelectItem value="all">All programs</SelectItem>
-                {programOptions.map((program) => (
-                  <SelectItem key={program.id} value={program.id}>
-                    {program.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-
-          {!isAgentView ? (
-            <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="All affiliates" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Affiliate</SelectLabel>
-                  <SelectItem value="all">All affiliates</SelectItem>
-                  {agentOptions.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          ) : null}
-        </div>
 
         <div className="overflow-hidden rounded-lg border border-border">
           <Table>
@@ -1039,7 +1114,7 @@ export function ExchangesPage() {
                                       <X className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Cancel request</TooltipContent>
+                                  <TooltipContent>Annuler la demande</TooltipContent>
                                 </Tooltip>
                               ) : null}
                             </div>
@@ -1108,7 +1183,7 @@ export function ExchangesPage() {
                                       onClick={() => cancelMutation.mutate(record.id)}
                                     >
                                       <X className="size-4 text-destructive" />
-                                      <span>Cancel request</span>
+                                      <span>Annuler la demande</span>
                                     </DropdownMenuItem>
                                   </>
                                 ) : null}
@@ -1340,14 +1415,14 @@ export function ExchangesPage() {
                   <FieldLabel>Reward</FieldLabel>
                   <Select value={rewardItemId} onValueChange={setRewardItemId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a reward" />
+                      <SelectValue placeholder="Sélectionnez une récompense" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Available rewards</SelectLabel>
+                        <SelectLabel>Récompenses disponibles</SelectLabel>
                         {selectedPackItems.length === 0 ? (
                           <SelectItem value="__none" disabled>
-                            No reward available
+                            Aucune récompense disponible
                           </SelectItem>
                         ) : null}
                         {selectedPackItems.map((item) => (
@@ -1429,7 +1504,9 @@ export function ExchangesPage() {
                 <Textarea
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Optional context for the owner..."
+                  placeholder="Contexte optionnel pour le propriétaire..."
+                  rows={3}
+                  className="resize-none"
                 />
               </Field>
             </div>

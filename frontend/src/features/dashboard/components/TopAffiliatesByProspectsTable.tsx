@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 
-import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -21,6 +21,7 @@ export interface TopAffiliateTableRow {
   agentId: string
   displayName: string
   email: string | null
+  avatarUrl?: string | null
   status: string | null
   joinedAt: string | null
   prospectCount: number
@@ -93,6 +94,7 @@ export function TopAffiliatesByProspectsTable({ rows }: TopAffiliatesByProspects
                       aria-label={`Voir le profil de ${row.displayName}`}
                     >
                       <Avatar className="size-9 shrink-0">
+                        <AvatarImage src={row.avatarUrl ?? undefined} alt={row.displayName} />
                         <AgentAvatarFallback seed={row.agentId} className="text-xs font-medium">
                           {initials(row.displayName)}
                         </AgentAvatarFallback>

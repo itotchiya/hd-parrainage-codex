@@ -73,6 +73,7 @@ class ProgramResource extends JsonResource
             'id' => $this->id,
             'business_id' => $this->business_id,
             'business_name' => $this->business?->display_name,
+            'business_logo_url' => $this->business?->logo_url,
             'slug' => $this->slug,
             'name' => $this->name,
             'description' => $this->description,

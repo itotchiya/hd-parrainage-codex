@@ -5,12 +5,23 @@ namespace App\Http\Controllers\Api\Businesses;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Businesses\BusinessDetailResource;
 use App\Http\Resources\Businesses\BusinessListResource;
+use App\Mail\BusinessInvitationMail;
 use App\Models\Business;
+use App\Models\BusinessUserAssignment;
+use App\Models\InvitationActivationToken;
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserRole;
+use App\Support\FrontendUrlResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BusinessController extends Controller
 {
@@ -170,6 +181,232 @@ class BusinessController extends Controller
                 ])
             )->resolve($request),
         ]);
+    }
+
+    public function invite(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $this->assertPermission($user, 'business.approve');
+
+        $payload = $request->validate([
+            'iacrm_business_id' => ['nullable', 'string', 'max:255'],
+            'business_name'     => ['required', 'string', 'max:160'],
+            'owner_email'       => ['required', 'email', 'max:255'],
+            'owner_name'        => ['required', 'string', 'max:160'],
+            'notes'             => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $ownerEmail  = mb_strtolower(trim((string) $payload['owner_email']));
+        $ownerName   = trim((string) $payload['owner_name']);
+        $businessName = trim((string) $payload['business_name']);
+        $iacrmId     = isset($payload['iacrm_business_id']) && $payload['iacrm_business_id'] !== ''
+            ? trim((string) $payload['iacrm_business_id'])
+            : null;
+
+        if ($iacrmId !== null) {
+            $existingByIacrm = Business::query()->where('iacrm_business_id', $iacrmId)->first();
+            if ($existingByIacrm !== null) {
+                throw ValidationException::withMessages([
+                    'iacrm_business_id' => 'A business with this IACRM ID already exists on the platform.',
+                ]);
+            }
+        }
+
+        $plainToken = Str::upper(Str::random(12));
+
+        [$business, $owner] = DB::transaction(function () use ($payload, $ownerEmail, $ownerName, $businessName, $iacrmId, $user, $plainToken): array {
+            $slug = Str::slug($businessName) ?: Str::slug($ownerEmail);
+            $baseSlug = $slug;
+            $counter = 1;
+            while (Business::query()->where('slug', $slug)->exists()) {
+                $slug = $baseSlug . '-' . $counter++;
+            }
+
+            $business = Business::query()->create([
+                'slug'              => $slug,
+                'legal_name'        => $businessName,
+                'display_name'      => $businessName,
+                'iacrm_business_id' => $iacrmId,
+                'status'            => 'pending',
+                'currency_code'     => 'EUR',
+                'timezone'          => 'Europe/Paris',
+            ]);
+
+            $owner = User::query()->where('email', $ownerEmail)->first();
+            if ($owner === null) {
+                $owner = User::query()->create([
+                    'display_name'      => $ownerName,
+                    'email'             => $ownerEmail,
+                    'password_hash'     => Str::random(32),
+                    'status'            => 'invited',
+                    'invited_at'        => now(),
+                    'created_by_user_id' => $user->id,
+                ]);
+            } else {
+                $owner->forceFill([
+                    'display_name'      => $ownerName,
+                    'status'            => $owner->status === 'active' ? 'active' : 'invited',
+                    'invited_at'        => $owner->invited_at ?? now(),
+                    'updated_by_user_id' => $user->id,
+                ])->save();
+            }
+
+            $ownerRole = Role::query()->where('slug', 'business-owner')->firstOrFail();
+
+            BusinessUserAssignment::query()->updateOrCreate(
+                [
+                    'business_id'     => $business->id,
+                    'user_id'         => $owner->id,
+                    'assignment_type' => 'owner',
+                ],
+                [
+                    'status'               => 'invited',
+                    'is_primary'           => true,
+                    'assigned_by_user_id'  => $user->id,
+                    'invited_at'           => now(),
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id'     => $owner->id,
+                    'role_id'     => $ownerRole->id,
+                    'scope_type'  => 'business',
+                    'business_id' => $business->id,
+                ],
+                [
+                    'assigned_by_user_id' => $user->id,
+                    'assigned_at'         => now(),
+                    'status'              => 'active',
+                ],
+            );
+
+            InvitationActivationToken::query()
+                ->where('user_id', $owner->id)
+                ->whereNull('used_at')
+                ->delete();
+
+            InvitationActivationToken::query()->create([
+                'user_id'            => $owner->id,
+                'email'              => $owner->email,
+                'token_digest'       => hash('sha256', $plainToken),
+                'expires_at'         => now()->addDays(14),
+                'created_by_user_id' => $user->id,
+            ]);
+
+            return [$business, $owner];
+        });
+
+        $activationUrl = FrontendUrlResolver::activationUrl($request, $owner->email, $plainToken);
+
+        $mailDeliveryFailed = false;
+        $mailDeliveryError  = null;
+
+        try {
+            Mail::to($owner->email)->send(new BusinessInvitationMail($owner, $business, $activationUrl));
+        } catch (Throwable $exception) {
+            $mailDeliveryFailed = true;
+            $mailDeliveryError  = $exception->getMessage();
+            Log::error('Business invitation email delivery failed.', [
+                'business_id' => $business->id,
+                'user_id'     => $owner->id,
+                'email'       => $owner->email,
+                'error'       => $mailDeliveryError,
+            ]);
+        }
+
+        $business->load(['approvedByUser', 'rejectedByUser', 'userAssignments.user', 'programs'])
+            ->loadCount([
+                'programs',
+                'programs as active_programs_count'          => fn (Builder $b) => $b->where('status', 'active'),
+                'agents',
+                'agents as active_agents_count'              => fn (Builder $b) => $b->where('status', 'active'),
+                'prospects',
+                'transactions',
+                'exchangeRequests as exchange_requests_count' => fn (Builder $b) => $b->where('status', 'pending'),
+            ]);
+
+        $response = [
+            'data' => BusinessDetailResource::make($business)->resolve($request),
+            'meta' => [
+                'mail_delivery_failed' => $mailDeliveryFailed,
+            ],
+        ];
+
+        if (app()->environment(['local', 'testing'])) {
+            $response['meta']['invitation_token'] = $plainToken;
+            $response['meta']['activation_url']   = $activationUrl;
+            $response['meta']['mail_delivery_error'] = $mailDeliveryError;
+        }
+
+        return response()->json($response, 201);
+    }
+
+    public function resendInvitation(Request $request, string $businessId): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $this->assertPermission($user, 'business.approve');
+
+        $business = Business::query()
+            ->with(['userAssignments.user'])
+            ->findOrFail($businessId);
+
+        $ownerAssignment = $business->userAssignments
+            ->where('assignment_type', 'owner')
+            ->where('is_primary', true)
+            ->first();
+
+        if ($ownerAssignment === null || $ownerAssignment->user === null) {
+            throw ValidationException::withMessages([
+                'business_id' => 'No primary owner found for this business.',
+            ]);
+        }
+
+        $owner = $ownerAssignment->user;
+
+        if ($owner->status === 'active') {
+            throw ValidationException::withMessages([
+                'business_id' => 'The owner has already activated their account.',
+            ]);
+        }
+
+        $plainToken = Str::upper(Str::random(12));
+
+        InvitationActivationToken::query()
+            ->where('user_id', $owner->id)
+            ->whereNull('used_at')
+            ->delete();
+
+        InvitationActivationToken::query()->create([
+            'user_id'            => $owner->id,
+            'email'              => $owner->email,
+            'token_digest'       => hash('sha256', $plainToken),
+            'expires_at'         => now()->addDays(14),
+            'created_by_user_id' => $user->id,
+        ]);
+
+        $activationUrl = FrontendUrlResolver::activationUrl($request, $owner->email, $plainToken);
+
+        $mailDeliveryFailed = false;
+        try {
+            Mail::to($owner->email)->send(new BusinessInvitationMail($owner, $business, $activationUrl));
+        } catch (Throwable $exception) {
+            $mailDeliveryFailed = true;
+            Log::error('Business resend invitation email failed.', [
+                'business_id' => $business->id,
+                'email'       => $owner->email,
+                'error'       => $exception->getMessage(),
+            ]);
+        }
+
+        $response = ['data' => ['message' => 'Invitation resent successfully.']];
+
+        if (app()->environment(['local', 'testing'])) {
+            $response['meta']['activation_url']      = $activationUrl;
+            $response['meta']['mail_delivery_failed'] = $mailDeliveryFailed;
+        }
+
+        return response()->json($response);
     }
 
     private function resolveApiUser(Request $request): User

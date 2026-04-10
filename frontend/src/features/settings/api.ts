@@ -79,6 +79,16 @@ export async function updateBusinessSettings(payload: {
   })
 }
 
+export async function uploadBusinessLogo(file: File) {
+  const body = new FormData()
+  body.append('logo', file)
+
+  return apiRequest<SettingsEnvelope>('/v1/settings/business/logo', {
+    method: 'POST',
+    body,
+  })
+}
+
 export async function fetchSyncOverview() {
   return apiRequest<SyncOverviewEnvelope>('/v1/sync/overview')
 }

@@ -13,7 +13,7 @@ export function IacrmClientsPanel() {
   const { data, isPending, isError } = useIacrmClients()
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">Loading IACRM clients...</p>
+    return <p className="text-sm text-muted-foreground">Chargement des clients IACRM...</p>
   }
 
   if (isError) {

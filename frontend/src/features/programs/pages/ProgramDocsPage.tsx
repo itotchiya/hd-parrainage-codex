@@ -5,8 +5,8 @@ import {
   ArrowLeft,
   BellRing,
   BookText,
+  CheckCircle2,
   Clock3,
-  FileText,
   ShieldAlert,
   UserPlus,
   Zap,
@@ -14,7 +14,9 @@ import {
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProgramCard } from '@/features/programs/components/ProgramCard'
+import { type ProgramRecord } from '@/types/programs'
 import { cn } from '@/lib/utils'
 
 type SectionId =
@@ -29,615 +31,368 @@ type SectionId =
 interface DocSection {
   id: SectionId
   title: string
-  summary: string
 }
 
 const docSections: DocSection[] = [
-  {
-    id: 'vue-densemble',
-    title: "Vue d'ensemble",
-    summary: "Ce que pilote un programme et quelles règles backend priment toujours sur l'interface.",
-  },
-  {
-    id: 'creation-et-activation',
-    title: 'Création et activation',
-    summary: "Les prérequis minimums avant d'utiliser un programme en production.",
-  },
-  {
-    id: 'modification',
-    title: 'Modification du programme',
-    summary: "Ce qui reste modifiable ou non une fois que le programme est réellement utilisé.",
-  },
-  {
-    id: 'assignation-des-agents',
-    title: 'Assignation des agents',
-    summary: "Quand un affilié peut être ajouté, retiré ou verrouillé sur un programme.",
-  },
-  {
-    id: 'cycle-de-vie',
-    title: 'Pause, suspension et réactivation',
-    summary: "Le comportement exact des changements d'état avant l'archivage.",
-  },
-  {
-    id: 'archivage-et-suppression',
-    title: 'Archivage et suppression',
-    summary: "Quand l'archivage devient possible, puis dans quels cas la suppression est autorisée.",
-  },
-  {
-    id: 'notifications',
-    title: 'Notifications automatiques',
-    summary: "Les événements qui déclenchent un email ou une notification côté agents.",
-  },
+  { id: 'vue-densemble', title: "Vue d'ensemble" },
+  { id: 'creation-et-activation', title: 'Création et activation' },
+  { id: 'modification', title: 'Modification' },
+  { id: 'assignation-des-agents', title: 'Assignation des agents' },
+  { id: 'cycle-de-vie', title: 'Cycle de vie' },
+  { id: 'archivage-et-suppression', title: 'Archivage et suppression' },
+  { id: 'notifications', title: 'Notifications' },
 ]
 
-function InlineCode({ children }: { children: string }) {
-  return (
-    <code className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[12px] text-foreground">
-      {children}
-    </code>
-  )
-}
-
-function RuleTable({
-  rows,
+// A simple rule row: label + pill description — no table
+function RuleRow({
+  label,
+  children,
+  tone = 'default',
 }: {
-  rows: Array<{ action: string; condition: string; outcome: string }>
+  label: string
+  children: React.ReactNode
+  tone?: 'default' | 'warning' | 'success'
 }) {
+  const dotColor =
+    tone === 'warning'
+      ? 'bg-amber-400'
+      : tone === 'success'
+        ? 'bg-emerald-400'
+        : 'bg-muted-foreground/30'
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/25">
-          <tr className="border-b border-border/60">
-            <th className="px-4 py-3 text-left font-medium text-foreground">Action</th>
-            <th className="px-4 py-3 text-left font-medium text-foreground">Condition</th>
-            <th className="px-4 py-3 text-left font-medium text-foreground">Effet système</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.action} className="border-b border-border/50 last:border-b-0">
-              <td className="px-4 py-3 align-top font-medium text-foreground">{row.action}</td>
-              <td className="px-4 py-3 align-top text-muted-foreground">{row.condition}</td>
-              <td className="px-4 py-3 align-top text-muted-foreground">{row.outcome}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0">
+      <span className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', dotColor)} />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-xs leading-5 text-muted-foreground">{children}</p>
+      </div>
     </div>
   )
 }
 
+// Compact callout — no shadow
 function Callout({
   icon: Icon,
-  title,
   children,
   tone = 'default',
 }: {
   icon: typeof Clock3
-  title: string
   children: React.ReactNode
   tone?: 'default' | 'warning'
 }) {
   return (
     <div
       className={cn(
-        'rounded-2xl border px-4 py-4',
+        'flex items-start gap-3 rounded-lg border px-4 py-3 text-xs leading-5',
         tone === 'warning'
-          ? 'border-amber-500/25 bg-amber-500/8'
-          : 'border-border/60 bg-muted/20',
+          ? 'border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-300'
+          : 'border-border/40 bg-muted/20 text-muted-foreground',
       )}
     >
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            'rounded-lg p-2',
-            tone === 'warning'
-              ? 'bg-amber-500/12 text-amber-700 dark:text-amber-300'
-              : 'bg-muted text-muted-foreground',
-          )}
-        >
-          <Icon className="size-4" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          <div className="text-sm leading-7 text-muted-foreground">{children}</div>
-        </div>
-      </div>
+      <Icon className="mt-0.5 size-3.5 shrink-0 opacity-60" />
+      <span>{children}</span>
     </div>
   )
 }
 
+// Flat section block — no shadow
 function SectionBlock({
   id,
   eyebrow,
   title,
-  summary,
   children,
 }: {
   id: SectionId
   eyebrow: string
   title: string
-  summary: string
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-24 space-y-5">
-      <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+    <div id={id} className="scroll-mt-24 space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">
           {eyebrow}
-        </p>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-          <p className="max-w-3xl text-sm leading-7 text-muted-foreground">{summary}</p>
-        </div>
+        </span>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
       </div>
-      <div className="space-y-5 text-sm leading-7 text-muted-foreground">{children}</div>
-    </section>
+      <div className="rounded-lg border border-border/40 bg-card px-4 py-2 space-y-0">
+        {children}
+      </div>
+    </div>
   )
+}
+
+// Status legend pills
+const STATUS_LEGEND = [
+  { label: 'Brouillon', color: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400', note: 'Configuration en attente' },
+  { label: 'Actif', color: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400', note: 'Opérationnel' },
+  { label: 'En pause', color: 'bg-amber-500/10 text-amber-700 dark:text-amber-400', note: 'Suspendu temporairement' },
+  { label: 'Suspendu', color: 'bg-orange-500/10 text-orange-700 dark:text-orange-400', note: 'Fermeture en cours (30j)' },
+  { label: 'Archivé', color: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400', note: 'Lecture seule, définitif' },
+]
+
+const DEMO_PROGRAM: ProgramRecord = {
+  id: 'demo-program-123',
+  business_id: 'biz-1',
+  business_name: 'Business Example',
+  slug: 'programme-vip-gold',
+  name: 'Programme VIP Gold',
+  description: 'Programme de parrainage exclusif avec de fortes récompenses par transaction.',
+  status: 'active',
+  commission_type: 'per-transaction',
+  points_per_transaction: 500,
+  exchange_mode: 'both',
+  points_per_euro: 10,
+  eligibility_criteria: null,
+  rule_version: 1,
+  starts_at: null,
+  ends_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  activated_at: new Date().toISOString(),
+  paused_at: null,
+  suspended_at: null,
+  suspension_deadline_at: null,
+  exchange_pack: null,
+  assigned_agents_count: 5,
+  has_open_prospects: true,
+  actions: {
+    can_create: false,
+    can_update: true,
+    can_edit_general: false,
+    can_edit_cash: false,
+    can_edit_rewards: true,
+    can_pause: true,
+    can_reactivate: false,
+    can_suspend: false,
+    can_lift_suspension: false,
+    can_activate: false,
+    can_archive: false,
+    can_delete_from_archive: false,
+    can_soft_delete: false,
+    can_assign_agent: true,
+  },
 }
 
 export function ProgramDocsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>('vue-densemble')
 
-  const sectionIds = useMemo(() => docSections.map((section) => section.id), [])
+  const sectionIds = useMemo(() => docSections.map((s) => s.id), [])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
-          .filter((entry) => entry.isIntersecting)
+          .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-
-        if (visible.length > 0) {
-          setActiveSection(visible[0]!.target.id as SectionId)
-        }
+        if (visible.length > 0) setActiveSection(visible[0]!.target.id as SectionId)
       },
-      {
-        rootMargin: '-18% 0px -62% 0px',
-        threshold: [0.1, 0.25, 0.5, 0.75],
-      },
+      { rootMargin: '-18% 0px -62% 0px', threshold: [0.1, 0.25, 0.5, 0.75] },
     )
-
     sectionIds.forEach((id) => {
       const node = document.getElementById(id)
       if (node) observer.observe(node)
     })
-
     return () => observer.disconnect()
   }, [sectionIds])
 
   const scrollToSection = (id: SectionId) => {
-    const node = document.getElementById(id)
-    if (!node) return
-    node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setActiveSection(id)
   }
 
   return (
     <section className="app-section">
-      <div className="mb-8 flex items-center gap-3">
+      {/* Back + title */}
+      <div className="mb-6 flex items-center gap-3">
         <Button asChild variant="ghost" size="icon" className="size-8">
           <Link to="/programs" aria-label="Retour aux programmes">
             <ArrowLeft className="size-4" aria-hidden />
           </Link>
         </Button>
-        <h2 className="text-base font-semibold text-foreground sm:text-lg">
-          Documentation des programmes
-        </h2>
+        <div className="flex items-center gap-2">
+          <BookText className="size-4 text-muted-foreground" />
+          <h1 className="text-base font-semibold text-foreground">Documentation — Programmes</h1>
+        </div>
       </div>
 
-      <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_220px]">
-        <div className="min-w-0">
-          <div className="max-w-4xl space-y-10">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3 py-1 text-xs font-medium text-muted-foreground">
-                <BookText className="size-3.5" />
-                Référence métier côté Business Owner
-              </div>
+      {/* Tag strip */}
+      <div className="mb-8 flex flex-wrap gap-2">
+        <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1 text-xs">
+          <ShieldAlert className="size-3" />
+          Règles backend prioritaires
+        </Badge>
+        <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1 text-xs">
+          <Clock3 className="size-3" />
+          Archivage après 30 jours
+        </Badge>
+        <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1 text-xs">
+          <BellRing className="size-3" />
+          Notifications agents
+        </Badge>
+      </div>
 
-              <div className="space-y-4">
-                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground">
-                  Comprendre les règles de vie d&apos;un programme
-                </h1>
-                <p className="max-w-3xl text-base leading-8 text-muted-foreground">
-                  Cette page décrit les règles réellement appliquées par le backend sur la création,
-                  l&apos;édition, l&apos;assignation, la suspension, l&apos;archivage et la suppression
-                  d&apos;un programme. Si l&apos;interface semble autoriser ou masquer une action, c&apos;est
-                  toujours le backend qui tranche.
-                </p>
-              </div>
+      <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_210px]">
+        {/* ── Main content ── */}
+        <div className="min-w-0 max-w-3xl space-y-10">
 
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1">
-                  <ShieldAlert className="size-3.5" />
-                  Règles backend prioritaires
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1">
-                  <Clock3 className="size-3.5" />
-                  Archivage après 30 jours de suspension
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1">
-                  <BellRing className="size-3.5" />
-                  Notifications agents automatiques
-                </Badge>
-              </div>
+          {/* ── 01 Vue d'ensemble ── */}
+          <div id="vue-densemble" className="scroll-mt-24 space-y-5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/50">01</span>
+              <h2 className="text-base font-semibold text-foreground">Vue d'ensemble</h2>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Édition
-                </p>
-                <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  Les réglages généraux et cash se verrouillent dès qu&apos;un agent actif ou un
-                  prospect existe déjà.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Suspension
-                </p>
-                <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  Impossible tant qu&apos;il reste des prospects ouverts dans le programme.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Suppression
-                </p>
-                <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  Recommandée après archivage, sauf cas très limité d&apos;un programme encore vide.
-                </p>
-              </div>
+            <p className="text-sm text-muted-foreground leading-6">
+              Un programme est votre contrat commercial central — il définit la commission, l'échange et les affiliés autorisés. Le backend recalcule toujours les droits réels avant chaque action.
+            </p>
+            {/* Demo card — non-clickable */}
+            <div className="pointer-events-none select-none opacity-90">
+              <ProgramCard program={DEMO_PROGRAM} mode="owner" />
             </div>
-
-            <Separator />
-
-            <SectionBlock
-              id="vue-densemble"
-              eyebrow="01"
-              title="Vue d'ensemble"
-              summary="Un programme pilote à la fois les règles de commission, le mode d'échange, un pack rewards éventuel et les affiliés autorisés à prospecter dessus."
-            >
-              <p>
-                Dans le frontend, un programme sert de cadre commercial. Il détermine comment les
-                points sont attribués, si un échange cash est autorisé, quel pack rewards est
-                rattaché et quels agents peuvent l&apos;utiliser. Les permissions d&apos;écran ne suffisent
-                pas : avant chaque action, le backend recalcule ce qui est réellement permis.
-              </p>
-              <RuleTable
-                rows={[
-                  {
-                    action: 'Créer un programme',
-                    condition: 'Permission programme.create dans le business courant.',
-                    outcome:
-                      'Le programme est créé avec ses règles de base et son statut initial demandé.',
-                  },
-                  {
-                    action: 'Voir un programme',
-                    condition: 'Permission programme.view.',
-                    outcome:
-                      'La ressource renvoie aussi les indicateurs d’actions possibles calculés côté backend.',
-                  },
-                  {
-                    action: 'Faire évoluer le cycle de vie',
-                    condition: 'Permissions programme.update ou programme.pause selon l’action.',
-                    outcome:
-                      'Le backend revalide les prérequis métier avant de modifier le statut.',
-                  },
-                ]}
-              />
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="creation-et-activation"
-              eyebrow="02"
-              title="Création et activation"
-              summary="Les prérequis changent selon le type de commission et le mode d'échange sélectionné."
-            >
-              <RuleTable
-                rows={[
-                  {
-                    action: 'Créer en mode transaction',
-                    condition: 'Le champ points par transaction doit être renseigné.',
-                    outcome: 'Sinon la création ou la mise à jour est refusée.',
-                  },
-                  {
-                    action: 'Activer un échange cash ou both',
-                    condition: 'Le champ points par euro doit être défini.',
-                    outcome: "Sans taux cash, l'activation est refusée.",
-                  },
-                  {
-                    action: 'Activer un échange reward ou both',
-                    condition: 'Un pack rewards du business doit être sélectionné.',
-                    outcome: "Sans pack rewards, l'activation est refusée.",
-                  },
-                  {
-                    action: 'Activer un brouillon',
-                    condition: 'Statut courant = draft avec tous les prérequis remplis.',
-                    outcome:
-                      'Le programme passe à active et les agents actifs déjà assignés peuvent être notifiés.',
-                  },
-                ]}
-              />
-              <p>
-                Le backend accepte les statuts de création <InlineCode>draft</InlineCode>,{' '}
-                <InlineCode>active</InlineCode> et <InlineCode>paused</InlineCode>. Pour certains
-                types comme le revenue tier, le statut par défaut reste{' '}
-                <InlineCode>draft</InlineCode> afin d&apos;obliger une validation avant usage.
-              </p>
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="modification"
-              eyebrow="03"
-              title="Modification du programme"
-              summary="Dès qu'un programme est utilisé sur le terrain, le backend verrouille les réglages les plus structurants."
-            >
-              <p>
-                Le backend fait une différence entre les réglages généraux/cash et le pack rewards.
-                Dès qu&apos;un agent actif est assigné ou qu&apos;un prospect existe déjà sur le programme,
-                les changements qui peuvent casser l&apos;historique commercial sont bloqués.
-              </p>
-              <RuleTable
-                rows={[
-                  {
-                    action:
-                      'Modifier nom, description, type de commission, statut, dates ou critères',
-                    condition: 'Aucun agent actif assigné et aucun prospect déjà lié.',
-                    outcome: 'Sinon la modification est refusée.',
-                  },
-                  {
-                    action: 'Modifier le cash (points / euro)',
-                    condition: 'Aucun agent actif assigné et aucun prospect déjà lié.',
-                    outcome: 'Sinon la modification est refusée.',
-                  },
-                  {
-                    action: 'Modifier le pack rewards',
-                    condition: 'Programme non archivé.',
-                    outcome:
-                      'Autorisé même si des agents ou prospects existent déjà sur le programme.',
-                  },
-                ]}
-              />
-              <Callout icon={Zap} title="Exception importante">
-                Le pack rewards reste modifiable après usage. Lorsqu&apos;il change, le backend incrémente
-                la version de règle du programme et peut prévenir les agents déjà assignés.
-              </Callout>
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="assignation-des-agents"
-              eyebrow="04"
-              title="Assignation des agents"
-              summary="L'assignation reste gérée au niveau du business, mais elle est verrouillée dès qu'un affilié a réellement commencé à prospecter."
-            >
-              <RuleTable
-                rows={[
-                  {
-                    action: 'Assigner un agent',
-                    condition:
-                      'Permission programme.assign-agent et agent appartenant bien au business.',
-                    outcome:
-                      "Assignation active enregistrée, notification in-app créée, email possible si le programme n'est pas en draft.",
-                  },
-                  {
-                    action: 'Retirer un agent',
-                    condition:
-                      "Autorisé uniquement si cet agent n'a encore créé aucun prospect dans ce programme.",
-                    outcome:
-                      "Sinon le retrait est refusé pour préserver l'historique de prospection.",
-                  },
-                  {
-                    action: 'Réassigner un agent retiré',
-                    condition: 'Même agent + même programme.',
-                    outcome:
-                      'La relation est réactivée avec une nouvelle date d’assignation.',
-                  },
-                ]}
-              />
-              <p>
-                En pratique, un agent qui a déjà lancé de la prospection sur un programme devient un
-                point d&apos;ancrage métier. Le backend empêche sa désassignation pour éviter de casser
-                les liens de suivi, les attributions futures ou la lecture du pipeline.
-              </p>
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="cycle-de-vie"
-              eyebrow="05"
-              title="Pause, suspension et réactivation"
-              summary="La pause stoppe temporairement l'activité. La suspension ouvre une période de fermeture contrôlée avant archivage."
-            >
-              <RuleTable
-                rows={[
-                  {
-                    action: 'Pause',
-                    condition: "Le frontend l'expose depuis un programme actif.",
-                    outcome:
-                      'Le programme passe à paused et les agents reçoivent une information de pause.',
-                  },
-                  {
-                    action: 'Réactivation après pause',
-                    condition: 'Statut actuel = paused.',
-                    outcome:
-                      'Retour à active, remise à zéro de paused_at, notifications de reprise.',
-                  },
-                  {
-                    action: 'Suspension',
-                    condition:
-                      'Statut actuel = active ou paused, avec zéro prospect ouvert restant.',
-                    outcome:
-                      'Le programme passe à suspended et une date limite à J+30 est calculée.',
-                  },
-                  {
-                    action: 'Réactivation après suspension',
-                    condition: 'Statut actuel = suspended.',
-                    outcome:
-                      "Retour à active tant que le programme n'a pas été archivé.",
-                  },
-                ]}
-              />
-              <Callout icon={Clock3} title="Blocage critique avant suspension" tone="warning">
-                Le backend refuse la suspension tant qu&apos;un prospect conserve le statut{' '}
-                <InlineCode>open</InlineCode>. Il faut d&apos;abord fermer, convertir ou requalifier ces
-                prospects avant d&apos;engager la suspension.
-              </Callout>
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="archivage-et-suppression"
-              eyebrow="06"
-              title="Archivage et suppression"
-              summary="L'archivage est la vraie étape de fermeture. La suppression reste une opération finale et plus encadrée."
-            >
-              <RuleTable
-                rows={[
-                  {
-                    action: 'Archiver un programme',
-                    condition:
-                      'Statut = suspended et date limite de suspension dépassée après 30 jours.',
-                    outcome: 'Le programme passe à archived.',
-                  },
-                  {
-                    action: 'Supprimer un programme archivé',
-                    condition: 'Statut = archived.',
-                    outcome: 'Suppression autorisée.',
-                  },
-                  {
-                    action: 'Supprimer un programme non archivé',
-                    condition: 'Aucune assignation agent active et aucun prospect lié.',
-                    outcome:
-                      "Toléré uniquement pour un programme encore vide et jamais réellement exploité.",
-                  },
-                ]}
-              />
-              <Callout icon={Archive} title="Chemin recommandé par le backend">
-                Pour un programme déjà utilisé, le scénario propre est{' '}
-                <InlineCode>active/paused</InlineCode> {'->'} <InlineCode>suspended</InlineCode>{' '}
-                {'->'} attendre 30 jours {'->'} <InlineCode>archived</InlineCode> {'->'} suppression
-                si nécessaire.
-              </Callout>
-            </SectionBlock>
-
-            <Separator />
-
-            <SectionBlock
-              id="notifications"
-              eyebrow="07"
-              title="Notifications automatiques"
-              summary="Plusieurs changements de programme déclenchent automatiquement une information vers les agents concernés."
-            >
-              <RuleTable
-                rows={[
-                  {
-                    action: "Activation d'un brouillon",
-                    condition: 'Le programme passe de draft à active.',
-                    outcome:
-                      "Notification d'assignation envoyée aux agents actifs déjà liés.",
-                  },
-                  {
-                    action: 'Pause',
-                    condition: 'Pause enregistrée avec succès.',
-                    outcome:
-                      'Email et notification de pause envoyés aux agents assignés.',
-                  },
-                  {
-                    action: 'Suspension',
-                    condition: 'Suspension enregistrée avec succès.',
-                    outcome:
-                      'Email et notification de suspension envoyés aux agents.',
-                  },
-                  {
-                    action: 'Réactivation',
-                    condition: 'Sortie de paused ou suspended.',
-                    outcome:
-                      'Notification de reprise envoyée aux agents assignés.',
-                  },
-                  {
-                    action: 'Changement de pack rewards',
-                    condition: 'Le pack rewards lié au programme change.',
-                    outcome:
-                      'Notification de mise à jour rewards envoyée aux agents assignés.',
-                  },
-                  {
-                    action: 'Assignation ou désassignation agent',
-                    condition: 'Synchronisation des agents validée.',
-                    outcome:
-                      'Notification in-app et email ciblé à chaque agent concerné.',
-                  },
-                ]}
-              />
-              <p>
-                Ces notifications n&apos;assouplissent aucune règle métier. Elles servent uniquement à
-                informer les agents qu&apos;un programme change d&apos;état, qu&apos;un pack évolue ou que leur
-                périmètre d&apos;utilisation a été modifié.
-              </p>
-            </SectionBlock>
+            {/* Status legend */}
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+              {STATUS_LEGEND.map((s) => (
+                <div key={s.label} className="flex flex-col gap-1 rounded-lg border border-border/30 bg-card px-3 py-2.5">
+                  <span className={cn('self-start rounded-full px-2 py-0.5 text-[11px] font-semibold', s.color)}>
+                    {s.label}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground leading-4">{s.note}</span>
+                </div>
+              ))}
+            </div>
           </div>
+
+          {/* ── 02 Création ── */}
+          <SectionBlock id="creation-et-activation" eyebrow="02" title="Création et activation">
+            <RuleRow label="Mode transaction">Champ points/transaction obligatoire.</RuleRow>
+            <RuleRow label="Échange cash ou mixte">Taux points/euro obligatoire.</RuleRow>
+            <RuleRow label="Échange rewards ou mixte">Pack rewards du business obligatoire.</RuleRow>
+            <RuleRow label="Activer un brouillon" tone="success">
+              Draft → Active. Les agents actifs déjà assignés sont notifiés.
+            </RuleRow>
+          </SectionBlock>
+
+          {/* ── 03 Modification ── */}
+          <SectionBlock id="modification" eyebrow="03" title="Modification">
+            <RuleRow label="Réglages généraux & cash" tone="warning">
+              Verrouillés dès qu'un agent actif ou un prospect existe déjà.
+            </RuleRow>
+            <RuleRow label="Pack rewards" tone="success">
+              Toujours modifiable, même après usage. La version de règle est incrémentée automatiquement.
+            </RuleRow>
+          </SectionBlock>
+
+          {/* ── 04 Assignation ── */}
+          <SectionBlock id="assignation-des-agents" eyebrow="04" title="Assignation des agents">
+            <RuleRow label="Assigner un affilié" tone="success">
+              Permission assign-agent requise. Notification in-app créée. Email si programme non brouillon.
+            </RuleRow>
+            <RuleRow label="Retirer un affilié" tone="warning">
+              Impossible si l'affilié a déjà créé au moins un prospect sur ce programme.
+            </RuleRow>
+            <RuleRow label="Réassigner un affilié retiré">
+              Relation réactivée avec une nouvelle date d'assignation.
+            </RuleRow>
+          </SectionBlock>
+
+          {/* ── 05 Cycle de vie ── */}
+          <SectionBlock id="cycle-de-vie" eyebrow="05" title="Cycle de vie">
+            <RuleRow label="Pause">Actif → En pause. Notifications de pause envoyées aux affiliés.</RuleRow>
+            <RuleRow label="Réactivation après pause" tone="success">
+              En pause → Actif. Notifications de reprise envoyées.</RuleRow>
+            <RuleRow label="Suspension" tone="warning">
+              Actif/Pause → Suspendu. Deadline J+30 calculée. Aucun prospect ouvert autorisé.
+            </RuleRow>
+            <RuleRow label="Réactivation après suspension" tone="success">
+              Suspendu → Actif tant que non archivé.
+            </RuleRow>
+            <div className="pt-2">
+              <Callout icon={Clock3} tone="warning">
+                La suspension est bloquée tant qu'au moins un prospect est encore <strong>ouvert</strong>. Fermez ou convertissez-les d'abord.
+              </Callout>
+            </div>
+          </SectionBlock>
+
+          {/* ── 06 Archivage ── */}
+          <SectionBlock id="archivage-et-suppression" eyebrow="06" title="Archivage et suppression">
+            <RuleRow label="Archiver">Suspendu + délai 30 jours dépassé → Archivé.</RuleRow>
+            <RuleRow label="Supprimer (archivé)" tone="success">Autorisé depuis le statut Archivé.</RuleRow>
+            <RuleRow label="Supprimer (non archivé)" tone="warning">
+              Toléré uniquement si aucune assignation ni prospect — programme jamais exploité.
+            </RuleRow>
+            <div className="pt-2">
+              <Callout icon={Archive}>
+                Chemin recommandé : Actif → Suspendu → attendre 30 j → Archivé → Suppression.
+              </Callout>
+            </div>
+          </SectionBlock>
+
+          {/* ── 07 Notifications ── */}
+          <SectionBlock id="notifications" eyebrow="07" title="Notifications automatiques">
+            <RuleRow label="Activation d'un brouillon">Email + notification aux affiliés actifs déjà assignés.</RuleRow>
+            <RuleRow label="Pause / Suspension">Email + notification envoyés à tous les affiliés assignés.</RuleRow>
+            <RuleRow label="Réactivation">Notification de reprise envoyée aux affiliés.</RuleRow>
+            <RuleRow label="Changement de pack rewards">Notification de mise à jour rewards envoyée aux affiliés.</RuleRow>
+            <RuleRow label="Assignation / désassignation">Notification in-app et email ciblé à chaque affilié.</RuleRow>
+          </SectionBlock>
         </div>
 
+        {/* ── Sidebar ── */}
         <aside className="hidden xl:block">
-          <div className="sticky top-24 space-y-6">
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Sur cette page
-              </p>
-              <nav className="space-y-1">
-                {docSections.map((section) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => scrollToSection(section.id)}
-                    className={cn(
-                      'w-full border-l pl-4 pr-2 py-1.5 text-left text-sm transition-colors',
-                      activeSection === section.id
-                        ? 'border-primary text-foreground'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
-                    )}
-                  >
-                    {section.title}
-                  </button>
-                ))}
-              </nav>
-            </div>
+          <div className="sticky top-24 space-y-4">
+            {/* Nav */}
+            <Card className="shadow-none border-border/40">
+              <CardHeader className="py-3 px-4 border-b border-border/30">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                  Sur cette page
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                <nav className="flex flex-col">
+                  {docSections.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => scrollToSection(section.id)}
+                      className={cn(
+                        'w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors',
+                        activeSection === section.id
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      {section.title}
+                    </button>
+                  ))}
+                </nav>
+              </CardContent>
+            </Card>
 
-            <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-background p-2 text-muted-foreground shadow-sm">
-                  <FileText className="size-4" />
-                </div>
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-foreground">À retenir</p>
-                  <div className="grid gap-2 text-xs leading-6 text-muted-foreground">
-                    <div className="flex items-start gap-2">
-                      <Zap className="mt-1 size-3.5 shrink-0" />
-                      <span>Le pack rewards reste le seul bloc vraiment flexible après usage.</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <UserPlus className="mt-1 size-3.5 shrink-0" />
-                      <span>
-                        Un agent ayant déjà créé des prospects ne peut plus être retiré du programme.
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Archive className="mt-1 size-3.5 shrink-0" />
-                      <span>L&apos;archivage n&apos;est possible qu&apos;après 30 jours de suspension.</span>
-                    </div>
+            {/* Key reminders */}
+            <Card className="shadow-none border-border/40 bg-muted/10">
+              <CardContent className="p-4 space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">À retenir</p>
+                <div className="space-y-2.5 text-xs text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <Zap className="mt-0.5 size-3 shrink-0 text-primary" />
+                    <span>Le pack rewards reste flexible après usage.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <UserPlus className="mt-0.5 size-3 shrink-0 text-primary" />
+                    <span>Un affilié avec prospects est verrouillé au programme.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-primary" />
+                    <span>Suspension impossible avec des prospects ouverts.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Archive className="mt-0.5 size-3 shrink-0 text-primary" />
+                    <span>30 jours de suspension avant archivage.</span>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </aside>
       </div>

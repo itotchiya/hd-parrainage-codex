@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   ArrowRightLeft,
   Clock3,
   Coins,
+  FilterX,
   Lock,
   Search,
   Undo2,
@@ -13,7 +14,7 @@ import {
 
 import { useAuthSession } from '@/features/auth/session'
 import { fetchAgents } from '@/features/agents/api'
-import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
 import { fetchPrograms } from '@/features/programs/api'
@@ -23,7 +24,6 @@ import { SortableTableHead, type SortDirection } from '@/components/app/Sortable
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -42,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ApiError } from '@/lib/api'
 import type {
   PointsLedgerEntryStatus,
@@ -72,23 +73,23 @@ type LedgerSortKey =
 
 const statusPresentation: Record<PointsLedgerEntryStatus, { label: string; className: string }> = {
   pending: {
-    label: 'Pending',
+    label: 'En attente',
     className: 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
   },
   available: {
-    label: 'Available',
+    label: 'Disponible',
     className: 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
   },
   locked: {
-    label: 'Reserved',
+    label: 'Réservé',
     className: 'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
   },
   consumed: {
-    label: 'Consumed',
+    label: 'Consommé',
     className: 'border-transparent bg-muted text-muted-foreground',
   },
   reversed: {
-    label: 'Reversed',
+    label: 'Annulé',
     className: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
   },
 }
@@ -112,28 +113,28 @@ function pointsTime(value: string | null) {
 }
 
 function exchangeModeLabel(mode: string | null) {
-  if (mode === 'reward') return 'Reward only'
-  if (mode === 'cash') return 'Cash only'
-  if (mode === 'both') return 'Reward + cash'
-  return 'Not configured'
+  if (mode === 'reward') return 'Récompense uniquement'
+  if (mode === 'cash') return 'Cash uniquement'
+  if (mode === 'both') return 'Récompense + cash'
+  return 'Non configuré'
 }
 
 function ledgerEntryLabel(entry: PointsLedgerRecord) {
   switch (entry.entry_type) {
     case 'accrual':
-      return entry.entry_status === 'pending' ? 'Projected accrual' : 'Confirmed accrual'
+      return entry.entry_status === 'pending' ? 'Acquisition projetée' : 'Acquisition confirmée'
     case 'hold':
-      return 'Pending release'
+      return 'Libération en attente'
     case 'release':
-      return 'Available release'
+      return 'Libération disponible'
     case 'spend':
-      return 'Exchange consumption'
+      return 'Consommation (échange)'
     case 'refund':
-      return 'Refund'
+      return 'Remboursement'
     case 'adjustment':
-      return 'Manual adjustment'
+      return 'Ajustement manuel'
     case 'reversal':
-      return 'Reversal'
+      return 'Annulation'
     default:
       return entry.source
   }
@@ -141,11 +142,11 @@ function ledgerEntryLabel(entry: PointsLedgerRecord) {
 
 function ledgerEntryDescription(entry: PointsLedgerRecord) {
   if (entry.entry_type === 'accrual' && entry.entry_status === 'pending') {
-    return 'Projected points awaiting transaction validation. Not yet spendable.'
+    return 'Points projetés en attente de validation. Non dépensables.'
   }
 
   if (entry.entry_type === 'accrual' && entry.entry_status === 'available') {
-    return 'Validated transaction converted into spendable points.'
+    return 'Transaction validée et points convertis (dépensables).'
   }
 
   return entry.description ?? entry.source
@@ -226,7 +227,13 @@ function PointsPageSkeleton() {
         title={<Skeleton className="h-6 w-32" />}
         right={
           <PageHeaderToolbar>
-            <Skeleton className="h-8 w-32 rounded-md" />
+            <Skeleton className="h-8 w-full sm:w-[240px]" />
+            <Skeleton className="h-8 w-full sm:w-[150px]" />
+            <Skeleton className="h-8 w-full sm:w-[150px]" />
+            <Skeleton className="h-8 w-full sm:w-[170px]" />
+            <Skeleton className="h-8 w-full sm:w-[140px]" />
+            <Skeleton className="h-8 w-full sm:w-[140px]" />
+            <Skeleton className="h-8 w-40 rounded-md" />
           </PageHeaderToolbar>
         }
       />
@@ -251,18 +258,9 @@ function PointsPageSkeleton() {
       </article>
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-80 max-w-full" />
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-            <Skeleton className="h-8 w-full sm:w-[240px]" />
-            <Skeleton className="h-8 w-full sm:w-[150px]" />
-            <Skeleton className="h-8 w-full sm:w-[150px]" />
-            <Skeleton className="h-8 w-full sm:w-[140px]" />
-            <Skeleton className="h-8 w-full sm:w-[140px]" />
-          </div>
+        <div className="mb-3 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-80 max-w-full" />
         </div>
 
         <div className="overflow-hidden rounded-lg bg-background/40">
@@ -281,7 +279,7 @@ export function PointsPage() {
   const isAgentView = Boolean(user?.agent_profile)
   const canViewAgents = !isAgentView && hasPermission('agent.view')
   const canViewPrograms = hasPermission('program.view')
-  const roleLabel = isAgentView ? 'Agent view' : 'Business view'
+
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | PointsLedgerEntryStatus>('all')
@@ -289,6 +287,15 @@ export function PointsPage() {
   const [agentFilter, setAgentFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
+  const hasActiveFilters =
+    search !== '' ||
+    statusFilter !== 'all' ||
+    programFilter !== 'all' ||
+    agentFilter !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== ''
+
   const [walletPage, setWalletPage] = useState(1)
   const [walletPageSize, setWalletPageSize] = useState(10)
   const [ledgerPage, setLedgerPage] = useState(1)
@@ -320,16 +327,19 @@ export function PointsPage() {
   const summaryQuery = useQuery({
     queryKey: ['points', 'summary', scopedQueryParams],
     queryFn: () => fetchPointsSummary(scopedQueryParams),
+    placeholderData: keepPreviousData,
   })
 
   const byProgramQuery = useQuery({
     queryKey: ['points', 'by-program', scopedQueryParams],
     queryFn: () => fetchPointsByProgram(scopedQueryParams),
+    placeholderData: keepPreviousData,
   })
 
   const ledgerQuery = useQuery({
     queryKey: ['points', 'ledger', ledgerQueryParams],
     queryFn: () => fetchPointsLedger(ledgerQueryParams),
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   })
 
@@ -361,7 +371,7 @@ export function PointsPage() {
       new Map(
         programWallets
           .filter((wallet) => wallet.program_id && wallet.program_name)
-          .map((wallet) => [wallet.program_id, { id: wallet.program_id, name: wallet.program_name ?? 'Program' }]),
+          .map((wallet) => [wallet.program_id, { id: wallet.program_id, name: wallet.program_name ?? 'Programme' }]),
       ).values(),
     ).sort((left, right) => left.name.localeCompare(right.name))
   }, [programWallets, programsQuery.data?.data])
@@ -377,7 +387,7 @@ export function PointsPage() {
       new Map(
         ledgerEntries
           .filter((entry) => entry.agent_id && entry.agent_name)
-          .map((entry) => [entry.agent_id, { id: entry.agent_id, name: entry.agent_name ?? 'Affiliate' }]),
+          .map((entry) => [entry.agent_id, { id: entry.agent_id, name: entry.agent_name ?? 'Affilié' }]),
       ).values(),
     ).sort((left, right) => left.name.localeCompare(right.name))
   }, [agentsQuery.data?.data, ledgerEntries])
@@ -450,7 +460,10 @@ export function PointsPage() {
     if (ledgerPage !== safeLedgerPage) setLedgerPage(safeLedgerPage)
   }, [ledgerPage, safeLedgerPage])
 
-  if (summaryQuery.isPending || byProgramQuery.isPending || ledgerQuery.isPending) {
+  const isInitialLoading = summaryQuery.isLoading || byProgramQuery.isLoading || ledgerQuery.isLoading
+  const isStale = summaryQuery.isPlaceholderData || byProgramQuery.isPlaceholderData || ledgerQuery.isPlaceholderData
+
+  if (isInitialLoading) {
     return <PointsPageSkeleton />
   }
 
@@ -478,45 +491,121 @@ export function PointsPage() {
     )
   }
 
-  const availableBalance = summary?.available_points ?? 0
-
   return (
     <section className="app-section">
       <PageHeader
-        title="Points Ledger"
-        titleAddon={<Badge variant="secondary">{roleLabel}</Badge>}
+        title="Points"
         right={
-          isAgentView ? (
-            <PageHeaderToolbar>
-              <div className="hidden items-center text-sm text-muted-foreground md:flex">
-                <span className="mr-1 font-semibold text-foreground">
-                  {availableBalance.toLocaleString('fr-FR')}
-                </span>
-                <span>points ready for exchange</span>
-              </div>
-              <Button asChild>
-                <Link to="/payouts">Use your points</Link>
-              </Button>
-            </PageHeaderToolbar>
-          ) : undefined
+          <PageHeaderToolbar>
+            {hasActiveFilters ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => {
+                        setSearch('')
+                        setStatusFilter('all')
+                        setProgramFilter('all')
+                        setAgentFilter('all')
+                        setDateFrom('')
+                        setDateTo('')
+                      }}
+                      aria-label="Effacer les filtres"
+                    >
+                      <FilterX className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Effacer les filtres</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+
+            <div className="relative w-full sm:w-[240px] shrink-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 w-full"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PointsLedgerEntryStatus)}>
+              <SelectTrigger aria-label="Filter by ledger status" className="w-full sm:w-[160px] shrink-0"><SelectValue placeholder="Tous statuts" /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Statut</SelectLabel>
+                    <SelectItem value="all">Tous statuts</SelectItem>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="available">Disponible</SelectItem>
+                    <SelectItem value="locked">Réservé</SelectItem>
+                    <SelectItem value="consumed">Consommé</SelectItem>
+                    <SelectItem value="reversed">Annulé</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+            <Select value={programFilter} onValueChange={setProgramFilter}>
+              <SelectTrigger aria-label="Filter by program" className="w-full sm:w-[180px] shrink-0"><SelectValue placeholder="All programs" /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Programme</SelectLabel>
+                    <SelectItem value="all">Tous programmes</SelectItem>
+                    {programOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectGroup>
+                </SelectContent>
+            </Select>
+
+            {canViewAgents ? (
+              <Select value={agentFilter} onValueChange={setAgentFilter}>
+                <SelectTrigger aria-label="Filter by agent" className="w-full sm:w-[180px] shrink-0"><SelectValue placeholder="Tous affiliés" /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Affilié</SelectLabel>
+                    <SelectItem value="all">Tous affiliés</SelectItem>
+                    {agentOptions.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de début"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="w-full sm:w-[148px]"
+              aria-label="Date de fin"
+            />
+          </PageHeaderToolbar>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard title="Projected points" value={projectedPoints.toLocaleString('fr-FR')} description="From open prospects" badge={kpiSnapshotBadge('Projection')} icon={Coins} tone="primary" help="Projection formula: sum of estimated points for every open prospect in scope, using the program rule and the latest detected or pending transaction when available. This KPI is not computed from the visible ledger rows." />
-        <KpiCard title="Pending release" value={(summary?.pending_points ?? 0).toLocaleString('fr-FR')} description="Waiting validation" badge={kpiSnapshotBadge('Holding')} icon={Clock3} tone="warning" help="Pending release formula: sum of ledger rows where status = pending. These rows can be positive, but they are not spendable and are excluded from Available balance." />
-        <KpiCard title="Available balance" value={(summary?.available_points ?? 0).toLocaleString('fr-FR')} description="Ready to use" badge={kpiSnapshotBadge('Wallet')} icon={Wallet} tone="success" help="Available balance formula: sum of ledger rows where status = available. Pending release, reserved exchange holds, consumed entries, and reversals are excluded from this tile." />
-        <KpiCard title="Reserved for exchange" value={(summary?.locked_points ?? 0).toLocaleString('fr-FR')} description="Locked in requests" badge={kpiSnapshotBadge('Reserved')} icon={Lock} tone="info" help="Reserved formula: absolute sum of ledger rows where status = locked. This is not a net balance; it is the amount currently held out of the spendable wallet." />
-        <KpiCard title="Consumed" value={(summary?.consumed_points ?? 0).toLocaleString('fr-FR')} description="Already spent" badge={kpiSnapshotBadge('Settled')} icon={ArrowRightLeft} tone="primary" help="Consumed formula: absolute sum of ledger rows where status = consumed. This tile shows what has already been spent, not what remains in the wallet." />
-        <KpiCard title="Reversed" value={(summary?.reversed_points ?? 0).toLocaleString('fr-FR')} description="Removed or clawed back" badge={kpiSnapshotBadge('Adjustments')} icon={Undo2} tone="warning" help="Reversed formula: absolute sum of ledger rows where status = reversed. These rows represent clawbacks or corrective removals from the points ledger." />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard title="Solde disponible" value={(summary?.available_points ?? 0).toLocaleString('fr-FR')} description="Prêt à l'emploi" icon={Wallet} tone="success" variant="solid" help="Formule du solde disponible : somme des entrées du registre avec statut = disponible. Les libérations en attente, les réservations pour échange, les éléments consommés et annulés sont exclus." isLoading={isStale} />
+        <KpiCard title="Libération en attente" value={(summary?.pending_points ?? 0).toLocaleString('fr-FR')} description="En attente de validation" icon={Clock3} tone="warning" variant="solid" help="Somme des points en attente. Non utilisables pour le moment." isLoading={isStale} />
+        <KpiCard title="Réservé pour échange" value={(summary?.locked_points ?? 0).toLocaleString('fr-FR')} description="Bloqué dans les demandes" icon={Lock} tone="info" variant="solid" help="Montant actuellement bloqué depuis le portefeuille disponible (statut = réservé)." isLoading={isStale} />
+        <KpiCard title="Consommé" value={(summary?.consumed_points ?? 0).toLocaleString('fr-FR')} description="Déjà dépensé" icon={ArrowRightLeft} tone="danger" variant="solid" help="Point déjà consommés (échangés)." isLoading={isStale} />
+        <KpiCard title="Annulé" value={(summary?.reversed_points ?? 0).toLocaleString('fr-FR')} description="Retiré ou repris" icon={Undo2} tone="warning" className="lg:col-span-2" help="Points retirés." isLoading={isStale} />
+        <KpiCard title="Points projetés" value={projectedPoints.toLocaleString('fr-FR')} description="Des prospects ouverts" icon={Coins} tone="primary" className="lg:col-span-2" help="Formule de projection : somme des points estimés pour chaque prospect en cours, via la règle du programme." isLoading={isStale} />
       </div>
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
-        <DashboardSectionHeader title="Program Wallets" description="Operational wallet view by program, with usable balance, reserved volume, and open prospect load." />
+        <DashboardSectionHeader title={isAgentView ? 'Mes portefeuilles' : 'Portefeuilles des programmes'} />
 
         {totalWallets === 0 ? (
           <p className="rounded-lg border border-border px-4 py-5 text-sm text-muted-foreground">
-            No wallet is available for the current scope.
+            Aucun portefeuille n'est disponible pour la sélection actuelle.
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
@@ -524,13 +613,13 @@ export function PointsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableTableHead sortKey="program" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort}>Program</SortableTableHead>
-                    <SortableTableHead sortKey="exchange" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden md:table-cell">Exchange mode</SortableTableHead>
-                    <SortableTableHead sortKey="available" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="text-right" align="right">Available</SortableTableHead>
-                    <SortableTableHead sortKey="pending" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden md:table-cell text-right" align="right">Pending</SortableTableHead>
-                    <SortableTableHead sortKey="reserved" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden xl:table-cell text-right" align="right">Reserved</SortableTableHead>
-                    <SortableTableHead sortKey="consumed" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden xl:table-cell text-right" align="right">Consumed</SortableTableHead>
-                    <SortableTableHead sortKey="open-prospects" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden lg:table-cell text-right" align="right">Open prospects</SortableTableHead>
+                    <SortableTableHead sortKey="program" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort}>Programme</SortableTableHead>
+                    <SortableTableHead sortKey="exchange" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden md:table-cell">Mode d'échange</SortableTableHead>
+                    <SortableTableHead sortKey="available" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="text-right" align="right">Disponible</SortableTableHead>
+                    <SortableTableHead sortKey="pending" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden md:table-cell text-right" align="right">En attente</SortableTableHead>
+                    <SortableTableHead sortKey="reserved" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden xl:table-cell text-right" align="right">Réservé</SortableTableHead>
+                    <SortableTableHead sortKey="consumed" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden xl:table-cell text-right" align="right">Consommé</SortableTableHead>
+                    <SortableTableHead sortKey="open-prospects" activeKey={walletSortKey} direction={walletSortDirection} onSort={handleWalletSort} className="hidden lg:table-cell text-right" align="right">Prospects en cours</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -538,9 +627,9 @@ export function PointsPage() {
                     <TableRow key={wallet.program_id}>
                       <TableCell className="min-w-[240px]">
                         <div className="space-y-1">
-                          <Link to={`/programs/${wallet.program_id}`} className="font-medium text-foreground underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{wallet.program_name ?? wallet.program_slug ?? 'Program'}</Link>
+                          <Link to={`/programs/${wallet.program_id}`} className="font-medium text-foreground underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{wallet.program_name ?? wallet.program_slug ?? 'Programme'}</Link>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span>{wallet.ledger_entry_count.toLocaleString('fr-FR')} ledger entries</span>
+                            <span>{wallet.ledger_entry_count.toLocaleString('fr-FR')} entrées</span>
                             {wallet.exchange_pack_name ? <span>{wallet.exchange_pack_name}</span> : null}
                           </div>
                         </div>
@@ -548,7 +637,7 @@ export function PointsPage() {
                       <TableCell className="hidden md:table-cell">
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-foreground">{exchangeModeLabel(wallet.exchange_mode)}</p>
-                          <p className="text-xs text-muted-foreground">{wallet.exchange_pack_name ?? 'No active exchange pack'}</p>
+                          <p className="text-xs text-muted-foreground">{wallet.exchange_pack_name ?? 'Aucun pack actif'}</p>
                         </div>
                       </TableCell>
                       <TableCell className="text-right"><span className="text-sm font-semibold text-foreground">{wallet.available_points.toLocaleString('fr-FR')}</span></TableCell>
@@ -568,72 +657,12 @@ export function PointsPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title="Points Ledger"
-          description="Audit history of point movements, linked entities, and effective balance changes."
-          actions={
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-              <Field className="min-w-[240px]">
-                <FieldLabel htmlFor="points-search" className="sr-only">Search the ledger</FieldLabel>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="points-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search an entry..." className="pl-9" />
-                </div>
-              </Field>
-
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | PointsLedgerEntryStatus)}>
-                <SelectTrigger aria-label="Filter by ledger status" className="min-w-[150px]"><SelectValue placeholder="All statuses" /></SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Status</SelectLabel>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="locked">Reserved</SelectItem>
-                    <SelectItem value="consumed">Consumed</SelectItem>
-                    <SelectItem value="reversed">Reversed</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-
-              <Select value={programFilter} onValueChange={setProgramFilter}>
-                <SelectTrigger aria-label="Filter by program" className="min-w-[170px]"><SelectValue placeholder="All programs" /></SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Program</SelectLabel>
-                    <SelectItem value="all">All programs</SelectItem>
-                    {programOptions.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-
-              {canViewAgents ? (
-                <Select value={agentFilter} onValueChange={setAgentFilter}>
-                  <SelectTrigger aria-label="Filter by agent" className="min-w-[170px]"><SelectValue placeholder="All affiliates" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Affiliate</SelectLabel>
-                      <SelectItem value="all">All affiliates</SelectItem>
-                      {agentOptions.map((agent) => <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>)}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              ) : null}
-
-              <Field>
-                <FieldLabel htmlFor="points-date-from" className="sr-only">Date from</FieldLabel>
-                <Input id="points-date-from" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="points-date-to" className="sr-only">Date to</FieldLabel>
-                <Input id="points-date-to" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
-              </Field>
-            </div>
-          }
+          title={isAgentView ? 'Mon historique de points' : 'Historique des points'}
         />
 
         {totalLedgerEntries === 0 ? (
           <p className="rounded-lg border border-border px-4 py-5 text-sm text-muted-foreground">
-            No ledger entry matches the current filters.
+            Aucune entrée ne correspond aux filtres.
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
@@ -641,13 +670,13 @@ export function PointsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableTableHead sortKey="entry" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort}>Entry</SortableTableHead>
-                    <SortableTableHead sortKey="status" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort}>Status</SortableTableHead>
-                    <SortableTableHead sortKey="delta" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="text-right" align="right">Delta</SortableTableHead>
-                    <SortableTableHead sortKey="program" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="hidden lg:table-cell">Program</SortableTableHead>
+                    <SortableTableHead sortKey="entry" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort}>Entrée</SortableTableHead>
+                    <SortableTableHead sortKey="status" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort}>Statut</SortableTableHead>
+                    <SortableTableHead sortKey="delta" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="text-right" align="right">Montant</SortableTableHead>
+                    <SortableTableHead sortKey="program" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="hidden lg:table-cell">Programme</SortableTableHead>
                     <SortableTableHead sortKey="prospect" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="hidden xl:table-cell">Prospect</SortableTableHead>
                     <SortableTableHead sortKey="transaction" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="hidden xl:table-cell">Transaction</SortableTableHead>
-                    <SortableTableHead sortKey="effective" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="text-right" align="right">Effective</SortableTableHead>
+                    <SortableTableHead sortKey="effective" activeKey={ledgerSortKey} direction={ledgerSortDirection} onSort={handleLedgerSort} className="text-right" align="right">Date</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -661,20 +690,20 @@ export function PointsPage() {
                             <p className="font-medium text-foreground">{ledgerEntryLabel(entry)}</p>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span>{ledgerEntryDescription(entry)}</span>
-                              {entry.exchange_request_id ? <Link to={`/payouts/${entry.exchange_request_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">Open exchange</Link> : null}
+                              {entry.exchange_request_id ? <Link to={`/payouts/${entry.exchange_request_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">Voir l'échange</Link> : null}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell><Badge className={statusPresentation[entry.entry_status].className}>{statusPresentation[entry.entry_status].label}</Badge></TableCell>
                         <TableCell className={`text-right font-medium ${ledgerDeltaClassName(entry)}`}>{formatSignedPoints(entry.points_delta)}</TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          {entry.program_id ? <Link to={`/programs/${entry.program_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.program_name ?? 'Program'}</Link> : <span className="text-muted-foreground">No program</span>}
+                          {entry.program_id ? <Link to={`/programs/${entry.program_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.program_name ?? 'Programme'}</Link> : <span className="text-muted-foreground">Sans programme</span>}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
-                          {prospectPath ? <Link to={prospectPath} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.prospect_name ?? 'Prospect'}</Link> : <span className="text-muted-foreground">No prospect</span>}
+                          {prospectPath ? <Link to={prospectPath} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.prospect_name ?? 'Prospect'}</Link> : <span className="text-muted-foreground">Sans prospect</span>}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
-                          {entry.transaction_id ? <Link to={`/transactions/${entry.transaction_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.transaction_reference ?? 'Open transaction'}</Link> : <span className="text-muted-foreground">No transaction</span>}
+                          {entry.transaction_id ? <Link to={`/transactions/${entry.transaction_id}`} className="underline underline-offset-4 decoration-border transition-colors hover:text-primary hover:decoration-primary">{entry.transaction_reference ?? 'Transaction'}</Link> : <span className="text-muted-foreground">Sans transaction</span>}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">{entry.effective_at ? formatDashboardDateTimeFr(entry.effective_at) : 'Indisponible'}</TableCell>
                       </TableRow>

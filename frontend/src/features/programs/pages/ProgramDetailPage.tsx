@@ -1022,7 +1022,6 @@ export function ProgramDetailPage() {
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
           title="Agents assignés"
-          description="Agents actuellement assignés à ce programme."
         />
         <div className="mb-3">
           <label className="sr-only" htmlFor="program-agents-search">
@@ -1131,7 +1130,6 @@ export function ProgramDetailPage() {
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
           title="Prospects du programme"
-          description="Prospects soumis via ce programme spécifique."
         />
         {canViewProspects ? (
           <div className="mb-3">
@@ -1450,6 +1448,7 @@ export function ProgramDetailPage() {
                     <Item variant="outline" className={isLockedAssigned ? 'opacity-85' : undefined}>
                       <ItemMedia>
                         <Avatar className="size-10">
+                          <AvatarImage src={agent.avatar_url ?? undefined} alt={agent.display_name ?? agent.email ?? 'Agent'} />
                           <AgentAvatarFallback seed={agent.id}>
                             {agentRecordInitials(agent)}
                           </AgentAvatarFallback>
@@ -1560,7 +1559,7 @@ export function ProgramDetailPage() {
               <Input
                 value={deleteConfirmName}
                 onChange={(event) => setDeleteConfirmName(event.target.value)}
-                placeholder="Type the full program name"
+                placeholder="Saisissez le nom complet du programme"
               />
             </div>
           ) : null}

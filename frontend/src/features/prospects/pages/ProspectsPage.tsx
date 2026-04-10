@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { BadgeCheck, Eye, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Thermometer, Trash2, User, XCircle } from 'lucide-react'
+import { BadgeCheck, CheckSquare, Eye, FilterX, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Square, Thermometer, Trash2, User, XCircle } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
-import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge, type KpiTone } from '../../dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton, type KpiTone } from '../../dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '../../dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateTimeFr } from '../../dashboard/utils/semanticBadges'
 import { fetchPrograms } from '../../programs/api'
@@ -20,7 +20,7 @@ import {
 import { buildProspectDetailPath } from '../paths'
 import { addLocalIacrmProspect } from '../../iacrm/prospectStore'
 import { getIacrmConfig } from '../../iacrm/api'
-import { PageHeader } from '@/components/app/PageHeader'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
 import { Badge } from '@/components/ui/badge'
@@ -105,10 +105,10 @@ const stagePresentation: Record<
 }
 
 const submissionPresentation: Record<ProspectSubmissionStatus, string> = {
-  pending_sync: 'Pending sync',
-  synced: 'Synced',
-  sync_failed: 'Sync failed',
-  deleted: 'Deleted',
+  pending_sync: 'Synchro en attente',
+  synced: 'Synchronisé',
+  sync_failed: 'Échec synchro',
+  deleted: 'Supprimé',
 }
 
 function submissionBadgeClass(status: ProspectSubmissionStatus): string {
@@ -304,10 +304,13 @@ export function ProspectsPage() {
 
   const sourceQuery = showDeleted ? deletedProspectsQuery : prospectsQuery
   const prospects = sourceQuery.data?.data ?? []
+  const kpiProspects = prospectsQuery.data?.data ?? []
   const assignedPrograms = assignedProgramsQuery.data?.data ?? []
   const eligiblePrograms = assignedPrograms.filter((program) => program.status === 'active')
   const createError = createMutation.error as ApiError | null
   const deleteError = deleteMutation.error as ApiError | null
+
+  const hasActiveFilters = search.trim() !== '' || stageFilter !== 'all' || selectedAgentId !== 'all' || showDeleted
 
   useEffect(() => {
     if (!queryWantsCreate) {
@@ -405,22 +408,28 @@ export function ProspectsPage() {
     if (page !== pageSafe) setPage(pageSafe)
   }, [page, pageSafe])
 
-  const activeProspects = prospects.filter((prospect) => prospect.deleted_at === null)
+  const kpiProspectsByAgent = useMemo(() => {
+    return kpiProspects.filter((prospect) => {
+      return selectedAgentId === 'all' || prospect.agent_id === selectedAgentId
+    })
+  }, [kpiProspects, selectedAgentId])
+
+  const activeProspects = kpiProspectsByAgent.filter((prospect) => prospect.deleted_at === null)
   const convertedProspectCount = activeProspects.filter(
     (prospect) => prospect.conversion_status === 'converted',
   ).length
   const lostProspectCount = activeProspects.filter(
     (prospect) => prospect.conversion_status === 'lost',
   ).length
-  const stageCards = !showDeleted
-    ? Object.entries(stagePresentation).map(([key, value]) => ({
-        key,
-        ...value,
-        count: activeProspects.filter(
-          (prospect) => prospect.conversion_status === 'open' && prospect.pipeline_stage === key,
-        ).length,
-      }))
-    : []
+  const stageCards = Object.entries(stagePresentation).map(([key, value]) => ({
+    key,
+    ...value,
+    count: activeProspects.filter(
+      (prospect) => prospect.conversion_status === 'open' && prospect.pipeline_stage === key,
+    ).length,
+  }))
+
+  const isKpiLoading = prospectsQuery.isFetching && prospectsQuery.isPlaceholderData
 
   if (sourceQuery.isPending) {
     return <ProspectsPageSkeleton />
@@ -436,229 +445,167 @@ export function ProspectsPage() {
 
   return (
     <section className="app-section">
-      <PageHeader title="Prospects" />
+      <PageHeader
+        title="Prospects"
+        right={
+          <PageHeaderToolbar>
+            {hasActiveFilters ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => {
+                        setSearch('')
+                        setStageFilter('all')
+                        setSelectedAgentId('all')
+                        setShowDeleted(false)
+                      }}
+                      aria-label="Effacer les filtres"
+                    >
+                      <FilterX className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Effacer les filtres</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
 
-      {!showDeleted ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
-          {stageCards.map((stage) => {
-            const stageKey = stage.key as ProspectPipelineStage
-            return (
-              <KpiCard
-                key={stage.key}
-                title={stage.label}
-                value={stage.count.toString()}
-                description="Prospects dans cette étape du funnel"
-                badge={kpiSnapshotBadge('Pipeline')}
-                icon={stageKpiIcons[stageKey]}
-                tone={stageKpiTones[stageKey]}
-              />
-            )
-          })}
-          <KpiCard
-            title="Converti"
-            value={convertedProspectCount.toLocaleString('fr-FR')}
-            description="Prospects ayant produit un résultat commercial validé"
-            badge={kpiSnapshotBadge('Résultat')}
-            icon={BadgeCheck}
-            tone="success"
-          />
-          <KpiCard
-            title="Perdu"
-            value={lostProspectCount.toLocaleString('fr-FR')}
-            description="Prospects marqués comme perdus par IACRM"
-            badge={kpiSnapshotBadge('Résultat')}
-            icon={XCircle}
-            tone="danger"
-          />
-        </div>
-      ) : (
-        <article className="rounded-lg border border-dashed border-border bg-muted/15 px-4 py-4 text-sm text-muted-foreground">
-          Deleted records stay visible for audit and correction history.
-        </article>
-      )}
+            <Field className="w-full sm:w-[240px] shrink-0">
+              <FieldLabel htmlFor="prospects-search" className="sr-only">
+                Rechercher un filleul
+              </FieldLabel>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="prospects-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Rechercher par nom, email..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+
+            <Select
+              value={stageFilter}
+              onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
+            >
+              <SelectTrigger className="w-full sm:w-[160px] shrink-0">
+                <SelectValue placeholder="Étape pipeline" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Étape pipeline</SelectLabel>
+                  <SelectItem value="all">Tous statuts</SelectItem>
+                  {Object.entries(stagePresentation).map(([key, stage]) => (
+                    <SelectItem key={key} value={key}>
+                      {stage.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="converted">Converti</SelectItem>
+                  <SelectItem value="lost">Perdu</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            {hasPermission('prospect.view') && user?.agent_profile === null ? (
+              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                <SelectTrigger className="w-full sm:w-[180px] shrink-0">
+                  <SelectValue placeholder="Agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Agent</SelectLabel>
+                    <SelectItem value="all">Tous</SelectItem>
+                    {agentOptions.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDeleted((c) => !c)}
+              className={`shrink-0 ${showDeleted ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15' : ''}`}
+              aria-pressed={showDeleted}
+            >
+              {showDeleted ? <CheckSquare className="size-4" aria-hidden /> : <Square className="size-4" aria-hidden />}
+              Éléments supprimés
+            </Button>
+
+            {canSubmitProspects ? (
+              <Button
+                type="button"
+                className="gap-2 shrink-0"
+                onClick={() => setMethodDialogOpen(true)}
+                disabled={eligiblePrograms.length === 0}
+              >
+                <Plus className="size-4" aria-hidden />
+                Nouveau filleul
+              </Button>
+            ) : null}
+          </PageHeaderToolbar>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {stageCards.map((stage) => {
+          const stageKey = stage.key as ProspectPipelineStage
+          return (
+            <KpiCard
+              key={stage.key}
+              title={stage.label}
+              value={stage.count.toString()}
+              description="Prospects dans cette étape du funnel"
+              icon={stageKpiIcons[stageKey]}
+              tone={stageKpiTones[stageKey]}
+              isLoading={isKpiLoading}
+            />
+          )
+        })}
+        <KpiCard
+          title="Converti"
+          value={convertedProspectCount.toLocaleString('fr-FR')}
+          description="Prospects ayant produit un résultat commercial validé"
+          icon={BadgeCheck}
+          tone="success"
+          isLoading={isKpiLoading}
+        />
+        <KpiCard
+          title="Perdu"
+          value={lostProspectCount.toLocaleString('fr-FR')}
+          description="Prospects marqués comme perdus par IACRM"
+          icon={XCircle}
+          tone="danger"
+          isLoading={isKpiLoading}
+        />
+      </div>
 
       {filteredProspects.length === 0 ? (
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
-            title={showDeleted ? 'Deleted prospects' : 'Prospect inventory'}
-            actions={
-              <>
-                <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
-                  <FieldLabel htmlFor="prospects-search" className="sr-only">
-                    Search prospects
-                  </FieldLabel>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="prospects-search"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Contact, company, program, agent..."
-                      className="pl-9"
-                    />
-                  </div>
-                </Field>
-
-                <Select
-                  value={stageFilter}
-                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
-                  disabled={showDeleted}
-                >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                    <SelectValue placeholder="Étape" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Étape pipeline</SelectLabel>
-                      <SelectItem value="all">Tous</SelectItem>
-                      {Object.entries(stagePresentation).map(([key, stage]) => (
-                        <SelectItem key={key} value={key}>
-                          {stage.label}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="converted">Converti</SelectItem>
-                      <SelectItem value="lost">Perdu</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-
-                {hasPermission('prospect.view') && user?.agent_profile === null ? (
-                  <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                      <SelectValue placeholder="Agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Agent</SelectLabel>
-                        <SelectItem value="all">All</SelectItem>
-                        {agentOptions.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                ) : null}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDeleted((c) => !c)}
-                >
-                  {showDeleted ? 'Active prospects' : 'Deleted history'}
-                </Button>
-
-                {canSubmitProspects ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2 sm:shrink-0"
-                    onClick={() => setMethodDialogOpen(true)}
-                    disabled={eligiblePrograms.length === 0}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    New prospect
-                  </Button>
-                ) : null}
-              </>
-            }
+            title={isAgentView ? 'Mes prospects' : 'Tous les prospects'}
           />
           <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
-            <p className="app-eyebrow">Prospect inventory</p>
+            <p className="app-eyebrow">Liste des filleuls</p>
             <h2 className="mt-2 text-lg font-semibold text-foreground">
-              No prospects match the current filter.
+              Aucun filleul ne correspond à votre recherche.
             </h2>
           </article>
         </article>
       ) : (
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
-            title={showDeleted ? 'Deleted prospects' : 'Prospect inventory'}
-            actions={
-              <>
-                <Field className="w-full sm:min-w-[180px] sm:max-w-[280px] sm:flex-1">
-                  <FieldLabel htmlFor="prospects-search" className="sr-only">
-                    Search prospects
-                  </FieldLabel>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="prospects-search"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Contact, company, program, agent..."
-                      className="pl-9"
-                    />
-                  </div>
-                </Field>
-
-                <Select
-                  value={stageFilter}
-                  onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
-                  disabled={showDeleted}
-                >
-                  <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                    <SelectValue placeholder="Étape" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Étape pipeline</SelectLabel>
-                      <SelectItem value="all">Tous</SelectItem>
-                      {Object.entries(stagePresentation).map(([key, stage]) => (
-                        <SelectItem key={key} value={key}>
-                          {stage.label}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="converted">Converti</SelectItem>
-                      <SelectItem value="lost">Perdu</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-
-                {hasPermission('prospect.view') && user?.agent_profile === null ? (
-                  <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-                    <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                      <SelectValue placeholder="Agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Agent</SelectLabel>
-                        <SelectItem value="all">All</SelectItem>
-                        {agentOptions.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                ) : null}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDeleted((c) => !c)}
-                >
-                  {showDeleted ? 'Active prospects' : 'Deleted history'}
-                </Button>
-
-                {canSubmitProspects ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2 sm:shrink-0"
-                    onClick={() => setMethodDialogOpen(true)}
-                    disabled={eligiblePrograms.length === 0}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    New prospect
-                  </Button>
-                ) : null}
-              </>
-            }
+            title={isAgentView ? 'Mes prospects' : 'Tous les prospects'}
           />
           <div className="overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
@@ -676,15 +623,19 @@ export function ProspectsPage() {
                       Contact
                     </SortableTableHead>
                     <TableHead className="hidden min-w-[11rem] sm:table-cell">Contacts</TableHead>
-                    <SortableTableHead
-                      sortKey="agent"
-                      activeKey={sortKey}
-                      direction={sortDirection}
-                      onSort={handleSort}
-                      className="hidden min-w-[8rem] lg:table-cell"
-                    >
-                      Agent
-                    </SortableTableHead>
+                    {isAgentView ? (
+                      <TableHead className="hidden min-w-[10rem] lg:table-cell">Programme</TableHead>
+                    ) : (
+                      <SortableTableHead
+                        sortKey="agent"
+                        activeKey={sortKey}
+                        direction={sortDirection}
+                        onSort={handleSort}
+                        className="hidden min-w-[8rem] lg:table-cell"
+                      >
+                        Agent
+                      </SortableTableHead>
+                    )}
                     <SortableTableHead
                       sortKey="pipeline"
                       activeKey={sortKey}
@@ -692,17 +643,19 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="min-w-[7.5rem]"
                     >
-                      Pipeline
+                      {isAgentView ? 'Statut' : 'Pipeline'}
                     </SortableTableHead>
-                    <SortableTableHead
-                      sortKey="sync"
-                      activeKey={sortKey}
-                      direction={sortDirection}
-                      onSort={handleSort}
-                      className="min-w-[8.5rem]"
-                    >
-                      Sync
-                    </SortableTableHead>
+                    {!isAgentView ? (
+                      <SortableTableHead
+                        sortKey="sync"
+                        activeKey={sortKey}
+                        direction={sortDirection}
+                        onSort={handleSort}
+                        className="min-w-[8.5rem]"
+                      >
+                        Synchro
+                      </SortableTableHead>
+                    ) : null}
                     <SortableTableHead
                       sortKey="submitted"
                       activeKey={sortKey}
@@ -710,7 +663,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[7rem] xl:table-cell"
                     >
-                      Submitted
+                      Soumis le
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="history"
@@ -719,7 +672,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[5.5rem] lg:table-cell"
                     >
-                      History
+                      Historique
                     </SortableTableHead>
                     {showDeleted ? (
                       <SortableTableHead
@@ -729,7 +682,7 @@ export function ProspectsPage() {
                         onSort={handleSort}
                         className="hidden min-w-[7rem] xl:table-cell"
                       >
-                        Removed
+                        Supprimé
                       </SortableTableHead>
                     ) : null}
                     <TableHead className="w-10 pe-2 text-end">
@@ -762,12 +715,6 @@ export function ProspectsPage() {
                           {prospect.company_name ? (
                             <p className="truncate text-xs text-muted-foreground">{prospect.company_name}</p>
                           ) : null}
-                          {isAgentView ? (
-                            <p className="truncate text-[11px] text-muted-foreground">
-                              {(prospect.program_name ?? 'Program') +
-                                (prospect.business_name ? ` · ${prospect.business_name}` : '')}
-                            </p>
-                          ) : null}
                           <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
                             Submitted {formatDashboardDateTimeFr(prospect.submitted_at)}
                           </p>
@@ -796,7 +743,7 @@ export function ProspectsPage() {
                               {prospect.contact_email}
                             </a>
                           ) : (
-                            <span className="text-muted-foreground">No email</span>
+                            <span className="text-muted-foreground">Pas d'email</span>
                           )}
                           {prospect.contact_phone_raw ? (
                             <a
@@ -807,12 +754,24 @@ export function ProspectsPage() {
                               {prospect.contact_phone_raw}
                             </a>
                           ) : (
-                            <span className="text-muted-foreground">No phone</span>
+                            <span className="text-muted-foreground">Pas de téléphone</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden max-w-[10rem] truncate text-sm text-muted-foreground lg:table-cell">
-                        {prospect.agent_id ? (
+                        {isAgentView ? (
+                          prospect.program_id && prospect.program_name ? (
+                            <Link
+                              to={`/programs/${prospect.program_id}`}
+                              className="text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {prospect.program_name}
+                            </Link>
+                          ) : (
+                            prospect.program_name ?? '—'
+                          )
+                        ) : prospect.agent_id ? (
                           <Link
                             to={`/agents/${prospect.agent_id}`}
                             className="text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
@@ -829,27 +788,29 @@ export function ProspectsPage() {
                           {stage.label}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge
-                            variant="outline"
-                            className={`w-fit text-xs capitalize ${submissionBadgeClass(prospect.submission_status)}`}
-                          >
-                            {submissionPresentation[prospect.submission_status].replace(/_/g, ' ')}
-                          </Badge>
-                          <span className="text-[11px] text-muted-foreground">
-                            {formatDashboardDateTimeFr(prospect.last_synced_at)}
-                          </span>
-                          {prospect.sync_error_message ? (
-                            <span
-                              className="line-clamp-2 text-[11px] text-amber-700 dark:text-amber-300"
-                              title={prospect.sync_error_message}
+                      {!isAgentView ? (
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant="outline"
+                              className={`w-fit text-xs capitalize ${submissionBadgeClass(prospect.submission_status)}`}
                             >
-                              {prospect.sync_error_message}
+                              {submissionPresentation[prospect.submission_status].replace(/_/g, ' ')}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground">
+                              {formatDashboardDateTimeFr(prospect.last_synced_at)}
                             </span>
-                          ) : null}
-                        </div>
-                      </TableCell>
+                            {prospect.sync_error_message ? (
+                              <span
+                                className="line-clamp-2 text-[11px] text-amber-700 dark:text-amber-300"
+                                title={prospect.sync_error_message}
+                              >
+                                {prospect.sync_error_message}
+                              </span>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      ) : null}
                       <TableCell className="hidden text-sm text-muted-foreground xl:table-cell">
                         {formatDashboardDateTimeFr(prospect.submitted_at)}
                       </TableCell>
@@ -1018,7 +979,7 @@ export function ProspectsPage() {
                                       onClick={() => setDeleteTarget(prospect)}
                                     >
                                       <Trash2 className="size-4 text-destructive" />
-                                      <span>Delete</span>
+                                      <span>Supprimer</span>
                                     </DropdownMenuItem>
                                   </>
                                 ) : null}

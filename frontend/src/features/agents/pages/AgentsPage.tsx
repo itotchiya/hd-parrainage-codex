@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
+import { Eye, FilterX, Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents, inviteAgent, reactivateAgent, suspendAgent } from '../api'
@@ -9,7 +9,7 @@ import { AddAgentDialog } from '../components/AddAgentDialog'
 import { AgentLifecycleConfirmDialog, type AgentLifecycleAction } from '../components/AgentActionDialogs'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
+import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import {
   agentStatusBadgeClass,
@@ -17,10 +17,10 @@ import {
   programStatusBadgeClass,
 } from '@/features/dashboard/utils/semanticBadges'
 import { DetailEmptyState } from '@/components/app/DetailPageKit'
-import { PageHeader } from '@/components/app/PageHeader'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
-import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -38,6 +38,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,6 +142,7 @@ export function AgentsPage() {
   const canSuspend = hasPermission('agent.suspend')
   const canReactivate = hasPermission('agent.reactivate')
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'suspended'>('all')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [pendingLifecycleAction, setPendingLifecycleAction] = useState<{
     type: AgentLifecycleAction
@@ -195,13 +205,20 @@ export function AgentsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return records
-    return records.filter((item) =>
-      [item.display_name ?? '', item.email ?? '', item.agent_code ?? ''].some((value) =>
-        value.toLowerCase().includes(q),
-      ),
-    )
-  }, [records, search])
+    return records.filter((item) => {
+      const matchSearch = !q || [item.display_name ?? '', item.email ?? '', item.agent_code ?? ''].some(value => value.toLowerCase().includes(q))
+      
+      const s = normalizeAgentStatus(item.status)
+      let mappedStatus = s
+      if (s === 'invited' || s === 'pending' || s === 'pending_activation') mappedStatus = 'pending'
+      else if (s === 'inactive' || s === 'suspended') mappedStatus = 'suspended'
+      
+      const matchStatus = statusFilter === 'all' || mappedStatus === statusFilter
+      return matchSearch && matchStatus
+    })
+  }, [records, search, statusFilter])
+
+  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all'
 
   const sortedAgents = useMemo(() => {
     if (!sortKey) return filtered
@@ -328,16 +345,83 @@ export function AgentsPage() {
         </DialogContent>
       </Dialog>
       <section className="app-section">
-        <PageHeader
-          title="Agents"
-        />
+      <PageHeader
+        title="Agents"
+        right={
+          <PageHeaderToolbar>
+            {hasActiveFilters ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => {
+                        setSearch('')
+                        setStatusFilter('all')
+                      }}
+                      aria-label="Effacer les filtres"
+                    >
+                      <FilterX className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Effacer les filtres</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+            <Field className="w-full sm:w-[240px] shrink-0">
+              <FieldLabel htmlFor="agents-search" className="sr-only">
+                Rechercher un affilié
+              </FieldLabel>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="agents-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Rechercher par nom, email ou code..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+            <Select
+              value={statusFilter}
+              onValueChange={(value: 'all' | 'active' | 'pending' | 'suspended') => setStatusFilter(value)}
+            >
+              <SelectTrigger className="w-full sm:w-[160px] shrink-0">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Statut</SelectLabel>
+                  <SelectItem value="all">Tous statuts</SelectItem>
+                  <SelectItem value="active">Actif</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="suspended">Suspendu</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {canInvite ? (
+              <Button
+                type="button"
+                className="gap-2 shrink-0"
+                onClick={() => setInviteOpen(true)}
+              >
+                <Plus className="size-4" aria-hidden />
+                Ajouter un affilié
+              </Button>
+            ) : null}
+          </PageHeaderToolbar>
+        }
+      />
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
             title="Affiliés"
             value={agentKpis.total.toLocaleString('fr-FR')}
             description="Nombre total d’affiliés enregistrés pour ce compte"
-            badge={kpiSnapshotBadge('Total')}
             icon={Users}
             tone="primary"
           />
@@ -345,7 +429,6 @@ export function AgentsPage() {
             title="Actifs"
             value={agentKpis.active.toLocaleString('fr-FR')}
             description="Comptes affiliés actifs et opérationnels"
-            badge={kpiSnapshotBadge('Actif')}
             icon={UserCheck}
             tone="success"
           />
@@ -353,7 +436,6 @@ export function AgentsPage() {
             title="Invitations en attente"
             value={agentKpis.pendingInvite.toLocaleString('fr-FR')}
             description="Invités ou en attente d’activation"
-            badge={kpiSnapshotBadge('Invitation')}
             icon={Mail}
             tone="info"
           />
@@ -361,7 +443,6 @@ export function AgentsPage() {
             title="Suspendus"
             value={agentKpis.suspended.toLocaleString('fr-FR')}
             description="Affiliés suspendus ou inactifs côté parrainage"
-            badge={kpiSnapshotBadge('Suspendu')}
             icon={UserX}
             tone="warning"
           />
@@ -370,41 +451,11 @@ export function AgentsPage() {
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
             title="Affiliés"
-            actions={
-              <>
-                <Field className="w-full sm:min-w-[200px] sm:max-w-[360px] sm:flex-1">
-                  <FieldLabel htmlFor="agents-search" className="sr-only">
-                    Search agents
-                  </FieldLabel>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="agents-search"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search by name, email, or code..."
-                      className="pl-9"
-                    />
-                  </div>
-                </Field>
-                {canInvite ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="gap-2 sm:shrink-0"
-                    onClick={() => setInviteOpen(true)}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    Add agent
-                  </Button>
-                ) : null}
-              </>
-            }
           />
 
           {totalFiltered === 0 ? (
             <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
-              No agents match the current filter.
+              Aucun affilié ne correspond à ces critères.
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
@@ -463,6 +514,7 @@ export function AgentsPage() {
                           aria-label={`Voir le profil de ${displayName}`}
                         >
                           <Avatar className="size-9 shrink-0">
+                            <AvatarImage src={agent.avatar_url ?? undefined} alt={displayName} />
                             <AgentAvatarFallback seed={agent.id} className="text-xs font-medium">
                               {initials(displayName)}
                             </AgentAvatarFallback>

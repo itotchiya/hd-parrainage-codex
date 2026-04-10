@@ -21,6 +21,8 @@ class Business extends Model
         'slug',
         'legal_name',
         'display_name',
+        'logo_url',
+        'logo_storage_path',
         'industry',
         'website_url',
         'contact_email',

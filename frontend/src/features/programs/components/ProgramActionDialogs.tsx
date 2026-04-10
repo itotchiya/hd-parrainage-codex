@@ -11,7 +11,7 @@ import { ApiError } from '../../../lib/api'
 import type { AgentRecord } from '../../../types/agents'
 import type { AssignedAgent, ExchangePackRecord, ProgramRecord } from '../../../types/programs'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { AgentAvatarFallback, Avatar } from '@/components/ui/avatar'
+import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -416,6 +416,7 @@ export function ProgramAssignmentDialog({
                   <Item variant="outline" className={isLockedAssigned ? 'opacity-85' : undefined}>
                     <ItemMedia>
                       <Avatar className="size-10">
+                        <AvatarImage src={agent.avatar_url ?? undefined} alt={agent.display_name ?? agent.email ?? 'Agent'} />
                         <AgentAvatarFallback seed={agent.id}>{agentInitials(agent)}</AgentAvatarFallback>
                       </Avatar>
                     </ItemMedia>

@@ -15,6 +15,7 @@ export interface SettingsPayload {
     id: string
     slug: string
     display_name: string
+    logo_url: string | null
     legal_name: string
     contact_email: string | null
     contact_phone: string | null

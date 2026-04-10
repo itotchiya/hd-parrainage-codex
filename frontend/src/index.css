@@ -151,15 +151,50 @@ html:not(.scroll-locked) .width-before-scroll-bar {
   margin-right: 0 !important;
 }
 
+/* Suppress per-element CSS transitions during theme switch so only the
+   view-transition crossfade is visible — no element-level staggering.
+   We only kill transition (not animation) to keep the view-transition
+   pseudo-element animations intact. */
+html.theme-switching *,
+html.theme-switching {
+  transition: none !important;
+}
+
+/* Theme switching — smooth dissolve via View Transitions API */
+::view-transition-old(root) {
+  animation: theme-dissolve-out 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: theme-dissolve-in 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes theme-dissolve-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes theme-dissolve-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* Fallback for browsers without View Transitions API */
 .theme-transition,
 .theme-transition * {
   transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease,
-    fill 220ms ease,
-    stroke 220ms ease,
-    box-shadow 220ms ease !important;
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    fill 200ms ease,
+    stroke 200ms ease !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

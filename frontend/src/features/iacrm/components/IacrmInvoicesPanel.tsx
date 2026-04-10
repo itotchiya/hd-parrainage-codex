@@ -76,7 +76,7 @@ export function IacrmInvoicesPanel() {
         </h2>
 
         {invoicesQuery.isPending ? (
-          <p className="mt-4 text-sm text-muted-foreground">Loading invoices...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Chargement des factures...</p>
         ) : invoicesQuery.isError ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             Failed to load invoices from IACRM.

@@ -1,22 +1,36 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Briefcase,
   Building2,
   CheckCircle2,
   Clock,
-  Receipt,
-  UserCheck,
-  XCircle,
+  Eye,
+  Globe,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
-import { approveBusiness, fetchBusinesses, rejectBusiness } from '../../businesses/api'
-import { useAuthSession } from '../../auth/session'
+import {
+  fetchBusinesses,
+  inviteBusiness,
+  resendBusinessInvitation,
+} from '../../businesses/api'
+import { useIacrmPlatformBusinesses } from '../../iacrm/hooks'
 import { KpiCard, KpiCardSkeleton, kpiSnapshotBadge } from './KpiCard'
+import { DashboardSectionHeader } from './DashboardSectionHeader'
+import { InviteBusinessDialog } from './InviteBusinessDialog'
+import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
+import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
+import { TablePaginationBar } from '@/components/app/TablePaginationBar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -25,35 +39,69 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { BusinessInvitePayload, BusinessRecord } from '../../../types/businesses'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    approved: 'border-emerald-400 bg-emerald-500/10 text-emerald-800',
-    pending: 'border-amber-300 bg-amber-500/10 text-amber-800',
-    rejected: 'border-red-300 bg-red-500/10 text-red-800',
+type DashboardSortKey = 'business' | 'status' | 'programs' | 'agents' | 'transactions'
+
+function statusBadge(status: string) {
+  const styles: Record<string, { label: string; className: string }> = {
+    approved: {
+      label: 'Actif',
+      className: 'border-emerald-400 bg-emerald-500/10 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    },
+    pending: {
+      label: 'En attente',
+      className: 'border-amber-300 bg-amber-500/10 text-amber-800 dark:border-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    },
+    rejected: {
+      label: 'Rejeté',
+      className: 'border-red-300 bg-red-500/10 text-red-800 dark:border-red-700 dark:bg-red-500/20 dark:text-red-300',
+    },
   }
-  const labels: Record<string, string> = {
-    approved: 'Approuvé',
-    pending: 'En attente',
-    rejected: 'Rejeté',
-  }
+  const s = styles[status] ?? { label: status, className: 'border-border bg-muted/40 text-muted-foreground' }
   return (
-    <Badge variant="outline" className={styles[status] ?? 'border-border bg-muted/40 text-muted-foreground'}>
-      {labels[status] ?? status}
+    <Badge variant="outline" className={s.className}>
+      {s.label}
     </Badge>
   )
 }
 
-function formatDate(value: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  })
+function compareBusinesses(a: BusinessRecord, b: BusinessRecord, key: DashboardSortKey, dir: SortDirection) {
+  const m = dir === 'asc' ? 1 : -1
+  switch (key) {
+    case 'business':
+      return a.display_name.localeCompare(b.display_name) * m
+    case 'status':
+      return a.status.localeCompare(b.status) * m
+    case 'programs':
+      return ((a.program_count ?? 0) - (b.program_count ?? 0)) * m
+    case 'agents':
+      return ((a.agent_count ?? 0) - (b.agent_count ?? 0)) * m
+    case 'transactions':
+      return ((a.transaction_count ?? 0) - (b.transaction_count ?? 0)) * m
+    default:
+      return 0
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -62,13 +110,30 @@ function formatDate(value: string | null) {
 
 function PlatformDashboardSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => <KpiCardSkeleton key={i} />)}
+    <section className="app-section">
+      <PageHeader
+        title={<Skeleton className="h-6 w-52" />}
+        right={<Skeleton className="h-9 w-36 rounded-md" />}
+      />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => <KpiCardSkeleton key={i} />)}
       </div>
-      <Skeleton className="h-64 w-full rounded-lg" />
-      <Skeleton className="h-48 w-full rounded-lg" />
-    </div>
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-5 w-24" />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Skeleton className="h-9 w-full sm:w-[260px]" />
+            <Skeleton className="h-9 w-full sm:w-[150px]" />
+          </div>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-lg bg-background/40">
+          <div className="h-11 bg-muted/30" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-16 border-t border-border/50 bg-card/70 first:border-t-0" />
+          ))}
+        </div>
+      </article>
+    </section>
   )
 }
 
@@ -78,30 +143,38 @@ function PlatformDashboardSkeleton() {
 
 export function PlatformDashboard() {
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuthSession()
-  const canApprove = hasPermission('business.approve')
-  const canReject = hasPermission('business.reject')
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [sortKey, setSortKey] = useState<DashboardSortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
-  const query = useQuery({
+  const businessesQuery = useQuery({
     queryKey: ['businesses', 'list'],
     queryFn: fetchBusinesses,
   })
 
-  const approveMutation = useMutation({
-    mutationFn: approveBusiness,
+  const iacrmQuery = useIacrmPlatformBusinesses()
+
+  const inviteMutation = useMutation({
+    mutationFn: (payload: BusinessInvitePayload) => inviteBusiness(payload),
+    onSuccess: async () => {
+      setInviteOpen(false)
+      await queryClient.invalidateQueries({ queryKey: ['businesses'] })
+    },
+  })
+
+  const resendMutation = useMutation({
+    mutationFn: resendBusinessInvitation,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['businesses'] })
     },
   })
 
-  const rejectMutation = useMutation({
-    mutationFn: rejectBusiness,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['businesses'] })
-    },
-  })
-
-  const businesses = query.data?.data ?? []
+  const businesses = businessesQuery.data?.data ?? []
+  const iacrmBusinesses = iacrmQuery.data?.data ?? []
 
   const summary = useMemo(
     () =>
@@ -120,250 +193,336 @@ export function PlatformDashboard() {
     [businesses],
   )
 
-  const pendingBusinesses = useMemo(
-    () => businesses.filter((b) => b.status === 'pending'),
-    [businesses],
-  )
+  // Filter + sort
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return businesses.filter((b) => {
+      const matchStatus = statusFilter === 'all' || b.status === statusFilter
+      const matchSearch =
+        !q ||
+        b.display_name.toLowerCase().includes(q) ||
+        b.legal_name.toLowerCase().includes(q) ||
+        (b.industry ?? '').toLowerCase().includes(q) ||
+        (b.owner?.display_name ?? '').toLowerCase().includes(q) ||
+        (b.owner?.email ?? '').toLowerCase().includes(q)
+      return matchStatus && matchSearch
+    })
+  }, [businesses, search, statusFilter])
 
-  const approvedBusinesses = useMemo(
-    () => businesses.filter((b) => b.status === 'approved'),
-    [businesses],
-  )
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered
+    return [...filtered].sort((a, b) => compareBusinesses(a, b, sortKey, sortDirection))
+  }, [filtered, sortKey, sortDirection])
 
-  const isMutating = approveMutation.isPending || rejectMutation.isPending
+  function handleSort(key: DashboardSortKey) {
+    setPage(1)
+    if (sortKey === key) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDirection('asc')
+  }
 
-  if (query.isPending) return <PlatformDashboardSkeleton />
+  useEffect(() => { setPage(1) }, [search, statusFilter])
 
-  if (query.isError) {
+  const totalFiltered = sorted.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
+  const pageSafe = Math.min(page, totalPages)
+  const pageSlice = useMemo(() => {
+    const start = (pageSafe - 1) * pageSize
+    return sorted.slice(start, start + pageSize)
+  }, [sorted, pageSafe, pageSize])
+
+  useEffect(() => {
+    if (page !== pageSafe) setPage(pageSafe)
+  }, [page, pageSafe])
+
+  // Existing IACRM IDs set
+  const existingIacrmIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const b of businesses) {
+      if (b.iacrm_business_id) ids.add(b.iacrm_business_id)
+      if (b.slug) ids.add(b.slug)
+    }
+    return ids
+  }, [businesses])
+
+  const isMutating = inviteMutation.isPending || resendMutation.isPending
+
+  if (businessesQuery.isPending) return <PlatformDashboardSkeleton />
+
+  if (businessesQuery.isError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {(query.error as ApiError).message}
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300">
+        {(businessesQuery.error as ApiError).message}
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {/* ── KPI strip ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+    <section className="app-section">
+      <PageHeader
+        title="Gouvernance de la plateforme"
+        right={
+          <PageHeaderToolbar>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => setInviteOpen(true)}
+            >
+              <Plus className="size-4" aria-hidden />
+              Inviter un business
+            </Button>
+          </PageHeaderToolbar>
+        }
+      />
+
+      {/* ── KPI strip ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Businesses"
+          title="Businesses Invités"
           value={summary.total.toString()}
-          description="Entités gouvernées"
+          description="Entités sur la plateforme"
           badge={kpiSnapshotBadge('Total')}
           icon={Building2}
           tone="primary"
         />
         <KpiCard
-          title="En attente"
+          title="En Attente"
           value={summary.pending.toString()}
-          description="Demandes d'approbation"
-          badge={{ tone: summary.pending > 0 ? 'warning' : 'neutral', label: summary.pending > 0 ? 'Action requise' : 'File vide', icon: null }}
+          description="Invitations non acceptées"
+          badge={{
+            tone: summary.pending > 0 ? 'warning' : 'neutral',
+            label: summary.pending > 0 ? 'Action requise' : 'File vide',
+            icon: null,
+          }}
           icon={Clock}
           tone="warning"
         />
         <KpiCard
-          title="Approuvés"
+          title="Actifs"
           value={summary.approved.toString()}
-          description="Businesses actifs"
+          description="Businesses opérationnels"
           badge={kpiSnapshotBadge('Actifs')}
           icon={CheckCircle2}
           tone="success"
         />
         <KpiCard
-          title="Programmes"
-          value={summary.programs.toString()}
-          description="Programmes sur la plateforme"
-          badge={kpiSnapshotBadge('Total')}
-          icon={Briefcase}
-          tone="info"
-        />
-        <KpiCard
-          title="Affiliés"
-          value={summary.agents.toString()}
-          description="Tous les affiliés inscrits"
-          badge={kpiSnapshotBadge('Total')}
-          icon={UserCheck}
-          tone="info"
-        />
-        <KpiCard
-          title="Transactions"
-          value={summary.transactions.toString()}
-          description="Transactions liées"
-          badge={kpiSnapshotBadge('Total')}
-          icon={Receipt}
+          title="Businesses IACRM"
+          value={iacrmQuery.isPending ? '...' : iacrmBusinesses.length.toString()}
+          description="Disponibles dans IACRM"
+          badge={kpiSnapshotBadge('Source')}
+          icon={Globe}
           tone="info"
         />
       </div>
 
-      {/* ── Pending review queue ────────────────────────────────────── */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                File d'approbation
-              </p>
-              <p className="mt-0.5 text-base font-semibold text-foreground">
-                {pendingBusinesses.length === 0
-                  ? 'Aucune demande en attente'
-                  : `${pendingBusinesses.length} business${pendingBusinesses.length > 1 ? 'es' : ''} à approuver`}
-              </p>
-            </div>
-            {summary.pending > 0 ? (
-              <Badge variant="outline" className="border-amber-300 bg-amber-500/10 text-amber-800 shrink-0">
-                {summary.pending} en attente
-              </Badge>
-            ) : null}
+      {/* ── Business table ─────────────────────────────────────── */}
+      <article className="rounded-lg bg-card p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <DashboardSectionHeader title="Businesses" />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Field className="w-full sm:w-auto">
+              <div className="relative w-full sm:w-[240px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="dashboard-business-search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher..."
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+            <Select
+              value={statusFilter}
+              onValueChange={(v: 'all' | 'pending' | 'approved' | 'rejected') => setStatusFilter(v)}
+            >
+              <SelectTrigger className="w-full sm:w-[160px] shrink-0">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Statut</SelectLabel>
+                  <SelectItem value="all">Tous statuts</SelectItem>
+                  <SelectItem value="approved">Actif</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="rejected">Rejeté</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
-          {pendingBusinesses.length === 0 ? (
-            <div className="flex flex-col items-center py-10 text-center">
-              <CheckCircle2 className="size-9 text-emerald-400" />
-              <p className="mt-3 text-sm font-medium text-foreground">File d'attente vide</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Tous les businesses ont été examinés.
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Propriétaire</TableHead>
-                  <TableHead>Secteur</TableHead>
-                  <TableHead>Soumis le</TableHead>
-                  {(canApprove || canReject) ? <TableHead className="text-right">Actions</TableHead> : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingBusinesses.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell>
-                      <div>
+        {totalFiltered === 0 ? (
+          <p className="mt-4 rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
+            Aucun business ne correspond au filtre actif.
+          </p>
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-lg border border-border">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10 text-center">#</TableHead>
+                    <SortableTableHead
+                      sortKey="business"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    >
+                      Business
+                    </SortableTableHead>
+                    <TableHead className="hidden sm:table-cell">Propriétaire</TableHead>
+                    <TableHead className="hidden md:table-cell">Secteur</TableHead>
+                    <SortableTableHead
+                      sortKey="status"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden md:table-cell"
+                    >
+                      Statut
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="programs"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden lg:table-cell"
+                      align="right"
+                    >
+                      Prog.
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="agents"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden lg:table-cell"
+                      align="right"
+                    >
+                      Affiliés
+                    </SortableTableHead>
+                    <SortableTableHead
+                      sortKey="transactions"
+                      activeKey={sortKey}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                      className="hidden xl:table-cell"
+                      align="right"
+                    >
+                      Transactions
+                    </SortableTableHead>
+                    <TableHead className="w-10 pe-2 text-end">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageSlice.map((item, index) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="text-center text-xs tabular-nums text-muted-foreground">
+                        {(pageSafe - 1) * pageSize + index + 1}
+                      </TableCell>
+                      <TableCell>
                         <Link
-                          to={`/businesses/${b.id}`}
-                          className="font-medium text-foreground hover:underline underline-offset-4"
+                          to={`/businesses/${item.id}`}
+                          className="group -m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                          {b.display_name}
+                          <Avatar className="size-9 shrink-0 rounded-md">
+                            <AvatarImage src={item.logo_url ?? undefined} alt={item.display_name} className="object-contain" />
+                            <AvatarFallback className="rounded-md text-xs font-semibold">
+                              {item.display_name.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground underline-offset-4 group-hover:underline">
+                              {item.display_name}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">{item.legal_name}</p>
+                          </div>
                         </Link>
-                        <p className="text-xs text-muted-foreground">{b.legal_name}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm">{b.owner?.display_name ?? '—'}</p>
-                        <p className="text-xs text-muted-foreground">{b.owner?.email ?? ''}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {b.industry ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {formatDate(b.created_at)}
-                    </TableCell>
-                    {(canApprove || canReject) ? (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {canApprove ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={isMutating}
-                              onClick={() => approveMutation.mutate(b.id)}
-                            >
-                              <CheckCircle2 className="mr-1.5 size-3.5" />
-                              Approuver
-                            </Button>
-                          ) : null}
-                          {canReject ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={isMutating}
-                              onClick={() => rejectMutation.mutate(b.id)}
-                            >
-                              <XCircle className="mr-1.5 size-3.5" />
-                              Rejeter
-                            </Button>
-                          ) : null}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div>
+                          <p className="text-sm">{item.owner?.display_name ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground">{item.owner?.email ?? ''}</p>
                         </div>
                       </TableCell>
-                    ) : null}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Approved businesses overview ────────────────────────────── */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="px-5 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Businesses approuvés
-            </p>
-            <p className="mt-0.5 text-base font-semibold text-foreground">
-              {approvedBusinesses.length} entité{approvedBusinesses.length !== 1 ? 's' : ''} active{approvedBusinesses.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-
-          {approvedBusinesses.length === 0 ? (
-            <div className="px-5 pb-8 text-center">
-              <p className="text-sm text-muted-foreground">Aucun business approuvé pour l'instant.</p>
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                        {item.industry ?? '—'}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {statusBadge(item.status)}
+                      </TableCell>
+                      <TableCell className="hidden text-right text-sm font-medium lg:table-cell">
+                        {(item.program_count ?? 0).toLocaleString('fr-FR')}
+                      </TableCell>
+                      <TableCell className="hidden text-right text-sm font-medium lg:table-cell">
+                        {(item.agent_count ?? 0).toLocaleString('fr-FR')}
+                      </TableCell>
+                      <TableCell className="hidden text-right text-sm font-medium xl:table-cell">
+                        {(item.transaction_count ?? 0).toLocaleString('fr-FR')}
+                      </TableCell>
+                      <TableCell className="pe-2 text-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label="Actions">
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/businesses/${item.id}`}>
+                                <Eye className="mr-2 size-3.5" />
+                                Voir les détails
+                              </Link>
+                            </DropdownMenuItem>
+                            {item.status === 'pending' ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={isMutating}
+                                  onClick={() => resendMutation.mutate(item.id)}
+                                >
+                                  <RefreshCw className="mr-2 size-3.5" />
+                                  Relancer l'invitation
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Propriétaire</TableHead>
-                  <TableHead>Secteur</TableHead>
-                  <TableHead>Programmes</TableHead>
-                  <TableHead>Affiliés</TableHead>
-                  <TableHead>Transactions</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {approvedBusinesses.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell>
-                      <Link
-                        to={`/businesses/${b.id}`}
-                        className="font-medium text-foreground hover:underline underline-offset-4"
-                      >
-                        {b.display_name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {b.owner?.display_name ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {b.industry ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {b.program_count ?? 0}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {b.agent_count ?? 0}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {b.transaction_count ?? 0}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={b.status} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            <TablePaginationBar
+              page={pageSafe}
+              pageSize={pageSize}
+              totalItems={totalFiltered}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        )}
+      </article>
+
+      {/* ── Invite Dialog ──────────────────────────────────────── */}
+      <InviteBusinessDialog
+        open={inviteOpen}
+        isPending={inviteMutation.isPending}
+        error={inviteMutation.isError ? (inviteMutation.error as ApiError) : null}
+        existingIacrmIds={existingIacrmIds}
+        onClose={() => {
+          setInviteOpen(false)
+          inviteMutation.reset()
+        }}
+        onSubmit={(payload) => inviteMutation.mutate(payload)}
+      />
+    </section>
   )
 }
