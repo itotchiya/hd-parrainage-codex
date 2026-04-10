@@ -108,7 +108,18 @@ class InvitationActivationController extends Controller
             ]);
         }
 
-        $businessId = $user->agentProfile?->business_id ?? $user->primaryBusinessAssignment?->business_id;
+        // Resolve businessId from any assignment (not just active ones), because
+        // the assignment is still 'invited' at this point and primaryBusinessAssignment
+        // filters to status='active' only.
+        $businessId = $user->agentProfile?->business_id;
+
+        if ($businessId === null) {
+            $anyAssignment = BusinessUserAssignment::query()
+                ->where('user_id', $user->id)
+                ->where('is_primary', true)
+                ->first();
+            $businessId = $anyAssignment?->business_id;
+        }
 
         DB::transaction(function () use ($user, $token, $payload, $businessId): void {
             $user->forceFill([
@@ -127,10 +138,11 @@ class InvitationActivationController extends Controller
             }
 
             if ($businessId !== null) {
+                // Activate both owner and agent assignments (was previously only 'agent')
                 BusinessUserAssignment::query()
                     ->where('business_id', $businessId)
                     ->where('user_id', $user->id)
-                    ->where('assignment_type', 'agent')
+                    ->whereIn('assignment_type', ['owner', 'agent'])
                     ->update([
                         'status' => 'active',
                         'activated_at' => now(),

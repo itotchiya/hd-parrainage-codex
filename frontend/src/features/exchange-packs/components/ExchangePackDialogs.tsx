@@ -62,7 +62,7 @@ export function ExchangePackFormDialog({
                 <p className="mt-1 text-sm text-muted-foreground">
                   {pack
                     ? 'Modifiez les informations du pack. Gérez les cadeaux depuis la page du pack.'
-                    : 'Vous pourrez ajouter les cadeaux après la création du pack.'}
+                    : 'Vous pourrez ajouter les cadeaux après la création du pack."}
                 </p>
               </div>
             </div>
@@ -84,7 +84,7 @@ export function ExchangePackFormDialog({
               id="exchange-pack-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Décrivez quand utiliser ce pack et les avantages qu’il contient."
+              placeholder="Décrivez quand utiliser ce pack et les avantages qu'il contient."
               rows={3}
             />
           </Field>
@@ -107,7 +107,7 @@ export function ExchangePackFormDialog({
               description: description.trim() || null,
             })}
           >
-            {isSubmitting ? 'Enregistrement...' : pack ? 'Enregistrer' : 'Créer'}
+            {isSubmitting ? "Enregistrement...' : pack ? 'Enregistrer' : 'Créer'}
           </Button>
         </DialogFooter>
       </DialogContent>

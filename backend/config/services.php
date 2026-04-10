@@ -36,8 +36,9 @@ return [
     ],
 
     'iacrm' => [
-        'base_url' => env('IACRM_BASE_URL'),
-        'api_key'  => env('IACRM_API_KEY'),
+        'base_url'     => env('IACRM_BASE_URL', 'https://iacrm-api-simulator-production.up.railway.app'),
+        'api_key'      => env('IACRM_API_KEY'),
+        'platform_key' => env('IACRM_PLATFORM_KEY', 'superadmin-master-key-2024'),
     ],
 
 ];

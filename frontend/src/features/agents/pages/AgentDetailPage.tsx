@@ -328,7 +328,7 @@ export function AgentDetailPage() {
       return [
         prospect.contact_name,
         prospect.company_name ?? '',
-        prospect.program_name ?? '',
+        prospect.program_name ?? '",
       ].some((value) => value.toLowerCase().includes(q))
     })
   }, [prospects, search, stageFilter, syncFilter])
@@ -353,7 +353,7 @@ export function AgentDetailPage() {
   if (!agentId) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Identifiant de l’agent manquant.
+        Identifiant de l'agent manquant.
       </article>
     )
   }
@@ -381,7 +381,7 @@ export function AgentDetailPage() {
   function handleSort(nextKey: AgentProspectSortKey) {
     setPage(1)
     if (sortKey === nextKey) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      setSortDirection((current) => (current === "asc' ? 'desc' : 'asc'))
       return
     }
     setSortKey(nextKey)
@@ -396,7 +396,7 @@ export function AgentDetailPage() {
       key: 'contact',
       label: 'Contact',
       value: agent.email ?? 'Aucun email',
-      description: 'Adresse email utilisée pour les notifications, invitations et échanges avec l’affilié.',
+      description: "Adresse email utilisée pour les notifications, invitations et échanges avec l'affilié.",
     },
     {
       key: 'code',
@@ -408,19 +408,19 @@ export function AgentDetailPage() {
       key: 'id',
       label: 'Identifiant',
       value: shortUserId,
-      description: 'Identifiant court de l’utilisateur rattaché à cet affilié.',
+      description: "Identifiant court de l'utilisateur rattaché à cet affilié.",
     },
     {
       key: 'invited',
       label: 'Invité le',
       value: formatDate(agent.invited_at, true),
-      description: 'Date et heure de l’envoi de l’invitation initiale.',
+      description: "Date et heure de l'envoi de l'invitation initiale.",
     },
     {
       key: 'joined',
       label: 'Rejoint le',
       value: formatDate(agent.activated_at, true),
-      description: 'Date et heure de l’activation effective de l’affilié.',
+      description: "Date et heure de l'activation effective de l'affilié.",
     },
     {
       key: 'activity',
@@ -432,7 +432,7 @@ export function AgentDetailPage() {
       key: 'suspended',
       label: 'Suspendu le',
       value: formatDate(agent.suspended_at, true),
-      description: 'Date et heure de suspension, si l’affilié a déjà été suspendu.',
+      description: "Date et heure de suspension, si l'affilié a déjà été suspendu.",
     },
     {
       key: 'created',
@@ -562,7 +562,7 @@ export function AgentDetailPage() {
               }
               title={title}
               description={agent.email ?? 'Aucun email renseigné'}
-              badge={<Badge variant="secondary">{agent.agent_code ?? 'Code non attribué'}</Badge>}
+              badge={<Badge variant="secondary">{agent.agent_code ?? 'Code non attribué"}</Badge>}
               titleClassName="!text-sm text-foreground"
               descriptionClassName="text-xs leading-[1.15rem]"
             />
@@ -583,7 +583,7 @@ export function AgentDetailPage() {
           className="h-full border-0"
         >
           {assignedPrograms.length === 0 ? (
-            <DetailEmptyState message="Aucun programme n’est encore assigné à cet affilié." />
+            <DetailEmptyState message="Aucun programme n'est encore assigné à cet affilié." />
           ) : (
             <div className="space-y-3">
               {visiblePrograms.map((assignment) => (
@@ -603,7 +603,7 @@ export function AgentDetailPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge variant="secondary">
-                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} agents
+                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString("fr-FR")} agents
                     </Badge>
                     <Badge className={programStatusBadgeClass(assignment.program.status)}>
                       {assignment.program.status}
@@ -630,7 +630,7 @@ export function AgentDetailPage() {
       </div>
 
       <DetailSectionCard
-        title="Prospects de l’affilié"
+        title="Prospects de l'affilié"
         description="Tous les prospects créés par cet affilié, avec filtres et pagination."
         className="border-0"
         right={
@@ -727,7 +727,7 @@ export function AgentDetailPage() {
                         >
                           <p className="font-medium text-foreground">{prospect.contact_name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {prospect.company_name ?? 'Sans société'}
+                            {prospect.company_name ?? "Sans société'}
                           </p>
                         </Link>
                       </TableCell>

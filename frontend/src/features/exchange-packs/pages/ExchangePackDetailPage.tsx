@@ -327,15 +327,15 @@ export function ExchangePackDetailPage() {
   const savingDraft = saveDraftAndNotifyMutation.isPending || reorderItemsMutation.isPending
   const disableBlockedReason =
     !canDisable && linkedProgramsCount > 0
-      ? 'Impossible de désactiver ce pack tant qu’il est utilisé par un programme.'
+      ? "Impossible de désactiver ce pack tant qu'il est utilisé par un programme."
       : !canDisable
-        ? 'Vous n’avez pas la permission de désactiver ce pack.'
+        ? "Vous n'avez pas la permission de désactiver ce pack."
         : null
   const deleteBlockedReason = canDelete
     ? null
     : linkedProgramsCount > 0
-      ? 'Impossible de supprimer ce pack tant qu’il est utilisé par un programme.'
-      : 'Vous n’avez pas la permission de supprimer ce pack.'
+      ? "Impossible de supprimer ce pack tant qu'il est utilisé par un programme."
+      : "Vous n'avez pas la permission de supprimer ce pack."
 
   const orderedPackItemIds = [...pack.items]
     .sort((a, b) => a.display_order - b.display_order)
@@ -564,7 +564,7 @@ export function ExchangePackDetailPage() {
                 {activeItemsCount} cadeau{activeItemsCount === 1 ? '' : 'x'}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
-                {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's'}
+                {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's"}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
                 Mis à jour {formatDate(pack.updated_at)}
@@ -576,7 +576,7 @@ export function ExchangePackDetailPage() {
                 <Gift />
                 <AlertTitle>Pack non assignable</AlertTitle>
                 <AlertDescription>
-                  Ajoutez au moins un cadeau actif avant d’utiliser ce pack dans un programme rewards.
+                  Ajoutez au moins un cadeau actif avant d'utiliser ce pack dans un programme rewards.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -606,7 +606,7 @@ export function ExchangePackDetailPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
+                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? "' : 's'}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
                           {program.status}
@@ -624,7 +624,7 @@ export function ExchangePackDetailPage() {
                   >
                     <span className="font-medium text-foreground">Voir tous les programmes</span>
                     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      +{hiddenLinkedProgramsCount} autre{hiddenLinkedProgramsCount === 1 ? '' : 's'}
+                      +{hiddenLinkedProgramsCount} autre{hiddenLinkedProgramsCount === 1 ? '' : 's"}
                       <ExternalLink className="size-3.5" />
                     </span>
                   </button>
@@ -632,7 +632,7 @@ export function ExchangePackDetailPage() {
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                Aucun programme n’utilise encore ce pack.
+                Aucun programme n'utilise encore ce pack.
               </div>
             )}
           </CardContent>
@@ -722,7 +722,7 @@ export function ExchangePackDetailPage() {
 
                   setDraggedItemId(item.id)
                   lastDragOverItemIdRef.current = null
-                  event.dataTransfer.effectAllowed = 'move'
+                  event.dataTransfer.effectAllowed = "move'
                   event.dataTransfer.setData('text/plain', item.id)
                 }}
                 onDragOver={(event) => {

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -297,6 +298,49 @@ class BusinessController extends Controller
             return [$business, $owner];
         });
 
+        // Auto-register in IACRM if no iacrm_business_id was provided.
+        // Creates a fresh empty entry so the business owner starts with zero data.
+        $iacrmAutoApiKey = null;
+        if ($iacrmId === null) {
+            try {
+                $iacrmBaseUrl     = rtrim((string) config('services.iacrm.base_url', ''), '/');
+                $iacrmPlatformKey = (string) config('services.iacrm.platform_key', '');
+
+                if ($iacrmBaseUrl !== '' && $iacrmPlatformKey !== '') {
+                    $iacrmResponse = Http::timeout(5)
+                        ->withHeaders([
+                            'X-IACRM-API-Key' => $iacrmPlatformKey,
+                            'Accept'          => 'application/json',
+                        ])
+                        ->post("{$iacrmBaseUrl}/platform/businesses", [
+                            'name'     => $businessName,
+                            'industry' => 'Services',
+                            'seed'     => false,
+                        ]);
+
+                    if ($iacrmResponse->successful()) {
+                        $newIacrmId  = $iacrmResponse->json('data.iacrm_id');
+                        $iacrmAutoApiKey = $iacrmResponse->json('data.api_key');
+                        if ($newIacrmId) {
+                            $business->forceFill(['iacrm_business_id' => $newIacrmId])->save();
+                        }
+                    } else {
+                        Log::warning('IACRM auto-registration returned non-2xx.', [
+                            'business_id' => $business->id,
+                            'status'      => $iacrmResponse->status(),
+                            'body'        => $iacrmResponse->body(),
+                        ]);
+                    }
+                }
+            } catch (Throwable $e) {
+                // Non-fatal: business created in HD Parrainage; IACRM linkage can be done later.
+                Log::warning('IACRM auto-registration failed (non-fatal).', [
+                    'business_id' => $business->id,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        }
+
         $activationUrl = FrontendUrlResolver::activationUrl($request, $owner->email, $plainToken);
 
         $mailDeliveryFailed = false;
@@ -334,9 +378,12 @@ class BusinessController extends Controller
         ];
 
         if (app()->environment(['local', 'testing'])) {
-            $response['meta']['invitation_token'] = $plainToken;
-            $response['meta']['activation_url']   = $activationUrl;
+            $response['meta']['invitation_token']    = $plainToken;
+            $response['meta']['activation_url']      = $activationUrl;
             $response['meta']['mail_delivery_error'] = $mailDeliveryError;
+            if ($iacrmAutoApiKey !== null) {
+                $response['meta']['iacrm_api_key'] = $iacrmAutoApiKey;
+            }
         }
 
         return response()->json($response, 201);

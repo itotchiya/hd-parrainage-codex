@@ -1129,9 +1129,9 @@ export function ProgramsPage() {
               {pendingOwnerAction?.type === 'pause'
                 ? 'Les agents ne pourront plus ajouter de nouveaux prospects tant que le programme est en pause.'
                 : pendingOwnerAction?.type === 'reactivate'
-                  ? 'Le programme redeviendra actif, et les agents retrouveront l’accès à la soumission de prospects.'
+                  ? "Le programme redeviendra actif, et les agents retrouveront l'accès à la soumission de prospects."
                   : pendingOwnerAction?.type === 'suspend'
-                    ? 'Les avantages agents liés à ce programme seront bloqués (soumission prospects, progression opérationnelle, parcours actif). Utilisez cette action pour lancer un mode d’arrêt contrôlé.'
+                    ? "Les avantages agents liés à ce programme seront bloqués (soumission prospects, progression opérationnelle, parcours actif). Utilisez cette action pour lancer un mode d'arrêt contrôlé."
                     : pendingOwnerAction?.type === 'archive'
                       ? 'Le programme sera déplacé en archive et retiré des opérations courantes.'
                       : 'Cette action est irréversible. Pour confirmer, saisissez exactement le nom complet du programme.'}
@@ -1196,7 +1196,7 @@ export function ProgramsPage() {
                     : pendingOwnerAction?.type === 'suspend'
                       ? 'Confirmer la suspension'
                       : pendingOwnerAction?.type === 'archive'
-                        ? 'Confirmer l’archivage'
+                        ? "Confirmer l'archivage"
                         : 'Supprimer définitivement'}
             </Button>
           </DialogFooter>

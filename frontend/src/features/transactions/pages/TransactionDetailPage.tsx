@@ -646,7 +646,7 @@ export function TransactionDetailPage() {
             description={
               transaction.prospect
                 ? `${transaction.prospect.company_name ?? 'Sans société'} / ${transaction.prospect.pipeline_stage}`
-                : 'Cette transaction n’est reliée à aucun prospect local.'
+                : "Cette transaction n'est reliée à aucun prospect local."
             }
             to={prospectHref}
             badge={transaction.prospect ? <Workflow className="size-4 text-muted-foreground" /> : undefined}
@@ -707,7 +707,7 @@ export function TransactionDetailPage() {
           contentClassName="pt-4"
         >
           {auditRows.length === 0 ? (
-            <DetailEmptyState message="Aucun événement horodaté n’est encore disponible pour cette transaction." />
+            <DetailEmptyState message="Aucun événement horodaté n'est encore disponible pour cette transaction." />
           ) : (
             <div className="overflow-hidden rounded-lg bg-background/40">
               <div className="overflow-x-auto">
@@ -750,7 +750,7 @@ export function TransactionDetailPage() {
 }
 
 function statusLabel(status: string) {
-  if (status === 'detected') return 'Détectée'
+  if (status === "detected') return 'Détectée'
   if (status === 'pending') return 'En attente'
   if (status === 'validated') return 'Validée'
   if (status === 'rejected') return 'Rejetée'

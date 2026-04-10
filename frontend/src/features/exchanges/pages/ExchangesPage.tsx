@@ -287,9 +287,10 @@ export function ExchangesPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!canCreateReward && canCreateCash) setRequestType('cash')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!canCreateCash && canCreateReward) setRequestType('reward')
   }, [canCreateCash, canCreateReward])
 
@@ -484,8 +485,8 @@ export function ExchangesPage() {
     setSortDirection(['points', 'requested'].includes(nextKey) ? 'desc' : 'asc')
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1)
   }, [search, statusFilter, programFilter, agentFilter, dateFrom, dateTo])
 
@@ -497,8 +498,8 @@ export function ExchangesPage() {
     return sortedRequests.slice(start, start + pageSize)
   }, [pageSize, safePage, sortedRequests])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (page !== safePage) setPage(safePage)
   }, [page, safePage])
 
@@ -529,19 +530,20 @@ export function ExchangesPage() {
     return hasRewardItems ? ['reward'] : []
   }, [selectedPackItems.length, selectedProgram])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!isCreateOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetCreateDialog()
     }
   }, [isCreateOpen, resetCreateDialog])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!selectedProgram) return
     if (supportedRequestTypes.length === 0) return
     if (!supportedRequestTypes.includes(requestType)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequestType(supportedRequestTypes[0])
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRewardItemId('')
     }
   }, [requestType, selectedProgram, supportedRequestTypes])

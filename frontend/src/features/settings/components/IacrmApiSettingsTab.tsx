@@ -3,12 +3,10 @@ import { useState } from 'react'
 import {
   BadgeCheck,
   Cable,
-  Copy,
   Eye,
   EyeOff,
   FlaskConical,
   KeyRound,
-  Link2,
   RefreshCcw,
   RefreshCw,
   Trash2,
@@ -19,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { clearIacrmConfig, getIacrmConfig, saveIacrmConfig } from '../../iacrm/api'
+import { clearIacrmConfig, getIacrmConfig, IACRM_DEFAULT_BASE_URL, saveIacrmConfig } from '../../iacrm/api'
 import { useTestIacrmConnection } from '../../iacrm/hooks'
 import type { IacrmApiConfig } from '../../../types/iacrm'
 
@@ -86,7 +84,6 @@ export function IacrmApiSettingsTab({
 }) {
   const existingConfig = getIacrmConfig()
 
-  const [baseUrl, setBaseUrl] = useState(existingConfig?.base_url ?? 'http://localhost:5555')
   const [apiKey, setApiKey] = useState(existingConfig?.api_key ?? '')
   const [autoSync, setAutoSync] = useState(existingConfig?.auto_sync_enabled ?? false)
   const [showApiKey, setShowApiKey] = useState(false)
@@ -121,25 +118,20 @@ export function IacrmApiSettingsTab({
 
   const autoSyncTone: ApiTone = autoSync ? 'success' : 'neutral'
   const pressureTone: ApiTone = failedJobsCount > 0 ? 'warning' : 'success'
-  const existingBaseUrl = existingConfig?.base_url ?? 'http://localhost:5555'
   const existingApiKey = existingConfig?.api_key ?? ''
   const existingAutoSync = existingConfig?.auto_sync_enabled ?? false
   const hasConfigChanges =
-    baseUrl.trim() !== existingBaseUrl ||
     apiKey.trim() !== existingApiKey ||
     autoSync !== existingAutoSync
-  const saveDisabledReason =
-    baseUrl.trim().length === 0
-      ? 'Ajoute d’abord une URL CRM valide.'
-      : !hasConfigChanges
-        ? existingApiKey
-          ? 'La clé actuelle est déjà enregistrée. Change la clé ou ajoute une nouvelle valeur pour enregistrer.'
-          : 'Aucun changement à enregistrer.'
-        : null
+  const saveDisabledReason = !hasConfigChanges
+    ? existingApiKey
+      ? 'La clé actuelle est déjà enregistrée. Change la clé ou ajoute une nouvelle valeur pour enregistrer.'
+      : 'Aucun changement à enregistrer.'
+    : null
 
   function currentConfig(): IacrmApiConfig {
     return {
-      base_url: baseUrl.trim(),
+      base_url: IACRM_DEFAULT_BASE_URL,
       api_key: apiKey.trim(),
       auto_sync_enabled: autoSync,
       last_tested_at: existingConfig?.last_tested_at ?? null,
@@ -173,21 +165,10 @@ export function IacrmApiSettingsTab({
 
   function handleResetConfig() {
     clearIacrmConfig()
-    setBaseUrl('http://localhost:5555')
     setApiKey('')
     setAutoSync(false)
     setShowApiKey(false)
     toast.warning('Configuration CRM locale réinitialisée.', { id: 'settings-api-toast' })
-  }
-
-  async function handleCopyBaseUrl() {
-    if (!baseUrl.trim()) return
-    try {
-      await navigator.clipboard.writeText(baseUrl.trim())
-      toast.info('URL CRM copiée.', { id: 'settings-api-toast' })
-    } catch {
-      toast.error('Impossible de copier l’URL.', { id: 'settings-api-toast' })
-    }
   }
 
   return (
@@ -195,26 +176,11 @@ export function IacrmApiSettingsTab({
       <CardContent className="space-y-6 p-6">
         <SectionHeader title="Integration control · CRM" />
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground" htmlFor="iacrm-base-url">
-            IACRM base URL
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Link2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="iacrm-base-url"
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://iacrm-api-simulator-production.up.railway.app/"
-                className="pl-9"
-              />
-            </div>
-            <Button type="button" variant="outline" size="icon" onClick={handleCopyBaseUrl} aria-label="Copier l URL">
-              <Copy className="size-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Mock server / endpoint production quand il sera pret.</p>
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+          <p className="text-xs text-muted-foreground">
+            Serveur IACRM :{' '}
+            <span className="font-mono text-foreground">{IACRM_DEFAULT_BASE_URL}</span>
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -278,7 +244,7 @@ export function IacrmApiSettingsTab({
             type="button"
             variant="outline"
             className="gap-2"
-            disabled={testMutation.isPending || baseUrl.trim().length === 0}
+            disabled={testMutation.isPending}
             onClick={handleTest}
           >
             <FlaskConical className="size-4" />

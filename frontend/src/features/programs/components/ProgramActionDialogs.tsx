@@ -490,7 +490,7 @@ const lifecycleCopy: Record<ProgramLifecycleAction, {
     description: 'Le programme passera en production pour les agents assignés.',
     alertTitle: 'Notification des agents',
     alertDescription: 'Tous les agents assignés recevront un email ou une notification pour les informer que le programme est actif.',
-    confirmLabel: 'Confirmer l’activation',
+    confirmLabel: "Confirmer l'activation",
   },
   pause: {
     title: 'Mettre ce programme en pause ?',
@@ -523,10 +523,10 @@ const lifecycleCopy: Record<ProgramLifecycleAction, {
   },
   archive: {
     title: 'Archiver ce programme ?',
-    description: 'L’archivage retire le programme des opérations courantes.',
+    description: "L'archivage retire le programme des opérations courantes.",
     alertTitle: 'Action irréversible',
     alertDescription: 'Après archivage, le programme ne pourra plus être réactivé ni réutilisé. Traitez cette action comme une suppression opérationnelle.',
-    confirmLabel: 'Confirmer l’archivage',
+    confirmLabel: "Confirmer l'archivage",
     destructive: true,
   },
   delete: {

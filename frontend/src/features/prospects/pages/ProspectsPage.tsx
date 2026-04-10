@@ -880,15 +880,15 @@ export function ProspectsPage() {
                                       to={buildProspectDetailPath({
                                         prospectId: prospect.id,
                                         agentId: prospect.agent_id,
-                                        hash: '#prospect-history',
+                                        hash: '#prospect-history",
                                       })}
-                                      aria-label="Voir l’historique"
+                                      aria-label="Voir l'historique"
                                     >
                                       <History className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Voir l’historique</TooltipContent>
+                                <TooltipContent>Voir l'historique</TooltipContent>
                               </Tooltip>
                               {prospect.agent_id ? (
                                 <Tooltip>
@@ -899,12 +899,12 @@ export function ProspectsPage() {
                                       size="icon-sm"
                                       className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                                     >
-                                      <Link to={`/agents/${prospect.agent_id}`} aria-label="Voir l’agent">
+                                      <Link to={`/agents/${prospect.agent_id}`} aria-label="Voir l'agent">
                                         <User className="size-4" />
                                       </Link>
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Voir l’agent</TooltipContent>
+                                  <TooltipContent>Voir l'agent</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {prospect.actions.can_delete ? (
@@ -955,7 +955,7 @@ export function ProspectsPage() {
                                     to={buildProspectDetailPath({
                                       prospectId: prospect.id,
                                       agentId: prospect.agent_id,
-                                      hash: '#prospect-history',
+                                      hash: "#prospect-history',
                                     })}
                                   >
                                     <History className="size-4 text-blue-500" />

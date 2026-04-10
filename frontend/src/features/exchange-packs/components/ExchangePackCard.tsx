@@ -110,15 +110,15 @@ export function ExchangePackCard({
   const canActivate = pack.actions?.can_activate ?? pack.status === 'inactive'
   const disableBlockedReason =
     !canDisable && linkedProgramsCount > 0
-      ? 'Impossible de désactiver ce pack tant qu’il est utilisé par un programme.'
+      ? "Impossible de désactiver ce pack tant qu'il est utilisé par un programme."
       : !canDisable
-        ? 'Vous n’avez pas la permission de désactiver ce pack.'
+        ? "Vous n'avez pas la permission de désactiver ce pack."
         : null
   const deleteBlockedReason = canDelete
     ? null
     : linkedProgramsCount > 0
-      ? 'Impossible de supprimer ce pack tant qu’il est utilisé par un programme.'
-      : 'Vous n’avez pas la permission de supprimer ce pack.'
+      ? "Impossible de supprimer ce pack tant qu'il est utilisé par un programme."
+      : "Vous n'avez pas la permission de supprimer ce pack."
 
   return (
     <Card className="rounded-lg border-0 shadow-none">
@@ -246,19 +246,19 @@ export function ExchangePackCard({
                 ))}
                 {pack.items.length > 4 ? (
                   <p className="pt-1 text-xs text-muted-foreground">
-                    +{pack.items.length - 4} cadeau{pack.items.length - 4 === 1 ? '' : 'x'}
+                    +{pack.items.length - 4} cadeau{pack.items.length - 4 === 1 ? '' : 'x"}
                   </p>
                 ) : null}
               </div>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Aucun cadeau actif. Ajoutez au moins un cadeau avant d’utiliser ce pack dans un programme.
+                Aucun cadeau actif. Ajoutez au moins un cadeau avant d'utiliser ce pack dans un programme.
               </p>
             )}
           </div>
         </ClickableInfoCard>
 
-        <Dialog open={detailDialog === 'rewards'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <Dialog open={detailDialog === "rewards'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Récompenses du pack</DialogTitle>
@@ -328,7 +328,7 @@ export function ExchangePackCard({
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
+                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's"}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
                           {program.status}
@@ -340,7 +340,7 @@ export function ExchangePackCard({
                 ))
               ) : (
                 <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                  Aucun programme n’utilise encore ce pack.
+                  Aucun programme n'utilise encore ce pack.
                 </p>
               )}
             </div>
@@ -353,7 +353,7 @@ export function ExchangePackCard({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={detailDialog === 'updated'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <Dialog open={detailDialog === "updated'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Mis à jour</DialogTitle>

@@ -20,10 +20,19 @@ import { logIacrmActivity } from './activityLog'
 const STORAGE_KEY = 'iacrm_api_config'
 export const IACRM_CONFIG_EVENT = 'iacrm-config-updated'
 
+/** The hosted IACRM simulator — always used as the base URL. */
+export const IACRM_DEFAULT_BASE_URL = 'https://iacrm-api-simulator-production.up.railway.app'
+
 export function getIacrmConfig(): IacrmApiConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as IacrmApiConfig) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as IacrmApiConfig
+    // Always ensure base_url points to the hosted simulator
+    if (!parsed.base_url || !parsed.base_url.startsWith('https://')) {
+      parsed.base_url = IACRM_DEFAULT_BASE_URL
+    }
+    return parsed
   } catch {
     return null
   }

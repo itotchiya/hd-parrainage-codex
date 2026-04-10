@@ -331,13 +331,13 @@ export function ProspectDetailPage() {
               key: 'phone',
               label: 'Téléphone',
               value: prospect.contact_phone_raw ?? 'Aucun téléphone renseigné',
-              description: 'Numéro transmis par l’affilié pour recontacter ce prospect.',
+              description: "Numéro transmis par l'affilié pour recontacter ce prospect.",
             },
             {
               key: 'company',
               label: 'Société',
               value: prospect.company_name ?? 'Aucune société renseignée',
-              description: 'Nom de l’entreprise ou structure associée à ce prospect.',
+              description: "Nom de l'entreprise ou structure associée à ce prospect.",
             },
             {
               key: 'submitted',
@@ -546,7 +546,7 @@ export function ProspectDetailPage() {
           <DialogHeader>
             <DialogTitle>{activeDetailItem?.label ?? 'Détail'}</DialogTitle>
             <DialogDescription>
-              {activeDetailItem?.description ?? 'Détail du prospect.'}
+              {activeDetailItem?.description ?? 'Détail du prospect."}
             </DialogDescription>
           </DialogHeader>
           {activeDetailItem ? (
@@ -581,7 +581,7 @@ export function ProspectDetailPage() {
               <Button asChild variant="outline" className="cursor-pointer">
                 <Link to={`/agents/${resolvedAgentId}`}>
                   <UserRound className="mr-2 h-4 w-4" />
-                  Voir l’affilié
+                  Voir l'affilié
                 </Link>
               </Button>
             ) : null}
@@ -608,7 +608,7 @@ export function ProspectDetailPage() {
               }
               title={prospect.contact_name}
               description={
-                prospect.company_name ?? prospect.contact_email ?? 'Prospect sans société renseignée'
+                prospect.company_name ?? prospect.contact_email ?? "Prospect sans société renseignée'
               }
               badge={<Badge variant="secondary">{prospect.source}</Badge>}
             />
@@ -746,11 +746,11 @@ export function ProspectDetailPage() {
           id="prospect-history"
           title="Historique"
           description="Chaque changement de statut ou de progression enregistré pour ce prospect."
-          right={<Badge variant="secondary">{history.length.toLocaleString('fr-FR')} événements</Badge>}
+          right={<Badge variant="secondary">{history.length.toLocaleString('fr-FR")} événements</Badge>}
           className="border-0"
         >
           {sortedHistoryRows.length === 0 ? (
-            <DetailEmptyState message="Aucun événement n’a encore été enregistré pour ce prospect." />
+            <DetailEmptyState message="Aucun événement n'a encore été enregistré pour ce prospect." />
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
               <Table>
@@ -761,7 +761,7 @@ export function ProspectDetailPage() {
                       activeKey={historySortKey}
                       direction={historySortDirection}
                       onSort={() => {
-                        setHistorySortKey('createdAt')
+                        setHistorySortKey("createdAt')
                         setHistorySortDirection((current) => (current === 'desc' ? 'asc' : 'desc'))
                       }}
                     >

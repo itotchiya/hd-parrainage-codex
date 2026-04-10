@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiError } from '../../../lib/api'
+import { ApiError, ensureCsrfCookie } from '../../../lib/api'
 import { activateInvitation, validateInvitationToken } from '../api'
 
 export function InvitationActivationPage() {
@@ -30,7 +30,10 @@ export function InvitationActivationPage() {
   const activateMutation = useMutation({
     mutationFn: activateInvitation,
     onSuccess: async (response) => {
-      await queryClient.setQueryData(['auth', 'session'], response.data)
+      // Re-sync the CSRF cookie after session regeneration so subsequent
+      // API calls have the correct XSRF-TOKEN for the new session.
+      await ensureCsrfCookie()
+      queryClient.setQueryData(['auth', 'session'], response.data)
       navigate('/dashboard')
     },
     onError: (error) => {

@@ -150,11 +150,11 @@ export function AgentDashboard() {
   })
 
   // Resolved data
-  const prospects = prospectsQuery.data?.data ?? []
-  const transactions = transactionsQuery.data?.data ?? []
-  const pointsLedger = pointsLedgerQuery.data?.data ?? []
+  const prospects = useMemo(() => prospectsQuery.data?.data ?? [], [prospectsQuery.data])
+  const transactions = useMemo(() => transactionsQuery.data?.data ?? [], [transactionsQuery.data])
+  const pointsLedger = useMemo(() => pointsLedgerQuery.data?.data ?? [], [pointsLedgerQuery.data])
   const pointsSummary = pointsSummaryQuery.data?.data ?? null
-  const programs = programsQuery.data?.data ?? []
+  const programs = useMemo(() => programsQuery.data?.data ?? [], [programsQuery.data])
 
   // ---------------------------------------------------------------------------
   // KPI computations

@@ -448,10 +448,10 @@ export function ProgramCard({
     ? null
     : (
         program.status !== 'suspended'
-          ? 'L’archivage n’est possible qu’après suspension du programme.'
+          ? "L'archivage n'est possible qu'après suspension du programme."
           : !program.suspension_deadline_at
-            ? 'Date de fin de suspension absente, re-suspendez le programme pour recréer la période d’attente.'
-            : 'Le délai de suspension de 30 jours n’est pas terminé ou la permission program.pause est manquante.'
+            ? "Date de fin de suspension absente, re-suspendez le programme pour recréer la période d'attente."
+            : "Le délai de suspension de 30 jours n'est pas terminé ou la permission program.pause est manquante."
       )
   const assignDisabledReason = canAssignAction
     ? null
@@ -466,7 +466,7 @@ export function ProgramCard({
         program.status === 'archived'
           ? 'Permission program.update manquante, accordez-la pour supprimer ce programme archivé.'
           : assignedTotal > 0
-            ? 'Des assignations actives existent, archivez d’abord le programme, ou retirez les assignations autorisées.'
+            ? "Des assignations actives existent, archivez d'abord le programme, ou retirez les assignations autorisées."
             : 'Suppression autorisée seulement pour un programme archivé, ou sans assignations actives et sans prospects.'
       )
   const addProspectDisabledReason = canCreateProspect
@@ -475,7 +475,7 @@ export function ProgramCard({
         !canSubmitProspect
           ? 'Permission prospect.submit manquante, accordez-la pour autoriser la soumission.'
           : program.status !== 'active'
-            ? 'Le programme n’est pas actif, réactivez-le pour permettre l’ajout de prospects.'
+            ? "Le programme n'est pas actif, réactivez-le pour permettre l'ajout de prospects."
             : 'Action temporairement indisponible, actualisez la page puis réessayez.'
       )
 

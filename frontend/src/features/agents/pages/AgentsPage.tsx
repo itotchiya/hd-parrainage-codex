@@ -328,7 +328,7 @@ export function AgentsPage() {
                   </div>
                   <div className="ml-4 flex shrink-0 items-center gap-2">
                     <Badge variant="secondary" className="whitespace-nowrap">
-                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} agents
+                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR")} agents
                     </Badge>
                     <Badge className={programStatusBadgeClass(assignment.program.status)}>
                       {assignment.program.status}
@@ -339,7 +339,7 @@ export function AgentsPage() {
             </div>
           ) : (
             <DetailEmptyState
-              message="Cet affilié n’est actuellement lié à aucun programme."
+              message="Cet affilié n'est actuellement lié à aucun programme."
             />
           )}
         </DialogContent>
@@ -359,7 +359,7 @@ export function AgentsPage() {
                       size="icon"
                       className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => {
-                        setSearch('')
+                        setSearch("')
                         setStatusFilter('all')
                       }}
                       aria-label="Effacer les filtres"
@@ -420,28 +420,28 @@ export function AgentsPage() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
             title="Affiliés"
-            value={agentKpis.total.toLocaleString('fr-FR')}
-            description="Nombre total d’affiliés enregistrés pour ce compte"
+            value={agentKpis.total.toLocaleString('fr-FR")}
+            description="Nombre total d'affiliés enregistrés pour ce compte"
             icon={Users}
             tone="primary"
           />
           <KpiCard
             title="Actifs"
-            value={agentKpis.active.toLocaleString('fr-FR')}
+            value={agentKpis.active.toLocaleString("fr-FR')}
             description="Comptes affiliés actifs et opérationnels"
             icon={UserCheck}
             tone="success"
           />
           <KpiCard
             title="Invitations en attente"
-            value={agentKpis.pendingInvite.toLocaleString('fr-FR')}
-            description="Invités ou en attente d’activation"
+            value={agentKpis.pendingInvite.toLocaleString('fr-FR")}
+            description="Invités ou en attente d'activation"
             icon={Mail}
             tone="info"
           />
           <KpiCard
             title="Suspendus"
-            value={agentKpis.suspended.toLocaleString('fr-FR')}
+            value={agentKpis.suspended.toLocaleString("fr-FR')}
             description="Affiliés suspendus ou inactifs côté parrainage"
             icon={UserX}
             tone="warning"

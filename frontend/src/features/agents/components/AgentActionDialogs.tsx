@@ -33,19 +33,19 @@ const lifecycleCopy: Record<
 > = {
   suspend: {
     title: 'Suspendre cet affilié ?',
-    description: 'La suspension coupe immédiatement l’accès de l’affilié à la plateforme.',
+    description: "La suspension coupe immédiatement l'accès de l'affilié à la plateforme.",
     alertTitle: 'Accès interrompu',
     alertDescription:
-      'L’affilié sera notifié de sa suspension dans la plateforme. Le motif saisi sera visible dans sa notification.',
+      "L'affilié sera notifié de sa suspension dans la plateforme. Le motif saisi sera visible dans sa notification.",
     confirmLabel: 'Suspendre',
     destructive: true,
   },
   reactivate: {
     title: 'Réactiver cet affilié ?',
-    description: 'L’affilié retrouvera immédiatement l’accès à la plateforme.',
+    description: "L'affilié retrouvera immédiatement l'accès à la plateforme.",
     alertTitle: 'Affilié informé',
     alertDescription:
-      'L’affilié recevra une notification indiquant que son accès a été réactivé.',
+      "L'affilié recevra une notification indiquant que son accès a été réactivé.",
     confirmLabel: 'Réactiver',
   },
 }
@@ -100,7 +100,7 @@ export function AgentLifecycleConfirmDialog({
 
   const suspendWarningDescription = useMemo(() => {
     if (!requiresCountdown) {
-      return 'Vous pouvez suspendre cet affilié immédiatement. Aucun programme n’est encore assigné à cet affilié.'
+      return "Vous pouvez suspendre cet affilié immédiatement. Aucun programme n'est encore assigné à cet affilié."
     }
 
     if (!countdownStarted) {
@@ -110,14 +110,14 @@ export function AgentLifecycleConfirmDialog({
     }
 
     return `Cet affilié est déjà assigné à ${assignedProgramsCount.toLocaleString('fr-FR')} programme${
-      assignedProgramsCount > 1 ? 's' : ''
-    }. Attendez ${countdown}s avant de confirmer afin d’éviter une interruption brutale.`
+      assignedProgramsCount > 1 ? 's' : '"
+    }. Attendez ${countdown}s avant de confirmer afin d'éviter une interruption brutale.`
   }, [assignedProgramsCount, countdown, countdownStarted, requiresCountdown])
 
   const suspendButtonDisabled =
     isSubmitting ||
     !action ||
-    (action.type === 'suspend' && !reason.trim()) ||
+    (action.type === "suspend' && !reason.trim()) ||
     (action?.type === 'suspend' && requiresCountdown && countdownStarted && countdown > 0)
 
   return (
@@ -146,7 +146,7 @@ export function AgentLifecycleConfirmDialog({
           <AlertDescription>{copy.alertDescription}</AlertDescription>
         </Alert>
 
-        {action?.type === 'suspend' ? (
+        {action?.type === 'suspend" ? (
           <div className="space-y-4">
             <Alert className="border-amber-500/25 bg-amber-500/10 text-amber-950 dark:text-amber-200">
               <UserX />
@@ -166,7 +166,7 @@ export function AgentLifecycleConfirmDialog({
                 placeholder="Expliquez brièvement pourquoi cet affilié est suspendu."
               />
               <p className="text-xs text-muted-foreground">
-                Ce motif sera envoyé à l’affilié dans la notification de suspension.
+                Ce motif sera envoyé à l'affilié dans la notification de suspension.
               </p>
             </div>
           </div>
@@ -175,7 +175,7 @@ export function AgentLifecycleConfirmDialog({
             <UserCheck />
             <AlertTitle>Reprise immédiate</AlertTitle>
             <AlertDescription>
-              Une notification sera envoyée à l’affilié pour confirmer que son accès est de nouveau actif.
+              Une notification sera envoyée à l'affilié pour confirmer que son accès est de nouveau actif.
             </AlertDescription>
           </Alert>
         )}
@@ -190,7 +190,7 @@ export function AgentLifecycleConfirmDialog({
           </DialogClose>
           <Button
             type="button"
-            variant={copy.destructive ? 'destructive' : 'default'}
+            variant={copy.destructive ? "destructive' : 'default'}
             disabled={suspendButtonDisabled}
             onClick={() => {
               if (!action) return

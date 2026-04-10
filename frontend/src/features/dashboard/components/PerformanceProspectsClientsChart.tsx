@@ -160,34 +160,42 @@ export function PerformanceProspectsClientsChart({
     </Select>
   )
 
+  const hasData = prospects.length > 0 || transactions.length > 0
+
   return (
     <>
       <DashboardSectionHeader
         title="Prospects et conversions mensuelles"
-        description="Volume de prospects soumis et de clients convertis, mois par mois, pour l’année choisie."
-        actions={yearSelect}
+        description="Volume de prospects soumis et de clients convertis, mois par mois, pour l'année choisie."
+        actions={hasData ? yearSelect : undefined}
       />
 
-      <ChartContainer config={chartConfig} className="aspect-[21/9] w-full max-h-[280px]">
-        <BarChart accessibilityLayer data={chartData} margin={{ left: 4, right: 4 }}>
-          <CartesianGrid vertical={false} />
-          <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="clients"
-            stackId="a"
-            fill="var(--color-clients)"
-            radius={[0, 0, 4, 4]}
-          />
-          <Bar
-            dataKey="prospects"
-            stackId="a"
-            fill="var(--color-prospects)"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ChartContainer>
+      {!hasData ? (
+        <div className="flex aspect-[21/9] max-h-[280px] w-full items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/10">
+          <p className="text-sm text-muted-foreground">Aucune donnée de performance pour le moment.</p>
+        </div>
+      ) : (
+        <ChartContainer config={chartConfig} className="aspect-[21/9] w-full max-h-[280px]">
+          <BarChart accessibilityLayer data={chartData} margin={{ left: 4, right: 4 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="clients"
+              stackId="a"
+              fill="var(--color-clients)"
+              radius={[0, 0, 4, 4]}
+            />
+            <Bar
+              dataKey="prospects"
+              stackId="a"
+              fill="var(--color-prospects)"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ChartContainer>
+      )}
     </>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Clock, RefreshCw, Trash2, WifiOff, Zap } from 'lucide-react'
-import { getIacrmConfig, saveIacrmConfig } from '../api'
+import { getIacrmConfig, IACRM_DEFAULT_BASE_URL, saveIacrmConfig } from '../api'
 import { useTestIacrmConnection } from '../hooks'
 import {
   clearIacrmActivityLog,
@@ -72,7 +72,6 @@ function formatTs(iso: string) {
 export function IacrmSettingsTab() {
   const existingConfig = getIacrmConfig()
 
-  const [baseUrl, setBaseUrl] = useState(existingConfig?.base_url ?? '')
   const [apiKey, setApiKey] = useState(existingConfig?.api_key ?? '')
   const [autoSync, setAutoSync] = useState(existingConfig?.auto_sync_enabled ?? false)
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null)
@@ -95,7 +94,7 @@ export function IacrmSettingsTab() {
 
   function handleSave() {
     const next: IacrmApiConfig = {
-      base_url: baseUrl.trim(),
+      base_url: IACRM_DEFAULT_BASE_URL,
       api_key: apiKey.trim(),
       auto_sync_enabled: autoSync,
       last_tested_at: config?.last_tested_at ?? null,
@@ -108,7 +107,7 @@ export function IacrmSettingsTab() {
   async function handleTest() {
     setFeedback(null)
     const next: IacrmApiConfig = {
-      base_url: baseUrl.trim(),
+      base_url: IACRM_DEFAULT_BASE_URL,
       api_key: apiKey.trim(),
       auto_sync_enabled: autoSync,
       last_tested_at: config?.last_tested_at ?? null,
@@ -134,18 +133,10 @@ export function IacrmSettingsTab() {
             </div>
 
             <div className="space-y-3">
-              <Field>
-                <FieldLabel htmlFor="iacrm-base-url">URL de base de l'API</FieldLabel>
-                <Input
-                  id="iacrm-base-url"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="https://0bf6bfea-....mock.pstmn.io"
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL du serveur mock Postman ou de l'API IACRM en production.
-                </p>
-              </Field>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Serveur IACRM</p>
+                <p className="mt-1 break-all font-mono text-xs text-foreground">{IACRM_DEFAULT_BASE_URL}</p>
+              </div>
 
               <Field>
                 <FieldLabel htmlFor="iacrm-api-key">Clé API</FieldLabel>
@@ -180,7 +171,7 @@ export function IacrmSettingsTab() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" onClick={handleSave} disabled={!baseUrl.trim()}>
+              <Button type="button" size="sm" onClick={handleSave}>
                 Sauvegarder
               </Button>
               <Button
@@ -188,7 +179,7 @@ export function IacrmSettingsTab() {
                 size="sm"
                 variant="outline"
                 onClick={handleTest}
-                disabled={testMutation.isPending || !baseUrl.trim()}
+                disabled={testMutation.isPending}
               >
                 <RefreshCw className={`mr-1.5 size-3.5 ${testMutation.isPending ? 'animate-spin' : ''}`} />
                 {testMutation.isPending ? 'Test en cours...' : 'Tester la connexion'}
@@ -231,9 +222,9 @@ export function IacrmSettingsTab() {
             </div>
 
             <div className="rounded-lg border border-background/15 bg-background/10 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-background/60">Mock server</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-background/60">Serveur IACRM</p>
               <p className="mt-1.5 break-all font-mono text-[11px] text-background/70">
-                https://0bf6bfea-8d59-45b6-9872-1df0366d1b95.mock.pstmn.io
+                {IACRM_DEFAULT_BASE_URL}
               </p>
             </div>
           </CardContent>

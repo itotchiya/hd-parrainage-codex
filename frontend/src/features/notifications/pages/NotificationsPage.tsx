@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Check, Info, Mail, AlertTriangle, XCircle, CheckCircle, Clock, ExternalLink, ArrowRight, ArrowDownRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -93,7 +93,7 @@ export function NotificationsPage() {
     },
   })
 
-  const records = listQuery.data?.data ?? []
+  const records = useMemo(() => listQuery.data?.data ?? [], [listQuery.data])
   const unreadCount = listQuery.data?.meta.unread_count ?? 0
   const grouped = useMemo(
     () => ({
@@ -216,21 +216,21 @@ export function NotificationsPage() {
   )
 }
 
-function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unknown> | null, type: string }) {
+function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unknown> | null, type: string }): ReactNode {
   if (!metadata || Object.keys(metadata).length === 0) return null;
 
   // Specific Layouts based on type
-  if (type === 'exchange_requested' && metadata.exchange_id) {
+  if (type === 'exchange_requested' && metadata.exchange_id != null) {
     return (
       <div className="mt-3 flex items-center gap-2 text-sm text-foreground/80 bg-muted/30 p-2.5 rounded-lg border w-fit">
         <ArrowDownRight className="size-4 text-muted-foreground" />
         Transaction <span className="font-mono text-xs">{String(metadata.exchange_id).slice(0, 8)}...</span>
-        {metadata.amount && <span>pour <strong>{String(metadata.amount)} pts</strong></span>}
+        {metadata.amount != null && <span>pour <strong>{String(metadata.amount)} pts</strong></span>}
       </div>
     );
   }
 
-  if (type === 'points_earned' && metadata.amount) {
+  if (type === 'points_earned' && metadata.amount != null) {
     return (
       <div className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-800 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
         <ArrowRight className="size-4" />
@@ -258,7 +258,7 @@ function RoleSpecificActions({
   isBusy?: boolean,
   isArchive?: boolean
 }) {
-  const isExchangeAction = item.notification_type === 'exchange_requested' && item.metadata?.exchange_id;
+  const isExchangeAction = item.notification_type === 'exchange_requested' && item.metadata?.exchange_id != null;
 
   return (
     <ItemActions className="mt-4 w-full flex flex-row items-center justify-between sm:w-auto sm:mt-0 sm:flex-col sm:items-end gap-3 self-end sm:self-stretch">
