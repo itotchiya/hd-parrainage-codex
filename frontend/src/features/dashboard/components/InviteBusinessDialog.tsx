@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Building2, Loader2, UserPlus2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Building2, Loader2 } from 'lucide-react'
 import type { ApiError } from '../../../lib/api'
 import { useIacrmPlatformBusinesses } from '../../iacrm/hooks'
 import { getIacrmConfig } from '../../iacrm/api'
@@ -14,7 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -28,8 +26,6 @@ import {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-type InviteMode = 'existing' | 'new'
 
 interface InviteBusinessDialogProps {
   open: boolean
@@ -59,8 +55,6 @@ export function InviteBusinessDialog({
   onClose,
   onSubmit,
 }: InviteBusinessDialogProps) {
-  const [step, setStep] = useState<'select' | 'form'>('select')
-  const [mode, setMode] = useState<InviteMode | null>(null)
   const [selectedBusinessId, setSelectedBusinessId] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [ownerName, setOwnerName] = useState('')
@@ -74,8 +68,6 @@ export function InviteBusinessDialog({
   )
 
   function reset() {
-    setStep('select')
-    setMode(null)
     setSelectedBusinessId('')
     setBusinessName('')
     setOwnerName('')
@@ -86,16 +78,6 @@ export function InviteBusinessDialog({
   function handleClose() {
     reset()
     onClose()
-  }
-
-  function handleContinue() {
-    if (!mode) return
-    if (mode === 'new') {
-      setBusinessName('')
-      setOwnerName('')
-      setOwnerEmail('')
-    }
-    setStep('form')
   }
 
   function handleBusinessSelect(businessId: string) {
@@ -109,7 +91,7 @@ export function InviteBusinessDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     onSubmit({
-      iacrm_business_id: mode === 'existing' ? selectedBusinessId : '',
+      iacrm_business_id: selectedBusinessId,
       business_name: businessName.trim(),
       owner_email: ownerEmail.trim(),
       owner_name: ownerName.trim(),
@@ -123,130 +105,68 @@ export function InviteBusinessDialog({
         <DialogHeader>
           <DialogTitle>Inviter un business</DialogTitle>
           <DialogDescription>
-            Choisissez comment inviter un nouveau business sur la plateforme.
+            Sélectionnez un business depuis votre CRM IACRM pour l'inviter sur la plateforme.
             Une invitation email sera envoyée au propriétaire.
           </DialogDescription>
         </DialogHeader>
 
         {!iacrmConfigured ? (
           <IacrmConfigGate action="inviter un business" onClose={handleClose} />
-        ) : step === 'select' ? (
-          <>
-            <div className="grid grid-cols-2 gap-3 py-1">
-              {/* Existing IACRM business */}
-              <Card
-                role="button"
-                tabIndex={0}
-                aria-pressed={mode === 'existing'}
-                onClick={() => setMode('existing')}
-                onKeyDown={(e) => e.key === 'Enter' && setMode('existing')}
-                className={cn(
-                  'cursor-pointer border-2 transition-colors select-none',
-                  mode === 'existing'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/40',
-                )}
-              >
-                <CardContent className="flex flex-col gap-3 p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                    <Building2 className="size-4 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground leading-snug">
-                      Business IACRM existant
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Inviter un business déjà présent dans votre CRM synchronisé.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* New business */}
-              <Card
-                role="button"
-                tabIndex={0}
-                aria-pressed={mode === 'new'}
-                onClick={() => setMode('new')}
-                onKeyDown={(e) => e.key === 'Enter' && setMode('new')}
-                className={cn(
-                  'cursor-pointer border-2 transition-colors select-none',
-                  mode === 'new'
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/40',
-                )}
-              >
-                <CardContent className="flex flex-col gap-3 p-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                    <UserPlus2 className="size-4 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground leading-snug">
-                      Nouveau business
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Inviter un business qui n'est pas encore dans votre base CRM.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" size="sm" onClick={handleClose}>
-                Annuler
-              </Button>
-              <Button type="button" size="sm" disabled={!mode} onClick={handleContinue}>
-                Continuer
-              </Button>
-            </DialogFooter>
-          </>
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-1">
               {/* IACRM business picker */}
-              {mode === 'existing' ? (
-                <Field>
-                  <FieldLabel>Business IACRM</FieldLabel>
-                  {platformQuery.isPending ? (
-                    <p className="text-sm text-muted-foreground">Chargement des businesses...</p>
-                  ) : iacrmBusinesses.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              <Field>
+                <FieldLabel>Business IACRM</FieldLabel>
+                {platformQuery.isPending ? (
+                  <p className="text-sm text-muted-foreground">Chargement des businesses...</p>
+                ) : iacrmBusinesses.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center">
+                    <Building2 className="mx-auto size-8 text-muted-foreground/50" />
+                    <p className="mt-2 text-sm text-muted-foreground">
                       Aucun business disponible dans IACRM, ou tous ont déjà été invités.
                     </p>
-                  ) : (
-                    <Select
-                      value={selectedBusinessId}
-                      onValueChange={handleBusinessSelect}
-                      required
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="— Sélectionner un business IACRM —" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {iacrmBusinesses.map((business) => (
-                          <SelectItem key={business.iacrm_id} value={business.iacrm_id}>
-                            {business.display_name}
-                            {business.industry ? ` · ${business.industry}` : ''}
-                            {' '}({business.clients_count} clients)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </Field>
-              ) : (
-                <Field>
-                  <FieldLabel htmlFor="invite-business-name">Nom du business</FieldLabel>
-                  <Input
-                    id="invite-business-name"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    placeholder="Nom commercial du business"
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ajoutez d'abord le business dans IACRM pour pouvoir l'inviter.
+                    </p>
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedBusinessId}
+                    onValueChange={handleBusinessSelect}
                     required
-                  />
-                </Field>
-              )}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="— Sélectionner un business IACRM —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {iacrmBusinesses.map((business) => (
+                        <SelectItem key={business.iacrm_id} value={business.iacrm_id}>
+                          {business.display_name}
+                          {business.industry ? ` · ${business.industry}` : ''}
+                          {' '}({business.clients_count} clients)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="invite-business-name">Nom du business</FieldLabel>
+                <Input
+                  id="invite-business-name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Nom commercial du business"
+                  required
+                  readOnly
+                  className="bg-muted/50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Le nom est automatiquement renseigné depuis IACRM.
+                </p>
+              </Field>
 
               <Field>
                 <FieldLabel htmlFor="invite-owner-name">Nom du propriétaire</FieldLabel>
@@ -298,12 +218,16 @@ export function InviteBusinessDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setStep('select')}
+                onClick={handleClose}
                 disabled={isPending}
               >
-                Retour
+                Annuler
               </Button>
-              <Button type="submit" size="sm" disabled={isPending}>
+              <Button 
+                type="submit" 
+                size="sm" 
+                disabled={isPending || !selectedBusinessId || iacrmBusinesses.length === 0}
+              >
                 {isPending ? (
                   <>
                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />

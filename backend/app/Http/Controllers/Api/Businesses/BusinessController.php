@@ -17,12 +17,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class BusinessController extends Controller
 {
@@ -190,7 +188,7 @@ class BusinessController extends Controller
         $this->assertPermission($user, 'business.approve');
 
         $payload = $request->validate([
-            'iacrm_business_id' => ['nullable', 'string', 'max:255'],
+            'iacrm_business_id' => ['required', 'string', 'max:255'],
             'business_name'     => ['required', 'string', 'max:160'],
             'owner_email'       => ['required', 'email', 'max:255'],
             'owner_name'        => ['required', 'string', 'max:160'],
@@ -200,17 +198,20 @@ class BusinessController extends Controller
         $ownerEmail  = mb_strtolower(trim((string) $payload['owner_email']));
         $ownerName   = trim((string) $payload['owner_name']);
         $businessName = trim((string) $payload['business_name']);
-        $iacrmId     = isset($payload['iacrm_business_id']) && $payload['iacrm_business_id'] !== ''
-            ? trim((string) $payload['iacrm_business_id'])
-            : null;
+        $iacrmId     = trim((string) $payload['iacrm_business_id']);
 
-        if ($iacrmId !== null) {
-            $existingByIacrm = Business::query()->where('iacrm_business_id', $iacrmId)->first();
-            if ($existingByIacrm !== null) {
-                throw ValidationException::withMessages([
-                    'iacrm_business_id' => 'A business with this IACRM ID already exists on the platform.',
-                ]);
-            }
+        // IACRM business ID is required - all businesses must come from IACRM
+        if ($iacrmId === '') {
+            throw ValidationException::withMessages([
+                'iacrm_business_id' => 'Un business IACRM est requis. Veuillez sélectionner un business depuis IACRM.',
+            ]);
+        }
+
+        $existingByIacrm = Business::query()->where('iacrm_business_id', $iacrmId)->first();
+        if ($existingByIacrm !== null) {
+            throw ValidationException::withMessages([
+                'iacrm_business_id' => 'A business with this IACRM ID already exists on the platform.',
+            ]);
         }
 
         $plainToken = Str::upper(Str::random(12));
@@ -298,48 +299,9 @@ class BusinessController extends Controller
             return [$business, $owner];
         });
 
-        // Auto-register in IACRM if no iacrm_business_id was provided.
-        // Creates a fresh empty entry so the business owner starts with zero data.
-        $iacrmAutoApiKey = null;
-        if ($iacrmId === null) {
-            try {
-                $iacrmBaseUrl     = rtrim((string) config('services.iacrm.base_url', ''), '/');
-                $iacrmPlatformKey = (string) config('services.iacrm.platform_key', '');
-
-                if ($iacrmBaseUrl !== '' && $iacrmPlatformKey !== '') {
-                    $iacrmResponse = Http::timeout(5)
-                        ->withHeaders([
-                            'X-IACRM-API-Key' => $iacrmPlatformKey,
-                            'Accept'          => 'application/json',
-                        ])
-                        ->post("{$iacrmBaseUrl}/platform/businesses", [
-                            'name'     => $businessName,
-                            'industry' => 'Services',
-                            'seed'     => false,
-                        ]);
-
-                    if ($iacrmResponse->successful()) {
-                        $newIacrmId  = $iacrmResponse->json('data.iacrm_id');
-                        $iacrmAutoApiKey = $iacrmResponse->json('data.api_key');
-                        if ($newIacrmId) {
-                            $business->forceFill(['iacrm_business_id' => $newIacrmId])->save();
-                        }
-                    } else {
-                        Log::warning('IACRM auto-registration returned non-2xx.', [
-                            'business_id' => $business->id,
-                            'status'      => $iacrmResponse->status(),
-                            'body'        => $iacrmResponse->body(),
-                        ]);
-                    }
-                }
-            } catch (Throwable $e) {
-                // Non-fatal: business created in HD Parrainage; IACRM linkage can be done later.
-                Log::warning('IACRM auto-registration failed (non-fatal).', [
-                    'business_id' => $business->id,
-                    'error'       => $e->getMessage(),
-                ]);
-            }
-        }
+        // Note: IACRM business ID is required.
+        // New businesses start with zero data - no agents, programs, or prospects.
+        // The business owner must configure everything from scratch after activation.
 
         $activationUrl = FrontendUrlResolver::activationUrl($request, $owner->email, $plainToken);
 
@@ -381,9 +343,6 @@ class BusinessController extends Controller
             $response['meta']['invitation_token']    = $plainToken;
             $response['meta']['activation_url']      = $activationUrl;
             $response['meta']['mail_delivery_error'] = $mailDeliveryError;
-            if ($iacrmAutoApiKey !== null) {
-                $response['meta']['iacrm_api_key'] = $iacrmAutoApiKey;
-            }
         }
 
         return response()->json($response, 201);
