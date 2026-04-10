@@ -2,12 +2,14 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { createContext, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Bell, ChevronDown, Gift, LogOut, Monitor, Moon, PanelLeft, Settings, Sun, User } from 'lucide-react'
-import { authenticatedNavigation } from '../app/navigation'
+import { useNavigation, useActiveRoute } from '../app/useNavigation'
+import { useTranslation } from 'react-i18next'
 import { useAuthSession } from '../features/auth/session'
 import { getIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
 import { fetchNotifications } from '../features/notifications/api'
 import { fetchPointsSummary } from '../features/points/api'
 import { AppSidebar } from './AppSidebar'
+import { LanguageSwitcher } from '@/components/app/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
 import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import { avatarSeedForUser } from '@/lib/avatar-fallback'
@@ -67,6 +69,7 @@ export function useAppBreadcrumbTrail(trail: AppBreadcrumbItem[] | null) {
 }
 
 export function AppShell() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { hasPermission, logout, logoutPending, user } = useAuthSession()
@@ -123,18 +126,15 @@ export function AppShell() {
   // These paths are business-scoped management surfaces — not relevant for platform admin
   const superAdminHiddenPaths = ['/agents', '/prospects', '/commissions', '/payouts', '/exchange-packs', '/transactions']
 
-  const visibleNavigation = authenticatedNavigation.filter((route) => {
+  const navigation = useNavigation()
+  
+  const visibleNavigation = navigation.filter((route) => {
     if (!hasPermission(...route.permissions)) return false
     if (isSuperAdmin && superAdminHiddenPaths.includes(route.path)) return false
     return true
   })
 
-  const activeRoute =
-    authenticatedNavigation.find(
-      (route) =>
-        location.pathname === route.path ||
-        location.pathname.startsWith(`${route.path}/`),
-    ) ?? authenticatedNavigation[0]
+  const activeRoute = useActiveRoute(location.pathname) ?? navigation[0]
   const isProgramDocsRoute = location.pathname === '/programs/docs'
   const isDashboardRoute =
     location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/')
@@ -323,11 +323,11 @@ export function AppShell() {
               aria-label={
                 sidebarMode === 'drawer'
                   ? mobileSidebarOpen
-                    ? 'Close sidebar'
-                    : 'Open sidebar'
+                    ? t('navigation.sidebar.close')
+                    : t('navigation.sidebar.open')
                   : sidebarCollapsed
-                    ? 'Expand sidebar'
-                    : 'Collapse sidebar'
+                    ? t('navigation.sidebar.expand')
+                    : t('navigation.sidebar.collapse')
               }
             >
               <PanelLeft className="h-4 w-4" />
@@ -338,7 +338,7 @@ export function AppShell() {
             />
             {isDashboardRoute ? (
               <p className="text-sm text-muted-foreground">
-                Hello, <span className="font-semibold text-foreground">{displayName}</span>
+                {t('dashboard.hello')}, <span className="font-semibold text-foreground">{displayName}</span>
               </p>
             ) : (
               <Breadcrumb>
@@ -357,7 +357,7 @@ export function AppShell() {
                               variant="ghost"
                               size="icon"
                               className="size-7 cursor-pointer rounded-md"
-                              aria-label="Afficher le chemin complet"
+                              aria-label={t('navigation.breadcrumb.showFullPath')}
                             >
                               <BreadcrumbEllipsis className="size-4" />
                             </Button>
@@ -416,7 +416,7 @@ export function AppShell() {
                     <AlertTriangle className="h-3.5 w-3.5" />
                   </span>
                   <span className="font-medium">
-                    IACRM est requis pour faire fonctionner l&apos;application.
+                    {t('iacrm.notConfigured')}
                   </span>
                   <Button
                     type="button"
@@ -424,7 +424,7 @@ export function AppShell() {
                     className="h-7 rounded-full bg-amber-500 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-400"
                     onClick={() => navigate('/settings?tab=api')}
                   >
-                    Configurer l&apos;API
+                    {t('iacrm.configureApi')}
                   </Button>
                 </div>
                 <Button
@@ -446,7 +446,7 @@ export function AppShell() {
                     <Gift className="h-3.5 w-3.5" />
                   </span>
                   <span className="font-medium">
-                    <span className="text-primary font-bold">{availablePoints.toLocaleString('fr-FR')} pts</span> disponibles
+                    {t('points.availablePoints', { count: availablePoints })}
                   </span>
                   <Button
                     type="button"
@@ -454,7 +454,7 @@ export function AppShell() {
                     className="h-7 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                     onClick={() => navigate('/payouts')}
                   >
-                    Utiliser mes points
+                    {t('points.usePoints')}
                   </Button>
                 </div>
                 <Button
@@ -470,6 +470,8 @@ export function AppShell() {
               </>
             ) : null}
 
+            <LanguageSwitcher />
+
             <Button
               onClick={() =>
                 setTheme((current) => {
@@ -482,8 +484,8 @@ export function AppShell() {
               className="relative"
               aria-label={
                 resolvedTheme === 'dark'
-                  ? 'Switch to light mode'
-                  : 'Switch to dark mode'
+                  ? t('theme.switchToLight')
+                  : t('theme.switchToDark')
               }
             >
               {resolvedTheme === 'dark' ? (
@@ -561,12 +563,12 @@ export function AppShell() {
                   className="cursor-pointer"
                 >
                   <Settings className="h-4 w-4" />
-                  <span>Paramètres</span>
+                  <span>{t('settings.title')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5">
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Theme
+                    {t('theme.title')}
                   </p>
                   <Tabs
                     value={theme}

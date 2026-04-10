@@ -328,7 +328,7 @@ export function AgentDetailPage() {
       return [
         prospect.contact_name,
         prospect.company_name ?? '',
-        prospect.program_name ?? '",
+        prospect.program_name ?? '',
       ].some((value) => value.toLowerCase().includes(q))
     })
   }, [prospects, search, stageFilter, syncFilter])
@@ -381,7 +381,7 @@ export function AgentDetailPage() {
   function handleSort(nextKey: AgentProspectSortKey) {
     setPage(1)
     if (sortKey === nextKey) {
-      setSortDirection((current) => (current === "asc' ? 'desc' : 'asc'))
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
       return
     }
     setSortKey(nextKey)
@@ -562,7 +562,7 @@ export function AgentDetailPage() {
               }
               title={title}
               description={agent.email ?? 'Aucun email renseigné'}
-              badge={<Badge variant="secondary">{agent.agent_code ?? 'Code non attribué"}</Badge>}
+              badge={<Badge variant="secondary">{agent.agent_code ?? 'Code non attribué'}</Badge>}
               titleClassName="!text-sm text-foreground"
               descriptionClassName="text-xs leading-[1.15rem]"
             />
@@ -603,7 +603,7 @@ export function AgentDetailPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge variant="secondary">
-                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString("fr-FR")} agents
+                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} agents
                     </Badge>
                     <Badge className={programStatusBadgeClass(assignment.program.status)}>
                       {assignment.program.status}
@@ -727,7 +727,7 @@ export function AgentDetailPage() {
                         >
                           <p className="font-medium text-foreground">{prospect.contact_name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {prospect.company_name ?? "Sans société'}
+                            {prospect.company_name ?? 'Sans société'}
                           </p>
                         </Link>
                       </TableCell>

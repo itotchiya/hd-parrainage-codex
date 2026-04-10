@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -61,6 +62,7 @@ export function TablePaginationBar({
   pageSizeOptions = DEFAULT_PAGE_SIZES,
   className,
 }: TablePaginationBarProps) {
+  const { t, i18n } = useTranslation()
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
   const safePage = Math.min(Math.max(1, page), totalPages)
   const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
@@ -83,7 +85,7 @@ export function TablePaginationBar({
       )}
     >
       <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span className="whitespace-nowrap">Lignes par page</span>
+        <span className="whitespace-nowrap">{t('table.pagination.perPage')}</span>
         <Select
           value={String(pageSize)}
           onValueChange={(v) => {
@@ -92,7 +94,7 @@ export function TablePaginationBar({
             onPageChange(1)
           }}
         >
-          <SelectTrigger size="sm" className="w-[4.5rem]" aria-label="Nombre de lignes par page">
+          <SelectTrigger size="sm" className="w-[4.5rem]" aria-label={t('table.pagination.perPage')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -104,7 +106,7 @@ export function TablePaginationBar({
           </SelectContent>
         </Select>
         <span className="text-xs sm:text-sm">
-          {start}–{end} sur {totalItems.toLocaleString('fr-FR')}
+          {t('table.pagination.showing', { start, end, total: totalItems.toLocaleString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') })}
         </span>
       </div>
 
@@ -117,11 +119,11 @@ export function TablePaginationBar({
               size="sm"
               className="gap-1 ps-2"
               disabled={!canPrev}
-              aria-label="Page précédente"
+              aria-label={t('table.pagination.previous')}
               onClick={() => onPageChange(safePage - 1)}
             >
               <ChevronLeft className="size-4" aria-hidden />
-              <span className="hidden sm:inline">Précédent</span>
+              <span className="hidden sm:inline">{t('table.pagination.previous')}</span>
             </Button>
           </PaginationItem>
 
@@ -153,10 +155,10 @@ export function TablePaginationBar({
               size="sm"
               className="gap-1 pe-2"
               disabled={!canNext}
-              aria-label="Page suivante"
+              aria-label={t('table.pagination.next')}
               onClick={() => onPageChange(safePage + 1)}
             >
-              <span className="hidden sm:inline">Suivant</span>
+              <span className="hidden sm:inline">{t('table.pagination.next')}</span>
               <ChevronRight className="size-4" aria-hidden />
             </Button>
           </PaginationItem>

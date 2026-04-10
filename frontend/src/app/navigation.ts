@@ -1,10 +1,10 @@
 export interface AppModuleRoute {
   path: string
-  label: string
+  labelKey: string
   icon: NavigationIconKey
-  title: string
-  eyebrow: string
-  description: string
+  titleKey: string
+  eyebrowKey: string
+  descriptionKey: string
   permissions: string[]
 }
 
@@ -36,124 +36,112 @@ export const settingsPermissionIds = [
 
 export const dashboardRoute: AppModuleRoute = {
   path: '/dashboard',
-  label: 'Tableau de bord',
+  labelKey: 'navigation.dashboard',
   icon: 'dashboard',
-  title: 'Tableau de bord',
-  eyebrow: 'Accueil et performances',
-  description:
-    'Vue d\'ensemble des KPI, contexte d\'affaires et actions en attente pour votre profil actuel.',
+  titleKey: 'dashboard.title',
+  eyebrowKey: 'dashboard.eyebrow',
+  descriptionKey: 'dashboard.description',
   permissions: dashboardPermissionIds,
 }
 
 export const appModuleRoutes: AppModuleRoute[] = [
   {
     path: '/businesses',
-    label: 'Businesses',
+    labelKey: 'navigation.businesses',
     icon: 'businesses',
-    title: 'Businesses',
-    eyebrow: 'Gouvernance de la plateforme',
-    description:
-      'Gouvernance des entreprises par le super-admin, suivi des intégrations territoriales.',
+    titleKey: 'businesses.title',
+    eyebrowKey: 'businesses.eyebrow',
+    descriptionKey: 'businesses.description',
     permissions: ['business.view'],
   },
   {
     path: '/programs',
-    label: 'Programmes',
+    labelKey: 'navigation.programs',
     icon: 'programs',
-    title: 'Programmes',
-    eyebrow: 'Opérations',
-    description:
-      'Cycle de vie des programmes, assignations et règles de commission pour les convertis.',
+    titleKey: 'programs.title',
+    eyebrowKey: 'programs.eyebrow',
+    descriptionKey: 'programs.description',
     permissions: ['program.view'],
   },
   {
     path: '/exchange-packs',
-    label: 'Packs de points',
+    labelKey: 'navigation.exchangePacks',
     icon: 'exchange-packs',
-    title: 'Packs de points',
-    eyebrow: 'Catalogue',
-    description:
-      'Gestion et consultation des packs de récompenses disponibles pour échange.',
+    titleKey: 'exchangePacks.title',
+    eyebrowKey: 'exchangePacks.eyebrow',
+    descriptionKey: 'exchangePacks.description',
     permissions: ['exchange-pack.view'],
   },
   {
     path: '/agents',
-    label: 'Affiliés',
+    labelKey: 'navigation.agents',
     icon: 'agents',
-    title: 'Affiliés',
-    eyebrow: 'Gestion du réseau',
-    description:
-      'Invitations, attributions et contrôle des profils des affiliés / parrains.',
+    titleKey: 'agents.title',
+    eyebrowKey: 'agents.eyebrow',
+    descriptionKey: 'agents.description',
     permissions: ['agent.view'],
   },
   {
     path: '/prospects',
-    label: 'Filleuls',
+    labelKey: 'navigation.prospects',
     icon: 'prospects',
-    title: 'Filleuls',
-    eyebrow: 'Suivi des recommandations',
-    description:
-      'Soumission, état de synchronisation et cycle de vie des filleuls parrainés.',
+    titleKey: 'prospects.title',
+    eyebrowKey: 'prospects.eyebrow',
+    descriptionKey: 'prospects.description',
     permissions: ['prospect.view'],
   },
   {
     path: '/transactions',
-    label: 'Transactions',
+    labelKey: 'navigation.transactions',
     icon: 'transactions',
-    title: 'Transactions',
-    eyebrow: 'Historique des revenus',
-    description:
-      'Transactions converties, attribution de points et résultats commerciaux issus du CRM.',
+    titleKey: 'transactions.title',
+    eyebrowKey: 'transactions.eyebrow',
+    descriptionKey: 'transactions.description',
     permissions: ['transaction.view'],
   },
   {
     path: '/commissions',
-    label: 'Points',
+    labelKey: 'navigation.points',
     icon: 'points',
-    title: 'Points et Portefeuille',
-    eyebrow: 'Soldes',
-    description:
-      'Historique de vos points, cumuls, et éligibilité aux différentes récompenses.',
+    titleKey: 'points.title',
+    eyebrowKey: 'points.eyebrow',
+    descriptionKey: 'points.description',
     permissions: ['points.view'],
   },
   {
     path: '/payouts',
-    label: 'Demandes',
+    labelKey: 'navigation.payouts',
     icon: 'exchanges',
-    title: 'Demandes',
-    eyebrow: 'Traitement des échanges',
-    description:
-      'Consultation et traitement des demandes d\'échange des points en cadeaux ou virements.',
+    titleKey: 'payouts.title',
+    eyebrowKey: 'payouts.eyebrow',
+    descriptionKey: 'payouts.description',
     permissions: ['exchange-request.view'],
   },
   {
     path: '/notifications',
-    label: 'Notifications',
+    labelKey: 'navigation.notifications',
     icon: 'notifications',
-    title: 'Notifications',
-    eyebrow: 'Alertes',
-    description:
-      'Historique de vos alertes, événements et messages liés au compte.',
+    titleKey: 'notifications.title',
+    eyebrowKey: 'notifications.eyebrow',
+    descriptionKey: 'notifications.description',
     permissions: ['notification.view'],
   },
   {
     path: '/settings',
-    label: 'Paramètres',
+    labelKey: 'navigation.settings',
     icon: 'settings',
-    title: 'Paramètres',
-    eyebrow: 'Profil et configuration',
-    description:
-      'Gestion de votre profil, préférences de sécurité et paramétrages d\'intégration.',
+    titleKey: 'settings.title',
+    eyebrowKey: 'settings.eyebrow',
+    descriptionKey: 'settings.description',
     permissions: settingsPermissionIds,
   },
   {
     path: '/iacrm',
-    label: 'IACRM',
+    labelKey: 'navigation.iacrm',
     icon: 'iacrm',
-    title: 'IACRM',
-    eyebrow: 'External CRM',
-    description:
-      'IACRM integration dashboard showing services, clients, pipeline, and invoicing from the external CRM system.',
+    titleKey: 'iacrm.title',
+    eyebrowKey: 'iacrm.eyebrow',
+    descriptionKey: 'iacrm.description',
     permissions: ['iacrm.sync-view'],
   },
 ]

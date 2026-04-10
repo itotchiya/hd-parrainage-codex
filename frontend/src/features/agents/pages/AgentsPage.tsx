@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, FilterX, Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
@@ -135,6 +136,7 @@ function AgentsPageSkeleton() {
 }
 
 export function AgentsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthSession()
@@ -304,8 +306,8 @@ export function AgentsPage() {
             <DialogTitle>Programmes assignés</DialogTitle>
             <DialogDescription>
               {programsDialogAgent
-                ? `Liste complète des programmes actuellement attribués à ${programsDialogAgent.display_name ?? programsDialogAgent.email ?? 'cet affilié'}.`
-                : 'Liste complète des programmes assignés à cet affilié.'}
+                ? t('agents.dialogs.assignedProgramsDescription')
+                : t('agents.dialogs.assignedProgramsDescription')}
             </DialogDescription>
           </DialogHeader>
           {programsDialogAgent && (programsDialogAgent.assigned_programs?.length ?? 0) > 0 ? (
@@ -323,12 +325,12 @@ export function AgentsPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{assignment.program.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Assigné le {formatDashboardDateFr(assignment.assigned_at)}
+                      {t('agents.dialogs.assignedOn')} {formatDashboardDateFr(assignment.assigned_at)}
                     </p>
                   </div>
                   <div className="ml-4 flex shrink-0 items-center gap-2">
                     <Badge variant="secondary" className="whitespace-nowrap">
-                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR")} agents
+                      {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} {t('agents.table.programs_plural')}
                     </Badge>
                     <Badge className={programStatusBadgeClass(assignment.program.status)}>
                       {assignment.program.status}
@@ -339,7 +341,7 @@ export function AgentsPage() {
             </div>
           ) : (
             <DetailEmptyState
-              message="Cet affilié n'est actuellement lié à aucun programme."
+              message={t('agents.dialogs.noPrograms')}
             />
           )}
         </DialogContent>
@@ -359,21 +361,21 @@ export function AgentsPage() {
                       size="icon"
                       className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => {
-                        setSearch("')
+                        setSearch('')
                         setStatusFilter('all')
                       }}
-                      aria-label="Effacer les filtres"
+                      aria-label={t('common.clearFilters')}
                     >
                       <FilterX className="size-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Effacer les filtres</TooltipContent>
+                  <TooltipContent>{t('common.clearFilters')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}
             <Field className="w-full sm:w-[240px] shrink-0">
               <FieldLabel htmlFor="agents-search" className="sr-only">
-                Rechercher un affilié
+                {t('agents.searchPlaceholder')}
               </FieldLabel>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -381,7 +383,7 @@ export function AgentsPage() {
                   id="agents-search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Rechercher par nom, email ou code..."
+                  placeholder={t('agents.searchPlaceholder')}
                   className="pl-9"
                 />
               </div>
@@ -391,15 +393,15 @@ export function AgentsPage() {
               onValueChange={(value: 'all' | 'active' | 'pending' | 'suspended') => setStatusFilter(value)}
             >
               <SelectTrigger className="w-full sm:w-[160px] shrink-0">
-                <SelectValue placeholder="Statut" />
+                <SelectValue placeholder={t('common.status')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Statut</SelectLabel>
-                  <SelectItem value="all">Tous statuts</SelectItem>
-                  <SelectItem value="active">Actif</SelectItem>
-                  <SelectItem value="pending">En attente</SelectItem>
-                  <SelectItem value="suspended">Suspendu</SelectItem>
+                  <SelectLabel>{t('common.status')}</SelectLabel>
+                  <SelectItem value="all">{t('agents.filters.allStatuses')}</SelectItem>
+                  <SelectItem value="active">{t('agents.status.active')}</SelectItem>
+                  <SelectItem value="pending">{t('agents.status.pending')}</SelectItem>
+                  <SelectItem value="suspended">{t('agents.status.suspended')}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -410,7 +412,7 @@ export function AgentsPage() {
                 onClick={() => setInviteOpen(true)}
               >
                 <Plus className="size-4" aria-hidden />
-                Ajouter un affilié
+                {t('agents.addAgent')}
               </Button>
             ) : null}
           </PageHeaderToolbar>
@@ -419,30 +421,30 @@ export function AgentsPage() {
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
-            title="Affiliés"
-            value={agentKpis.total.toLocaleString('fr-FR")}
-            description="Nombre total d'affiliés enregistrés pour ce compte"
+            title={t('agents.kpis.total')}
+            value={agentKpis.total.toLocaleString('fr-FR')}
+            description={t('agents.kpis.totalDescription')}
             icon={Users}
             tone="primary"
           />
           <KpiCard
-            title="Actifs"
-            value={agentKpis.active.toLocaleString("fr-FR')}
-            description="Comptes affiliés actifs et opérationnels"
+            title={t('agents.kpis.active')}
+            value={agentKpis.active.toLocaleString('fr-FR')}
+            description={t('agents.kpis.activeDescription')}
             icon={UserCheck}
             tone="success"
           />
           <KpiCard
-            title="Invitations en attente"
-            value={agentKpis.pendingInvite.toLocaleString('fr-FR")}
-            description="Invités ou en attente d'activation"
+            title={t('agents.kpis.pending')}
+            value={agentKpis.pendingInvite.toLocaleString('fr-FR')}
+            description={t('agents.kpis.pendingDescription')}
             icon={Mail}
             tone="info"
           />
           <KpiCard
-            title="Suspendus"
-            value={agentKpis.suspended.toLocaleString("fr-FR')}
-            description="Affiliés suspendus ou inactifs côté parrainage"
+            title={t('agents.kpis.suspended')}
+            value={agentKpis.suspended.toLocaleString('fr-FR')}
+            description={t('agents.kpis.suspendedDescription')}
             icon={UserX}
             tone="warning"
           />
@@ -450,12 +452,12 @@ export function AgentsPage() {
 
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
-            title="Affiliés"
+            title={t('agents.title')}
           />
 
           {totalFiltered === 0 ? (
             <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
-              Aucun affilié ne correspond à ces critères.
+              {t('agents.table.noResults')}
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
@@ -470,9 +472,9 @@ export function AgentsPage() {
                     direction={sortDirection}
                     onSort={handleSort}
                   >
-                    Affilié
+                    {t('agents.table.agent')}
                   </SortableTableHead>
-                  <TableHead className="hidden sm:table-cell">Email</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('agents.table.email')}</TableHead>
                   <SortableTableHead
                     sortKey="status"
                     activeKey={sortKey}
@@ -480,16 +482,16 @@ export function AgentsPage() {
                     onSort={handleSort}
                     className="hidden md:table-cell"
                   >
-                    Statut
+                    {t('agents.table.status')}
                   </SortableTableHead>
-                  <TableHead className="hidden lg:table-cell">Programmes</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('agents.table.programs')}</TableHead>
                   <SortableTableHead
                     sortKey="joined"
                     activeKey={sortKey}
                     direction={sortDirection}
                     onSort={handleSort}
                   >
-                    Adhésion
+                    {t('agents.table.joined')}
                   </SortableTableHead>
                   <TableHead className="w-10 pe-2 text-end">
                     <span className="sr-only">Actions</span>
@@ -498,7 +500,7 @@ export function AgentsPage() {
               </TableHeader>
               <TableBody>
                 {pageSlice.map((agent, index) => {
-                  const displayName = agent.display_name ?? 'Affilié sans nom'
+                  const displayName = agent.display_name ?? t('agents.table.untitled')
                   const joinedAt = agent.activated_at ?? agent.invited_at ?? agent.created_at ?? null
                   const actionsBusy = suspendMutation.isPending || reactivateMutation.isPending
                   const showSuspend = agent.status !== 'suspended' && canSuspend
@@ -511,7 +513,7 @@ export function AgentsPage() {
                         <Link
                           to={`/agents/${agent.id}`}
                           className="group -m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                          aria-label={`Voir le profil de ${displayName}`}
+                          aria-label={`${t('agents.table.actions.viewProfile')} ${displayName}`}
                         >
                           <Avatar className="size-9 shrink-0">
                             <AvatarImage src={agent.avatar_url ?? undefined} alt={displayName} />
@@ -555,7 +557,7 @@ export function AgentsPage() {
                             className="transition-colors hover:bg-secondary/80"
                           >
                             {(agent.assigned_programs_count ?? 0).toLocaleString('fr-FR')}{' '}
-                            {(agent.assigned_programs_count ?? 0) > 1 ? 'programmes' : 'programme'}
+                            {(agent.assigned_programs_count ?? 0) > 1 ? t('agents.table.programs_plural') : t('agents.table.program')}
                           </Badge>
                         </button>
                       </TableCell>
@@ -574,12 +576,12 @@ export function AgentsPage() {
                                     size="icon-sm"
                                     className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                                   >
-                                    <Link to={`/agents/${agent.id}`} aria-label={`Voir le profil de ${displayName}`}>
+                                    <Link to={`/agents/${agent.id}`} aria-label={`${t('agents.table.actions.viewProfile')} ${displayName}`}>
                                       <Eye className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Voir le profil</TooltipContent>
+                                <TooltipContent>{t('agents.table.actions.viewProfile')}</TooltipContent>
                               </Tooltip>
                               {showSuspend ? (
                                 <Tooltip>
@@ -591,12 +593,12 @@ export function AgentsPage() {
                                       disabled={actionsBusy}
                                       className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
                                       onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
-                                      aria-label={`Suspendre ${displayName}`}
+                                      aria-label={`${t('agents.table.actions.suspend')} ${displayName}`}
                                     >
                                       <UserX className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Suspendre</TooltipContent>
+                                  <TooltipContent>{t('agents.table.actions.suspend')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {showReactivate ? (
@@ -609,12 +611,12 @@ export function AgentsPage() {
                                       disabled={actionsBusy}
                                       className="border border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-500 dark:text-emerald-400"
                                       onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
-                                      aria-label={`Réactiver ${displayName}`}
+                                      aria-label={`${t('agents.table.actions.reactivate')} ${displayName}`}
                                     >
                                       <UserCheck className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Réactiver</TooltipContent>
+                                  <TooltipContent>{t('agents.table.actions.reactivate')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                             </div>
@@ -634,7 +636,7 @@ export function AgentsPage() {
                             <DropdownMenuItem asChild>
                               <Link to={`/agents/${agent.id}`}>
                                 <Eye className="size-4 text-primary" />
-                                <span>Voir le profil</span>
+                                <span>{t('agents.table.actions.viewProfile')}</span>
                               </Link>
                             </DropdownMenuItem>
                             {(showSuspend || showReactivate) && (
@@ -647,7 +649,7 @@ export function AgentsPage() {
                                 onClick={() => setPendingLifecycleAction({ type: 'suspend', agent })}
                               >
                                 <UserX className="size-4 text-destructive" />
-                                <span>Suspendre</span>
+                                <span>{t('agents.table.actions.suspend')}</span>
                               </DropdownMenuItem>
                             ) : null}
                             {showReactivate ? (
@@ -657,7 +659,7 @@ export function AgentsPage() {
                                 onClick={() => setPendingLifecycleAction({ type: 'reactivate', agent })}
                               >
                                 <UserCheck className="size-4 text-emerald-500" />
-                                <span>Réactiver</span>
+                                <span>{t('agents.table.actions.reactivate')}</span>
                               </DropdownMenuItem>
                             ) : null}
                           </DropdownMenuContent>

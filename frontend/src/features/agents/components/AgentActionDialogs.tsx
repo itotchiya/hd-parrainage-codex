@@ -110,14 +110,14 @@ export function AgentLifecycleConfirmDialog({
     }
 
     return `Cet affilié est déjà assigné à ${assignedProgramsCount.toLocaleString('fr-FR')} programme${
-      assignedProgramsCount > 1 ? 's' : '"
+      assignedProgramsCount > 1 ? 's' : ''
     }. Attendez ${countdown}s avant de confirmer afin d'éviter une interruption brutale.`
   }, [assignedProgramsCount, countdown, countdownStarted, requiresCountdown])
 
   const suspendButtonDisabled =
     isSubmitting ||
     !action ||
-    (action.type === "suspend' && !reason.trim()) ||
+    (action.type === 'suspend' && !reason.trim()) ||
     (action?.type === 'suspend' && requiresCountdown && countdownStarted && countdown > 0)
 
   return (
@@ -146,7 +146,7 @@ export function AgentLifecycleConfirmDialog({
           <AlertDescription>{copy.alertDescription}</AlertDescription>
         </Alert>
 
-        {action?.type === 'suspend" ? (
+        {action?.type === 'suspend' ? (
           <div className="space-y-4">
             <Alert className="border-amber-500/25 bg-amber-500/10 text-amber-950 dark:text-amber-200">
               <UserX />
@@ -190,7 +190,7 @@ export function AgentLifecycleConfirmDialog({
           </DialogClose>
           <Button
             type="button"
-            variant={copy.destructive ? "destructive' : 'default'}
+            variant={copy.destructive ? 'destructive' : 'default'}
             disabled={suspendButtonDisabled}
             onClick={() => {
               if (!action) return

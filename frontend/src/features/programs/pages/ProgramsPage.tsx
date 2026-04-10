@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Archive, FileText, FolderKanban, Search, Plus } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../../lib/api'
@@ -145,9 +146,9 @@ function toProgramUpdatePayload(
   }
 }
 
-function formatAgentAddedAt(agent: AgentRecord) {
+function formatAgentAddedAt(agent: AgentRecord, t: (key: string) => string) {
   const raw = agent.activated_at ?? agent.invited_at ?? agent.created_at
-  if (!raw) return 'Inconnu'
+  if (!raw) return t('common.unknown')
   return new Date(raw).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'short',
@@ -191,6 +192,7 @@ function ProgramsPageSkeleton() {
 }
 
 export function ProgramsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -511,12 +513,12 @@ export function ProgramsPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Programmes"
+        title={t('programs.title')}
         right={
           <PageHeaderToolbar>
           <Field className="w-full sm:min-w-[180px] sm:max-w-[360px] sm:flex-1">
             <FieldLabel htmlFor="programs-search" className="sr-only">
-              Rechercher des programmes
+              {t('programs.searchPlaceholder')}
             </FieldLabel>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -533,7 +535,7 @@ export function ProgramsPage() {
                   }
                   setSearchParams(nextParams, { replace: true })
                 }}
-                placeholder="Rechercher un programme..."
+                placeholder={t('programs.searchPlaceholder')}
                 className="pl-9"
               />
             </div>
@@ -554,16 +556,16 @@ export function ProgramsPage() {
             disabled={scopeFilter === 'archived'}
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-              <SelectValue placeholder="Statut" />
+              <SelectValue placeholder={t('common.status')} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Statut</SelectLabel>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="active">Actif</SelectItem>
-                {cardMode === 'owner' ? <SelectItem value="draft">Brouillon</SelectItem> : null}
-                <SelectItem value="paused">En pause</SelectItem>
-                <SelectItem value="suspended">Suspendu</SelectItem>
+                <SelectLabel>{t('common.status')}</SelectLabel>
+                <SelectItem value="all">{t('programs.filters.allStatuses')}</SelectItem>
+                <SelectItem value="active">{t('programs.status.active')}</SelectItem>
+                {cardMode === 'owner' ? <SelectItem value="draft">{t('programs.status.draft')}</SelectItem> : null}
+                <SelectItem value="paused">{t('programs.status.paused')}</SelectItem>
+                <SelectItem value="suspended">{t('programs.status.suspended')}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -583,12 +585,12 @@ export function ProgramsPage() {
               }}
             >
               <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                <SelectValue placeholder="Business" />
+                <SelectValue placeholder={t('programs.filters.business')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Business</SelectLabel>
-                  <SelectItem value="all">Tous les business</SelectItem>
+                  <SelectLabel>{t('programs.filters.business')}</SelectLabel>
+                  <SelectItem value="all">{t('programs.filters.allBusinesses')}</SelectItem>
                   {businessFilterOptions.map((business) => (
                     <SelectItem key={business.id} value={business.id}>
                       {business.name}
@@ -613,15 +615,15 @@ export function ProgramsPage() {
             }}
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[104px] sm:shrink-0">
-              <SelectValue placeholder="Mode" />
+              <SelectValue placeholder={t('programs.filters.exchangeMode')} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Mode d'échange</SelectLabel>
-                <SelectItem value="all">Tous les modes</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="reward">Récompenses</SelectItem>
-                <SelectItem value="both">Mixte</SelectItem>
+                <SelectLabel>{t('programs.filters.exchangeMode')}</SelectLabel>
+                <SelectItem value="all">{t('programs.filters.allModes')}</SelectItem>
+                <SelectItem value="cash">{t('programs.exchangeModes.cash')}</SelectItem>
+                <SelectItem value="reward">{t('programs.exchangeModes.reward')}</SelectItem>
+                <SelectItem value="both">{t('programs.exchangeModes.both')}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -640,20 +642,20 @@ export function ProgramsPage() {
             }}
           >
             <SelectTrigger size="sm" className="w-full sm:w-auto sm:min-w-[108px] sm:shrink-0">
-              <SelectValue placeholder="Récents" />
+              <SelectValue placeholder={t('programs.sortOptions.newest')} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Trier les programmes</SelectLabel>
-                <SelectItem value="newest">Récents</SelectItem>
-                <SelectItem value="oldest">Anciens</SelectItem>
-                <SelectItem value="status">Statut</SelectItem>
-                <SelectItem value="points-high">Points (Décroissant)</SelectItem>
-                <SelectItem value="points-low">Points (Croissant)</SelectItem>
+                <SelectLabel>{t('programs.filters.sort')}</SelectLabel>
+                <SelectItem value="newest">{t('programs.sortOptions.newest')}</SelectItem>
+                <SelectItem value="oldest">{t('programs.sortOptions.oldest')}</SelectItem>
+                <SelectItem value="status">{t('programs.sortOptions.status')}</SelectItem>
+                <SelectItem value="points-high">{t('programs.sortOptions.pointsHigh')}</SelectItem>
+                <SelectItem value="points-low">{t('programs.sortOptions.pointsLow')}</SelectItem>
                 {cardMode === 'owner' ? (
                   <>
-                    <SelectItem value="agents-high">Nombre d'agents ↓</SelectItem>
-                    <SelectItem value="agents-low">Nombre d'agents ↑</SelectItem>
+                    <SelectItem value="agents-high">{t('programs.sortOptions.agentsHigh')}</SelectItem>
+                    <SelectItem value="agents-low">{t('programs.sortOptions.agentsLow')}</SelectItem>
                   </>
                 ) : null}
               </SelectGroup>
@@ -668,7 +670,7 @@ export function ProgramsPage() {
               onClick={() => navigate('/programs/docs')}
             >
               <FileText className="size-4" aria-hidden />
-              Documentation
+              {t('programs.documentation')}
             </Button>
           ) : null}
 
@@ -683,7 +685,7 @@ export function ProgramsPage() {
               className="gap-2 sm:shrink-0"
             >
               <Plus className="size-4" aria-hidden />
-              Créer un programme
+              {t('programs.createProgram')}
             </Button>
           ) : null}
           <Tabs
@@ -702,11 +704,11 @@ export function ProgramsPage() {
             <TabsList>
               <TabsTrigger value="programs">
                 <FolderKanban className="size-4" />
-                Programmes
+                {t('programs.tabs.programs')}
               </TabsTrigger>
               <TabsTrigger value="archived">
                 <Archive className="size-4" />
-                Archivés
+                {t('programs.tabs.archived')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -718,7 +720,7 @@ export function ProgramsPage() {
         <article className="app-panel">
           <p className="app-eyebrow">Catalogue de programmes</p>
           <h2 className="mt-2 text-lg font-semibold text-foreground">
-            Aucun programme ne correspond au filtre actuel.
+            {t('programs.noResults')}
           </h2>
         </article>
       ) : (
@@ -780,8 +782,8 @@ export function ProgramsPage() {
 
       <ProgramFormDialog
         open={dialogOpen}
-        title={editingProgram ? 'Modifier le programme' : 'Créer un programme'}
-        submitLabel={editingProgram ? 'Enregistrer' : 'Créer'}
+        title={editingProgram ? t('programs.dialogs.editTitle') : t('programs.dialogs.createTitle')}
+        submitLabel={editingProgram ? t('programs.dialogs.save') : t('programs.dialogs.create')}
         packs={packs}
         initialProgram={editingProgram}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
@@ -972,7 +974,7 @@ export function ProgramsPage() {
                       <ItemContent>
                         <ItemTitle>{agent.display_name ?? agent.email ?? 'Agent'}</ItemTitle>
                         <ItemDescription>
-                          {agent.email ?? 'Email non disponible'} • Ajouté le {formatAgentAddedAt(agent)}
+                          {agent.email ?? t('common.notSet')} • {formatAgentAddedAt(agent, t)}
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions>

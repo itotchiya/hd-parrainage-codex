@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BadgeCheck, CheckSquare, Eye, FilterX, Flame, History, MoreHorizontal, Plus, ScanSearch, Search, Snowflake, Square, Thermometer, Trash2, User, XCircle } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
@@ -87,28 +88,38 @@ const syncSortOrder: Record<ProspectSubmissionStatus, number> = {
 
 const stagePresentation: Record<
   ProspectPipelineStage,
-  { label: string; className: string }
+  { className: string }
 > = {
-  suspect: { label: 'Suspect', className: 'border-border bg-muted/40 text-foreground' },
+  suspect: { className: 'border-border bg-muted/40 text-foreground' },
   prospect_froid: {
-    label: 'Prospect Froid',
     className: 'border-border bg-blue-500/10 text-blue-800 dark:text-blue-300',
   },
   prospect_tiede: {
-    label: 'Prospect Tiede',
     className: 'border-border bg-amber-500/10 text-amber-800 dark:text-amber-300',
   },
   prospect_chaud: {
-    label: 'Prospect Chaud',
     className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
   },
 }
 
-const submissionPresentation: Record<ProspectSubmissionStatus, string> = {
-  pending_sync: 'Synchro en attente',
-  synced: 'Synchronisé',
-  sync_failed: 'Échec synchro',
-  deleted: 'Supprimé',
+function getStageLabel(t: (key: string) => string, stage: ProspectPipelineStage): string {
+  const labels: Record<ProspectPipelineStage, string> = {
+    suspect: t('prospects.stages.suspect'),
+    prospect_froid: t('prospects.stages.prospect_froid'),
+    prospect_tiede: t('prospects.stages.prospect_tiede'),
+    prospect_chaud: t('prospects.stages.prospect_chaud'),
+  }
+  return labels[stage]
+}
+
+function getSubmissionLabel(t: (key: string) => string, status: ProspectSubmissionStatus): string {
+  const labels: Record<ProspectSubmissionStatus, string> = {
+    pending_sync: t('prospects.syncStatus.pending_sync'),
+    synced: t('prospects.syncStatus.synced'),
+    sync_failed: t('prospects.syncStatus.sync_failed'),
+    deleted: t('prospects.syncStatus.deleted'),
+  }
+  return labels[status]
 }
 
 function submissionBadgeClass(status: ProspectSubmissionStatus): string {
@@ -150,21 +161,24 @@ function prospectPipelineRank(prospect: ProspectRecord) {
   return pipelineSortOrder[prospect.pipeline_stage]
 }
 
-function prospectPipelinePresentation(prospect: ProspectRecord) {
+function prospectPipelinePresentation(t: (key: string) => string, prospect: ProspectRecord) {
   if (prospect.conversion_status === 'converted') {
     return {
-      label: 'Converti',
+      label: t('prospects.stages.converted'),
       className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
     }
   }
   if (prospect.conversion_status === 'lost') {
     return {
-      label: 'Perdu',
+      label: t('prospects.stages.lost'),
       className: 'border-border bg-rose-500/10 text-rose-800 dark:text-rose-300',
     }
   }
 
-  return stagePresentation[prospect.pipeline_stage]
+  return {
+    label: getStageLabel(t, prospect.pipeline_stage),
+    className: stagePresentation[prospect.pipeline_stage].className,
+  }
 }
 
 function compareProspects(left: ProspectRecord, right: ProspectRecord, key: ProspectSortKey, direction: SortDirection) {
@@ -227,6 +241,7 @@ function ProspectsPageSkeleton() {
 }
 
 export function ProspectsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user, hasPermission } = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -421,9 +436,10 @@ export function ProspectsPage() {
   const lostProspectCount = activeProspects.filter(
     (prospect) => prospect.conversion_status === 'lost',
   ).length
-  const stageCards = Object.entries(stagePresentation).map(([key, value]) => ({
+  const stageCards = (['suspect', 'prospect_froid', 'prospect_tiede', 'prospect_chaud'] as ProspectPipelineStage[]).map((key) => ({
     key,
-    ...value,
+    label: getStageLabel(t, key),
+    className: stagePresentation[key].className,
     count: activeProspects.filter(
       (prospect) => prospect.conversion_status === 'open' && prospect.pipeline_stage === key,
     ).length,
@@ -464,19 +480,19 @@ export function ProspectsPage() {
                         setSelectedAgentId('all')
                         setShowDeleted(false)
                       }}
-                      aria-label="Effacer les filtres"
+                      aria-aria-label={t('common.clearFilters')}
                     >
                       <FilterX className="size-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Effacer les filtres</TooltipContent>
+                  <TooltipContent>{t('common.clearFilters')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}
 
             <Field className="w-full sm:w-[240px] shrink-0">
               <FieldLabel htmlFor="prospects-search" className="sr-only">
-                Rechercher un filleul
+                {t('prospects.searchPlaceholder')}
               </FieldLabel>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -484,7 +500,7 @@ export function ProspectsPage() {
                   id="prospects-search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Rechercher par nom, email..."
+                  placeholder={t('prospects.searchPlaceholder')}
                   className="pl-9"
                 />
               </div>
@@ -495,19 +511,19 @@ export function ProspectsPage() {
               onValueChange={(value) => setStageFilter(value as 'all' | ProspectPipelineStage | 'converted' | 'lost')}
             >
               <SelectTrigger className="w-full sm:w-[160px] shrink-0">
-                <SelectValue placeholder="Étape pipeline" />
+                <SelectValue placeholder={t('prospects.filters.pipelineStage')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Étape pipeline</SelectLabel>
-                  <SelectItem value="all">Tous statuts</SelectItem>
-                  {Object.entries(stagePresentation).map(([key, stage]) => (
+                  <SelectLabel>{t('prospects.filters.pipelineStage')}</SelectLabel>
+                  <SelectItem value="all">{t('prospects.filters.allStatuses')}</SelectItem>
+                  {(['suspect', 'prospect_froid', 'prospect_tiede', 'prospect_chaud'] as ProspectPipelineStage[]).map((key) => (
                     <SelectItem key={key} value={key}>
-                      {stage.label}
+                      {getStageLabel(t, key)}
                     </SelectItem>
                   ))}
-                  <SelectItem value="converted">Converti</SelectItem>
-                  <SelectItem value="lost">Perdu</SelectItem>
+                  <SelectItem value="converted">{t('prospects.stages.converted')}</SelectItem>
+                  <SelectItem value="lost">{t('prospects.stages.lost')}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -515,12 +531,12 @@ export function ProspectsPage() {
             {hasPermission('prospect.view') && user?.agent_profile === null ? (
               <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
                 <SelectTrigger className="w-full sm:w-[180px] shrink-0">
-                  <SelectValue placeholder="Agent" />
+                  <SelectValue placeholder={t('prospects.filters.agent')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Agent</SelectLabel>
-                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectLabel>{t('prospects.filters.agent')}</SelectLabel>
+                    <SelectItem value="all">{t('prospects.filters.allAgents')}</SelectItem>
                     {agentOptions.map((agent) => (
                       <SelectItem key={agent.id} value={agent.id}>
                         {agent.name}
@@ -539,7 +555,7 @@ export function ProspectsPage() {
               aria-pressed={showDeleted}
             >
               {showDeleted ? <CheckSquare className="size-4" aria-hidden /> : <Square className="size-4" aria-hidden />}
-              Éléments supprimés
+              {t('prospects.filters.showDeleted')}
             </Button>
 
             {canSubmitProspects ? (
@@ -550,7 +566,7 @@ export function ProspectsPage() {
                 disabled={eligiblePrograms.length === 0}
               >
                 <Plus className="size-4" aria-hidden />
-                Nouveau filleul
+                {t('prospects.newProspect')}
               </Button>
             ) : null}
           </PageHeaderToolbar>
@@ -565,7 +581,7 @@ export function ProspectsPage() {
               key={stage.key}
               title={stage.label}
               value={stage.count.toString()}
-              description="Prospects dans cette étape du funnel"
+              description={t('prospects.kpis.stageDescription')}
               icon={stageKpiIcons[stageKey]}
               tone={stageKpiTones[stageKey]}
               isLoading={isKpiLoading}
@@ -573,17 +589,17 @@ export function ProspectsPage() {
           )
         })}
         <KpiCard
-          title="Converti"
+          title={t('prospects.stages.converted')}
           value={convertedProspectCount.toLocaleString('fr-FR')}
-          description="Prospects ayant produit un résultat commercial validé"
+          description={t('prospects.kpis.convertedDescription')}
           icon={BadgeCheck}
           tone="success"
           isLoading={isKpiLoading}
         />
         <KpiCard
-          title="Perdu"
+          title={t('prospects.stages.lost')}
           value={lostProspectCount.toLocaleString('fr-FR')}
-          description="Prospects marqués comme perdus par IACRM"
+          description={t('prospects.kpis.lostDescription')}
           icon={XCircle}
           tone="danger"
           isLoading={isKpiLoading}
@@ -593,12 +609,12 @@ export function ProspectsPage() {
       {filteredProspects.length === 0 ? (
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
-            title={isAgentView ? 'Mes prospects' : 'Tous les prospects'}
+            title={isAgentView ? t('prospects.myProspects') : t('prospects.allProspects')}
           />
           <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
             <p className="app-eyebrow">Liste des filleuls</p>
             <h2 className="mt-2 text-lg font-semibold text-foreground">
-              Aucun filleul ne correspond à votre recherche.
+              {t('prospects.table.noResults')}
             </h2>
           </article>
         </article>
@@ -622,9 +638,9 @@ export function ProspectsPage() {
                     >
                       Contact
                     </SortableTableHead>
-                    <TableHead className="hidden min-w-[11rem] sm:table-cell">Contacts</TableHead>
+                    <TableHead className="hidden min-w-[11rem] sm:table-cell">{t('prospects.table.contacts')}</TableHead>
                     {isAgentView ? (
-                      <TableHead className="hidden min-w-[10rem] lg:table-cell">Programme</TableHead>
+                      <TableHead className="hidden min-w-[10rem] lg:table-cell">{t('prospects.table.program')}</TableHead>
                     ) : (
                       <SortableTableHead
                         sortKey="agent"
@@ -643,7 +659,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="min-w-[7.5rem]"
                     >
-                      {isAgentView ? 'Statut' : 'Pipeline'}
+                      {isAgentView ? t('common.status') : t('prospects.table.pipeline')}
                     </SortableTableHead>
                     {!isAgentView ? (
                       <SortableTableHead
@@ -653,7 +669,7 @@ export function ProspectsPage() {
                         onSort={handleSort}
                         className="min-w-[8.5rem]"
                       >
-                        Synchro
+                        {t('prospects.table.sync')}
                       </SortableTableHead>
                     ) : null}
                     <SortableTableHead
@@ -663,7 +679,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[7rem] xl:table-cell"
                     >
-                      Soumis le
+                      {t('prospects.table.submitted')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="history"
@@ -672,7 +688,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[5.5rem] lg:table-cell"
                     >
-                      Historique
+                      {t('prospects.table.history')}
                     </SortableTableHead>
                     {showDeleted ? (
                       <SortableTableHead
@@ -682,7 +698,7 @@ export function ProspectsPage() {
                         onSort={handleSort}
                         className="hidden min-w-[7rem] xl:table-cell"
                       >
-                        Supprimé
+                        {t('prospects.table.removed')}
                       </SortableTableHead>
                     ) : null}
                     <TableHead className="w-10 pe-2 text-end">
@@ -692,7 +708,7 @@ export function ProspectsPage() {
                 </TableHeader>
               <TableBody>
                 {pageSlice.map((prospect, index) => {
-                  const stage = prospectPipelinePresentation(prospect)
+                  const stage = prospectPipelinePresentation(t, prospect)
                   const rank = (pageSafe - 1) * pageSize + index + 1
                   const busy = deleteMutation.isPending
                   return (
@@ -743,7 +759,7 @@ export function ProspectsPage() {
                               {prospect.contact_email}
                             </a>
                           ) : (
-                            <span className="text-muted-foreground">Pas d'email</span>
+                            <span className="text-muted-foreground">{t('prospects.contact.noEmail')}</span>
                           )}
                           {prospect.contact_phone_raw ? (
                             <a
@@ -754,7 +770,7 @@ export function ProspectsPage() {
                               {prospect.contact_phone_raw}
                             </a>
                           ) : (
-                            <span className="text-muted-foreground">Pas de téléphone</span>
+                            <span className="text-muted-foreground">{t('prospects.contact.noPhone')}</span>
                           )}
                         </div>
                       </TableCell>
@@ -795,7 +811,7 @@ export function ProspectsPage() {
                               variant="outline"
                               className={`w-fit text-xs capitalize ${submissionBadgeClass(prospect.submission_status)}`}
                             >
-                              {submissionPresentation[prospect.submission_status].replace(/_/g, ' ')}
+                              {getSubmissionLabel(t, prospect.submission_status).replace(/_/g, ' ')}
                             </Badge>
                             <span className="text-[11px] text-muted-foreground">
                               {formatDashboardDateTimeFr(prospect.last_synced_at)}
@@ -860,13 +876,13 @@ export function ProspectsPage() {
                                         prospectId: prospect.id,
                                         agentId: prospect.agent_id,
                                       })}
-                                      aria-label="Ouvrir le prospect"
+                                      aria-label={t('prospects.table.actions.open')}
                                     >
                                       <Eye className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Ouvrir le prospect</TooltipContent>
+                                <TooltipContent>{t('prospects.table.actions.open')}</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -880,15 +896,15 @@ export function ProspectsPage() {
                                       to={buildProspectDetailPath({
                                         prospectId: prospect.id,
                                         agentId: prospect.agent_id,
-                                        hash: '#prospect-history",
+                                        hash: '#prospect-history',
                                       })}
-                                      aria-label="Voir l'historique"
+                                      aria-label={t('prospects.table.actions.viewHistory')}
                                     >
                                       <History className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Voir l'historique</TooltipContent>
+                                <TooltipContent>{t('prospects.table.actions.viewHistory')}</TooltipContent>
                               </Tooltip>
                               {prospect.agent_id ? (
                                 <Tooltip>
@@ -899,12 +915,12 @@ export function ProspectsPage() {
                                       size="icon-sm"
                                       className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                                     >
-                                      <Link to={`/agents/${prospect.agent_id}`} aria-label="Voir l'agent">
+                                      <Link to={`/agents/${prospect.agent_id}`} aria-label={t('prospects.table.actions.viewAgent')}>
                                         <User className="size-4" />
                                       </Link>
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Voir l'agent</TooltipContent>
+                                  <TooltipContent>{t('prospects.table.actions.viewAgent')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {prospect.actions.can_delete ? (
@@ -917,12 +933,12 @@ export function ProspectsPage() {
                                       disabled={busy}
                                       className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
                                       onClick={() => setDeleteTarget(prospect)}
-                                      aria-label="Supprimer le prospect"
+                                      aria-label={t('prospects.table.actions.delete')}
                                     >
                                       <Trash2 className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Supprimer le prospect</TooltipContent>
+                                  <TooltipContent>{t('prospects.table.actions.delete')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                             </div>
@@ -947,7 +963,7 @@ export function ProspectsPage() {
                                     })}
                                   >
                                     <Eye className="size-4 text-primary" />
-                                    <span>Open detail</span>
+                                    <span>{t('common.details')}</span>
                                   </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
@@ -955,18 +971,18 @@ export function ProspectsPage() {
                                     to={buildProspectDetailPath({
                                       prospectId: prospect.id,
                                       agentId: prospect.agent_id,
-                                      hash: "#prospect-history',
+                                      hash: '#prospect-history',
                                     })}
                                   >
                                     <History className="size-4 text-blue-500" />
-                                    <span>View timeline</span>
+                                    <span>Timeline</span>
                                   </Link>
                                 </DropdownMenuItem>
                                 {prospect.agent_id ? (
                                   <DropdownMenuItem asChild>
                                     <Link to={`/agents/${prospect.agent_id}`}>
                                       <User className="size-4 text-primary" />
-                                      <span>Open agent</span>
+                                      <span>{t('common.open')} {t('prospects.table.agent')}</span>
                                     </Link>
                                   </DropdownMenuItem>
                                 ) : null}
@@ -979,7 +995,7 @@ export function ProspectsPage() {
                                       onClick={() => setDeleteTarget(prospect)}
                                     >
                                       <Trash2 className="size-4 text-destructive" />
-                                      <span>Supprimer</span>
+                                      <span>{t('common.delete')}</span>
                                     </DropdownMenuItem>
                                   </>
                                 ) : null}

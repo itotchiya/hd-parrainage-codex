@@ -546,7 +546,7 @@ export function ProspectDetailPage() {
           <DialogHeader>
             <DialogTitle>{activeDetailItem?.label ?? 'Détail'}</DialogTitle>
             <DialogDescription>
-              {activeDetailItem?.description ?? 'Détail du prospect."}
+              {activeDetailItem?.description ?? 'Détail du prospect.'}
             </DialogDescription>
           </DialogHeader>
           {activeDetailItem ? (
@@ -608,7 +608,7 @@ export function ProspectDetailPage() {
               }
               title={prospect.contact_name}
               description={
-                prospect.company_name ?? prospect.contact_email ?? "Prospect sans société renseignée'
+                prospect.company_name ?? prospect.contact_email ?? 'Prospect sans société renseignée'
               }
               badge={<Badge variant="secondary">{prospect.source}</Badge>}
             />
@@ -746,7 +746,7 @@ export function ProspectDetailPage() {
           id="prospect-history"
           title="Historique"
           description="Chaque changement de statut ou de progression enregistré pour ce prospect."
-          right={<Badge variant="secondary">{history.length.toLocaleString('fr-FR")} événements</Badge>}
+          right={<Badge variant="secondary">{history.length.toLocaleString('fr-FR')} événements</Badge>}
           className="border-0"
         >
           {sortedHistoryRows.length === 0 ? (
@@ -761,7 +761,7 @@ export function ProspectDetailPage() {
                       activeKey={historySortKey}
                       direction={historySortDirection}
                       onSort={() => {
-                        setHistorySortKey("createdAt')
+                        setHistorySortKey('createdAt')
                         setHistorySortDirection((current) => (current === 'desc' ? 'asc' : 'desc'))
                       }}
                     >

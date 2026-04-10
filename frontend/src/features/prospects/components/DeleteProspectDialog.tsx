@@ -37,7 +37,7 @@ export function DeleteProspectDialog({
 
   useEffect(() => {
     if (!open) return
-    setReason('")
+    setReason('')
   }, [open, prospect])
 
   return (
@@ -61,7 +61,7 @@ export function DeleteProspectDialog({
           <div className="rounded-lg border border-border bg-muted/30 p-4">
             <p className="text-sm font-semibold text-foreground">{prospect.contact_name}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {prospect.program_name ?? "Programme'} · {prospect.business_name ?? 'Business'}
+              {prospect.program_name ?? 'Programme'} · {prospect.business_name ?? 'Business'}
             </p>
           </div>
         ) : null}

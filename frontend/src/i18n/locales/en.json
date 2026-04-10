@@ -1,0 +1,412 @@
+{
+  "app": {
+    "name": "Myhd",
+    "tagline": "Affiliate Management Platform"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "close": "Close",
+    "open": "Open",
+    "view": "View",
+    "search": "Search",
+    "filter": "Filter",
+    "clearFilters": "Clear filters",
+    "loading": "Loading...",
+    "noResults": "No results found",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "actions": "Actions",
+    "status": "Status",
+    "all": "All",
+    "none": "None",
+    "or": "or",
+    "and": "and",
+    "yes": "Yes",
+    "no": "No",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "failed": "Failed",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info",
+    "required": "Required",
+    "optional": "Optional",
+    "notSet": "Not set",
+    "unknown": "Unknown",
+    "untitled": "Untitled",
+    "details": "Details",
+    "description": "Description",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "date": "Date",
+    "time": "Time",
+    "from": "From",
+    "to": "To",
+    "by": "By",
+    "points": "points",
+    "pts": "pts"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "signOut": "Sign out",
+    "signingOut": "Signing out...",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "rememberMe": "Keep this browser signed in",
+    "demoAccess": "Demo access",
+    "demoDescription": "Choose a role to prefill the login form with demo credentials.",
+    "passwordPlaceholder": "Enter your password",
+    "emailPlaceholder": "superadmin@hd-parrainage.test",
+    "invalidCredentials": "Invalid credentials",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "activateInvitation": "Activate invitation",
+    "finishReset": "Finish reset",
+    "roles": {
+      "superAdmin": "Super Admin",
+      "businessOwner": "Business Owner",
+      "agent": "Affiliate"
+    },
+    "roleDescriptions": {
+      "superAdmin": "Platform governance and visibility",
+      "businessOwner": "Programs, agents, and approvals",
+      "agent": "Assigned programs, prospects, and rewards"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "businesses": "Businesses",
+    "programs": "Programs",
+    "exchangePacks": "Point Packs",
+    "agents": "Affiliates",
+    "prospects": "Referrals",
+    "transactions": "Transactions",
+    "points": "Points & Wallet",
+    "payouts": "Requests",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "iacrm": "IACRM",
+    "sidebar": {
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "open": "Open sidebar",
+      "close": "Close sidebar"
+    },
+    "breadcrumb": {
+      "showFullPath": "Show full path"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "eyebrow": "Home and performance",
+    "description": "Overview of KPIs, business context and pending actions for your current profile.",
+    "hello": "Hello",
+    "performanceTitle": "Monthly Performance",
+    "addAffiliate": "Add affiliate",
+    "kpis": {
+      "prospectsSynced": "Prospects Synced",
+      "clientsConverted": "Clients Converted",
+      "prospectToClientRate": "Conversion Rate",
+      "affiliatesContributors": "Contributing Affiliates",
+      "pointsAutoAwarded": "Points Auto-Awarded"
+    },
+    "sections": {
+      "topAffiliates": "Top Affiliates by Prospects",
+      "recentActivity": "Recent Activity",
+      "programsOverview": "Programs Overview",
+      "performanceChart": "Performance Prospects/Clients"
+    },
+    "errors": {
+      "loadFailed": "Unable to load dashboard data."
+    }
+  },
+  "agents": {
+    "title": "Affiliates",
+    "eyebrow": "Network management",
+    "description": "Invitations, assignments and profile control for affiliates/sponsors.",
+    "addAgent": "Add affiliate",
+    "searchPlaceholder": "Search by name, email or code...",
+    "kpis": {
+      "total": "Affiliates",
+      "totalDescription": "Total number of affiliates registered for this account",
+      "active": "Active",
+      "activeDescription": "Active and operational affiliate accounts",
+      "pending": "Pending invites",
+      "pendingDescription": "Invited or pending activation",
+      "suspended": "Suspended",
+      "suspendedDescription": "Affiliates suspended or inactive on referral side"
+    },
+    "table": {
+      "number": "#",
+      "agent": "Affiliate",
+      "email": "Email",
+      "status": "Status",
+      "programs": "Programs",
+      "joined": "Joined",
+      "program": "program",
+      "programs_plural": "programs",
+      "noResults": "No affiliate matches these criteria.",
+      "actions": {
+        "viewProfile": "View profile",
+        "suspend": "Suspend",
+        "reactivate": "Reactivate"
+      }
+    },
+    "status": {
+      "active": "Active",
+      "pending": "Pending",
+      "suspended": "Suspended",
+      "invited": "Invited"
+    },
+    "filters": {
+      "allStatuses": "All statuses",
+      "status": "Status"
+    },
+    "dialogs": {
+      "assignedPrograms": "Assigned Programs",
+      "assignedProgramsDescription": "Complete list of programs currently assigned to this affiliate.",
+      "noPrograms": "This affiliate is currently not linked to any program.",
+      "assignedOn": "Assigned on",
+      "addTitle": "Add Affiliate",
+      "suspendTitle": "Suspend Affiliate",
+      "suspendDescription": "This action will suspend the affiliate's access. They will not be able to log in or submit new referrals.",
+      "reactivateTitle": "Reactivate Affiliate",
+      "reactivateDescription": "This action will restore the affiliate's access to the platform.",
+      "reason": "Reason (optional)"
+    }
+  },
+  "prospects": {
+    "title": "Referrals",
+    "eyebrow": "Recommendation tracking",
+    "description": "Submission, sync status and lifecycle of sponsored referrals.",
+    "newProspect": "New referral",
+    "searchPlaceholder": "Search by name, email...",
+    "myProspects": "My Prospects",
+    "allProspects": "All Prospects",
+    "filters": {
+      "pipelineStage": "Pipeline Stage",
+      "allStatuses": "All statuses",
+      "agent": "Agent",
+      "allAgents": "All",
+      "showDeleted": "Deleted items"
+    },
+    "stages": {
+      "suspect": "Suspect",
+      "prospect_froid": "Cold Prospect",
+      "prospect_tiede": "Warm Prospect",
+      "prospect_chaud": "Hot Prospect",
+      "converted": "Converted",
+      "lost": "Lost"
+    },
+    "syncStatus": {
+      "pending_sync": "Sync pending",
+      "synced": "Synced",
+      "sync_failed": "Sync failed",
+      "deleted": "Deleted"
+    },
+    "table": {
+      "number": "#",
+      "contact": "Contact",
+      "contacts": "Contacts",
+      "program": "Program",
+      "agent": "Agent",
+      "pipeline": "Pipeline",
+      "sync": "Sync",
+      "submitted": "Submitted",
+      "history": "History",
+      "removed": "Removed",
+      "noResults": "No referral matches your search.",
+      "actions": {
+        "open": "Open referral",
+        "viewHistory": "View history",
+        "viewAgent": "View agent",
+        "delete": "Delete referral"
+      }
+    },
+    "kpis": {
+      "converted": "Converted",
+      "convertedDescription": "Prospects that produced validated commercial results",
+      "lost": "Lost",
+      "lostDescription": "Prospects marked as lost by IACRM",
+      "stageDescription": "Prospects in this funnel stage"
+    },
+    "contact": {
+      "noEmail": "No email",
+      "noPhone": "No phone"
+    },
+    "dialogs": {
+      "deleteTitle": "Delete Referral",
+      "deleteDescription": "This action will mark this referral as deleted. This can be undone by an administrator.",
+      "reason": "Reason (optional)",
+      "addMethodTitle": "Add Referral",
+      "addMethodDescription": "Choose how you want to add a new referral.",
+      "addFormOption": "Fill out the form",
+      "addShareOption": "Share registration link"
+    }
+  },
+  "programs": {
+    "title": "Programs",
+    "eyebrow": "Operations",
+    "description": "Program lifecycle, assignments and commission rules for conversions.",
+    "createProgram": "Create program",
+    "searchPlaceholder": "Search for a program...",
+    "documentation": "Documentation",
+    "tabs": {
+      "programs": "Programs",
+      "archived": "Archived"
+    },
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "business": "Business",
+      "allBusinesses": "All businesses",
+      "exchangeMode": "Exchange Mode",
+      "allModes": "All modes",
+      "sort": "Sort programs",
+      "sortBy": "Sort by"
+    },
+    "status": {
+      "active": "Active",
+      "draft": "Draft",
+      "paused": "Paused",
+      "suspended": "Suspended",
+      "archived": "Archived"
+    },
+    "exchangeModes": {
+      "cash": "Cash",
+      "reward": "Rewards",
+      "both": "Mixed"
+    },
+    "sortOptions": {
+      "newest": "Recent",
+      "oldest": "Oldest",
+      "status": "Status",
+      "pointsHigh": "Points (Descending)",
+      "pointsLow": "Points (Ascending)",
+      "agentsHigh": "Agent count ↓",
+      "agentsLow": "Agent count ↑"
+    },
+    "noResults": "No program matches the current filter.",
+    "dialogs": {
+      "createTitle": "Create Program",
+      "editTitle": "Edit Program",
+      "save": "Save",
+      "create": "Create",
+      "assignAgents": "Assign Agents",
+      "assignAgentsDescription": "Select business agents to attach to this program.",
+      "cashRules": "Cash Rules",
+      "rewardPack": "Reward Pack",
+      "confirmDelete": "Confirm Deletion",
+      "deleteWarning": "This action is irreversible. Please type the program name to confirm.",
+      "lockedAgentTooltip": "This agent has already added referrals to this program and cannot be removed."
+    }
+  },
+  "transactions": {
+    "title": "Transactions",
+    "eyebrow": "Revenue history",
+    "description": "Converted transactions, point attribution and commercial results from CRM."
+  },
+  "points": {
+    "title": "Points & Wallet",
+    "eyebrow": "Balances",
+    "description": "History of your points, accumulations, and eligibility for various rewards.",
+    "available": "Available points",
+    "usePoints": "Use my points",
+    "availablePoints": "{{count}} pts available"
+  },
+  "payouts": {
+    "title": "Requests",
+    "eyebrow": "Exchange processing",
+    "description": "Consultation and processing of point exchange requests for gifts or transfers."
+  },
+  "exchangePacks": {
+    "title": "Point Packs",
+    "eyebrow": "Catalog",
+    "description": "Management and consultation of available reward packs for exchange."
+  },
+  "businesses": {
+    "title": "Businesses",
+    "eyebrow": "Platform governance",
+    "description": "Business governance by super-admin, tracking of territorial integrations."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "eyebrow": "Alerts",
+    "description": "History of your alerts, events and messages related to the account.",
+    "markAllRead": "Mark all as read",
+    "emptyState": "No notifications",
+    "unread": "unread"
+  },
+  "settings": {
+    "title": "Settings",
+    "eyebrow": "Profile and configuration",
+    "description": "Management of your profile, security preferences and integration settings.",
+    "personalProfile": "Personal Profile",
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "api": "API"
+    }
+  },
+  "iacrm": {
+    "title": "IACRM",
+    "eyebrow": "External CRM",
+    "description": "IACRM integration dashboard showing services, clients, pipeline, and invoicing from the external CRM system.",
+    "notConfigured": "IACRM is required to run the application.",
+    "configureApi": "Configure API",
+    "apiNotConfigured": "API not configured",
+    "configureTooltip": "Click to configure IACRM API",
+    "tabs": {
+      "pipeline": "Pipeline",
+      "clients": "Clients",
+      "invoices": "Invoices",
+      "services": "Services",
+      "docs": "Docs",
+      "settings": "Settings"
+    }
+  },
+  "theme": {
+    "title": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "language": {
+    "title": "Language",
+    "en": "English",
+    "fr": "Français",
+    "switch": "Switch language"
+  },
+  "table": {
+    "pagination": {
+      "showing": "Showing {{start}} to {{end}} of {{total}} results",
+      "previous": "Previous",
+      "next": "Next",
+      "perPage": "per page"
+    }
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "loadFailed": "Failed to load data",
+    "saveFailed": "Failed to save changes",
+    "deleteFailed": "Failed to delete",
+    "tryAgain": "Please try again later"
+  }
+}

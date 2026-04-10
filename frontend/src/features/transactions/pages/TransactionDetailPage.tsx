@@ -750,7 +750,7 @@ export function TransactionDetailPage() {
 }
 
 function statusLabel(status: string) {
-  if (status === "detected') return 'Détectée'
+  if (status === 'detected') return 'Détectée'
   if (status === 'pending') return 'En attente'
   if (status === 'validated') return 'Validée'
   if (status === 'rejected') return 'Rejetée'

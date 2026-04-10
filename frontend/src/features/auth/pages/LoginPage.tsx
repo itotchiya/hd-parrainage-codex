@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Building2, ChevronRight, Shield, Users2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 
@@ -19,9 +20,9 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useAuthSession } from '../session'
 
-const loginSchema = z.object({
-  email: z.email('Enter a valid email address.'),
-  password: z.string().min(1, 'Enter your password.'),
+const loginSchema = (t: (key: string) => string) => z.object({
+  email: z.email(t('auth.emailPlaceholder')),
+  password: z.string().min(1, t('auth.passwordPlaceholder')),
   remember: z.boolean(),
 })
 
@@ -29,29 +30,32 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 const demoPassword = 'Password123!'
 
-const demoAccounts = [
-  {
-    id: 'super-admin',
-    label: 'Super Admin',
-    subtitle: 'Platform governance and visibility',
-    email: 'superadmin@hd-parrainage.test',
-    icon: 'shield',
-  },
-  {
-    id: 'business-owner',
-    label: 'Business Owner',
-    subtitle: 'Programs, agents, and approvals',
-    email: 'owner@havetdigital.test',
-    icon: 'building',
-  },
-  {
-    id: 'agent',
-    label: 'Affilie',
-    subtitle: 'Assigned programs, prospects, and rewards',
-    email: 'agent@havetdigital.test',
-    icon: 'users',
-  },
-] as const
+const useDemoAccounts = () => {
+  const { t } = useTranslation()
+  return [
+    {
+      id: 'super-admin',
+      label: t('auth.roles.superAdmin'),
+      subtitle: t('auth.roleDescriptions.superAdmin'),
+      email: 'superadmin@hd-parrainage.test',
+      icon: 'shield',
+    },
+    {
+      id: 'business-owner',
+      label: t('auth.roles.businessOwner'),
+      subtitle: t('auth.roleDescriptions.businessOwner'),
+      email: 'owner@havetdigital.test',
+      icon: 'building',
+    },
+    {
+      id: 'agent',
+      label: t('auth.roles.agent'),
+      subtitle: t('auth.roleDescriptions.agent'),
+      email: 'agent@havetdigital.test',
+      icon: 'users',
+    },
+  ] as const
+}
 
 function DemoIcon({ icon }: { icon: (typeof demoAccounts)[number]['icon'] }) {
   if (icon === 'shield') {
@@ -98,10 +102,12 @@ function DemoAccountCard({
 }
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { login, loginPending } = useAuthSession()
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null)
+  const demoAccounts = useDemoAccounts()
 
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
@@ -114,12 +120,7 @@ export function LoginPage() {
     watch,
     formState: { errors },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      remember: true,
-    },
+    resolver: zodResolver(loginSchema(t)),
   })
 
   const onSubmit = handleSubmit(async (values) => {
@@ -137,13 +138,13 @@ export function LoginPage() {
         }
 
         setSubmissionMessage(
-          emailError ?? error.message ?? 'The workspace login could not be completed.',
+          emailError ?? error.message ?? t('errors.loadFailed'),
         )
 
         return
       }
 
-      setSubmissionMessage('The workspace login could not be completed.')
+      setSubmissionMessage(t('errors.loadFailed'))
     }
   })
 
@@ -170,10 +171,10 @@ export function LoginPage() {
 
               <div className="space-y-1.5">
                 <CardTitle className="text-2xl font-semibold tracking-tight">
-                  Sign in
+                  {t('auth.signIn')}
                 </CardTitle>
                 <CardDescription className="text-sm leading-6">
-                  Enter your credentials or choose a demo role.
+                  {t('auth.demoDescription')}
                 </CardDescription>
               </div>
             </div>
@@ -183,13 +184,13 @@ export function LoginPage() {
             <form className="space-y-4" onSubmit={onSubmit}>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground" htmlFor="email">
-                  Email
+                  {t('auth.email')}
                 </label>
                 <Input
                   id="email"
                   type="email"
                   autoComplete="email"
-                  placeholder="superadmin@hd-parrainage.test"
+                  placeholder={t('auth.emailPlaceholder')}
                   className="h-10 rounded-xl px-4"
                   {...register('email')}
                 />
@@ -201,20 +202,20 @@ export function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-4">
                   <label className="text-sm font-medium text-foreground" htmlFor="password">
-                    Password
+                    {t('auth.password')}
                   </label>
                   <Link
                     to="/password/forgot"
                     className="text-sm font-medium text-foreground transition hover:text-foreground/80"
                   >
-                    Forgot password?
+                    {t('auth.forgotPassword')}
                   </Link>
                 </div>
                 <Input
                   id="password"
                   type="password"
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder={t('auth.passwordPlaceholder')}
                   className="h-10 rounded-xl px-4"
                   {...register('password')}
                 />
@@ -229,7 +230,7 @@ export function LoginPage() {
                   className="size-4 rounded border-input text-primary focus:ring-ring"
                   {...register('remember')}
                 />
-                Keep this browser signed in
+                {t('auth.rememberMe')}
               </label>
 
               {submissionMessage ? (
@@ -239,17 +240,17 @@ export function LoginPage() {
               ) : null}
 
               <Button type="submit" disabled={loginPending} className="h-10 w-full rounded-xl">
-                {loginPending ? 'Signing in...' : 'Sign in'}
+                {loginPending ? t('auth.signingIn') : t('auth.signIn')}
               </Button>
             </form>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  Demo access
+                  {t('auth.demoAccess')}
                 </p>
                 <Badge variant="secondary" className="font-medium">
-                  Password: {demoPassword}
+                  {t('auth.password')}: {demoPassword}
                 </Badge>
               </div>
 
@@ -265,17 +266,17 @@ export function LoginPage() {
               </div>
 
               <p className="text-sm leading-6 text-muted-foreground">
-                Choose a role to prefill the login form with demo credentials.
+                {t('auth.demoDescription')}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-x-3 gap-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
               <Link className="font-medium text-foreground transition hover:text-foreground/80" to="/activate-invitation">
-                Activate invitation
+                {t('auth.activateInvitation')}
               </Link>
               <span className="text-border">/</span>
               <Link className="font-medium text-foreground transition hover:text-foreground/80" to="/password/reset">
-                Finish reset
+                {t('auth.finishReset')}
               </Link>
             </div>
           </CardContent>

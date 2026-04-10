@@ -246,7 +246,7 @@ export function ExchangePackCard({
                 ))}
                 {pack.items.length > 4 ? (
                   <p className="pt-1 text-xs text-muted-foreground">
-                    +{pack.items.length - 4} cadeau{pack.items.length - 4 === 1 ? '' : 'x"}
+                    +{pack.items.length - 4} cadeau{pack.items.length - 4 === 1 ? '' : 'x'}
                   </p>
                 ) : null}
               </div>
@@ -258,7 +258,7 @@ export function ExchangePackCard({
           </div>
         </ClickableInfoCard>
 
-        <Dialog open={detailDialog === "rewards'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <Dialog open={detailDialog === 'rewards'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Récompenses du pack</DialogTitle>
@@ -328,7 +328,7 @@ export function ExchangePackCard({
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's"}
+                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
                           {program.status}
@@ -353,7 +353,7 @@ export function ExchangePackCard({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={detailDialog === "updated'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <Dialog open={detailDialog === 'updated'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Mis à jour</DialogTitle>

@@ -794,7 +794,7 @@ export function TransactionsPage() {
                         <TableCell className="hidden text-right tabular-nums xl:table-cell">
                           {transaction.points_awarded === null
                             ? '—'
-                            : `${transaction.points_awarded.toLocaleString('fr-FR")} pts`}
+                            : `${transaction.points_awarded.toLocaleString('fr-FR')} pts`}
                         </TableCell>
                         <TableCell className="hidden text-muted-foreground lg:table-cell">
                           {formatDashboardDateFr(transaction.occurred_at)}

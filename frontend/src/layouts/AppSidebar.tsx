@@ -14,6 +14,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AppModuleRoute, NavigationIconKey } from '../app/navigation'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -53,6 +54,7 @@ export function AppSidebar({
   iacrmConfigured = true,
   navBadges,
 }: AppSidebarProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = mode === 'drawer'
@@ -137,7 +139,7 @@ export function AppSidebar({
                             <>
                               <span className="truncate font-medium">{item.label}</span>
                               <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
-                                Info API
+                                {t('iacrm.apiNotConfigured')}
                               </span>
                             </>
                           )}
@@ -145,8 +147,8 @@ export function AppSidebar({
                       </TooltipTrigger>
                       <TooltipContent side="right">
                         {visuallyCollapsed
-                          ? 'IACRM — API non configurée'
-                          : "Cliquez pour configurer l'API IACRM"}
+                          ? t('iacrm.apiNotConfigured')
+                          : t('iacrm.configureTooltip')}
                       </TooltipContent>
                     </Tooltip>
                   </li>
@@ -200,7 +202,7 @@ export function AppSidebar({
           }`}
         >
           <LogOut className="h-4.5 w-4.5 shrink-0" />
-          {!visuallyCollapsed ? <span className="font-medium">{logoutPending ? 'Déconnexion en cours...' : 'Déconnexion'}</span> : null}
+          {!visuallyCollapsed ? <span className="font-medium">{logoutPending ? t('auth.signingOut') : t('auth.signOut')}</span> : null}
         </button>
       </div>
     </aside>

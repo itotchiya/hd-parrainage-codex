@@ -564,7 +564,7 @@ export function ExchangePackDetailPage() {
                 {activeItemsCount} cadeau{activeItemsCount === 1 ? '' : 'x'}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
-                {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's"}
+                {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's'}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
                 Mis à jour {formatDate(pack.updated_at)}
@@ -606,7 +606,7 @@ export function ExchangePackDetailPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? "' : 's'}
+                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
                           {program.status}
@@ -624,7 +624,7 @@ export function ExchangePackDetailPage() {
                   >
                     <span className="font-medium text-foreground">Voir tous les programmes</span>
                     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      +{hiddenLinkedProgramsCount} autre{hiddenLinkedProgramsCount === 1 ? '' : 's"}
+                      +{hiddenLinkedProgramsCount} autre{hiddenLinkedProgramsCount === 1 ? '' : 's'}
                       <ExternalLink className="size-3.5" />
                     </span>
                   </button>
@@ -722,7 +722,7 @@ export function ExchangePackDetailPage() {
 
                   setDraggedItemId(item.id)
                   lastDragOverItemIdRef.current = null
-                  event.dataTransfer.effectAllowed = "move'
+                  event.dataTransfer.effectAllowed = 'move'
                   event.dataTransfer.setData('text/plain', item.id)
                 }}
                 onDragOver={(event) => {

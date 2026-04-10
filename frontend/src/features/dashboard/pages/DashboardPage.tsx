@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Percent, Plus, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
@@ -73,6 +74,7 @@ function DashboardPageSkeleton() {
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation()
   const { user } = useAuthSession()
   const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
   const isAgent = user?.roles.some((r) => r.slug === 'agent') ?? (user?.agent_profile != null)
@@ -236,7 +238,7 @@ export function DashboardPage() {
       (transactionsQuery.error as ApiError | undefined)?.message ??
       (pointsLedgerQuery.error as ApiError | undefined)?.message ??
       (agentsQuery.error as ApiError | undefined)?.message ??
-      'Impossible de charger les données du tableau de bord.'
+      t('dashboard.errors.loadFailed')
 
     return (
       <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
@@ -246,7 +248,7 @@ export function DashboardPage() {
   }
 
   const monthLabel = capitalize(
-    new Date().toLocaleDateString('fr-FR', {
+    new Date().toLocaleDateString(t('language') === 'fr' ? 'fr-FR' : 'en-US', {
       month: 'long',
       year: 'numeric',
     }),
@@ -255,13 +257,13 @@ export function DashboardPage() {
   return (
     <section className="min-w-0 space-y-2.5 sm:space-y-3">
       <PageHeader
-        title={`Performance du mois — ${monthLabel}`}
+        title={`${t('dashboard.performanceTitle')} — ${monthLabel}`}
         right={
           <PageHeaderToolbar>
             <Button asChild variant="default" size="sm" className="w-auto self-start gap-2">
               <Link to="/agents">
                 <Plus className="size-4" aria-hidden />
-                Ajouter un affilié
+                {t('dashboard.addAffiliate')}
               </Link>
             </Button>
           </PageHeaderToolbar>

@@ -1,0 +1,412 @@
+{
+  "app": {
+    "name": "Myhd",
+    "tagline": "Plateforme de Gestion d'Affiliation"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "close": "Fermer",
+    "open": "Ouvrir",
+    "view": "Voir",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "clearFilters": "Effacer les filtres",
+    "loading": "Chargement...",
+    "noResults": "Aucun résultat trouvé",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "submit": "Soumettre",
+    "actions": "Actions",
+    "status": "Statut",
+    "all": "Tous",
+    "none": "Aucun",
+    "or": "ou",
+    "and": "et",
+    "yes": "Oui",
+    "no": "Non",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "pending": "En attente",
+    "completed": "Terminé",
+    "failed": "Échoué",
+    "success": "Succès",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Info",
+    "required": "Requis",
+    "optional": "Optionnel",
+    "notSet": "Non défini",
+    "unknown": "Inconnu",
+    "untitled": "Sans titre",
+    "details": "Détails",
+    "description": "Description",
+    "name": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "address": "Adresse",
+    "date": "Date",
+    "time": "Heure",
+    "from": "De",
+    "to": "À",
+    "by": "Par",
+    "points": "points",
+    "pts": "pts"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signingIn": "Connexion en cours...",
+    "signOut": "Déconnexion",
+    "signingOut": "Déconnexion en cours...",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "rememberMe": "Garder cette session ouverte",
+    "demoAccess": "Accès démo",
+    "demoDescription": "Choisissez un rôle pour pré-remplir le formulaire avec les identifiants de démo.",
+    "passwordPlaceholder": "Entrez votre mot de passe",
+    "emailPlaceholder": "superadmin@hd-parrainage.test",
+    "invalidCredentials": "Identifiants invalides",
+    "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
+    "activateInvitation": "Activer l'invitation",
+    "finishReset": "Terminer la réinitialisation",
+    "roles": {
+      "superAdmin": "Super Admin",
+      "businessOwner": "Business Owner",
+      "agent": "Affilié"
+    },
+    "roleDescriptions": {
+      "superAdmin": "Gouvernance et visibilité plateforme",
+      "businessOwner": "Programmes, agents et approbations",
+      "agent": "Programmes assignés, filleuls et récompenses"
+    }
+  },
+  "navigation": {
+    "dashboard": "Tableau de bord",
+    "businesses": "Entreprises",
+    "programs": "Programmes",
+    "exchangePacks": "Packs de points",
+    "agents": "Affiliés",
+    "prospects": "Filleuls",
+    "transactions": "Transactions",
+    "points": "Points et Portefeuille",
+    "payouts": "Demandes",
+    "notifications": "Notifications",
+    "settings": "Paramètres",
+    "iacrm": "IACRM",
+    "sidebar": {
+      "collapse": "Réduire le menu",
+      "expand": "Développer le menu",
+      "open": "Ouvrir le menu",
+      "close": "Fermer le menu"
+    },
+    "breadcrumb": {
+      "showFullPath": "Afficher le chemin complet"
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "eyebrow": "Accueil et performances",
+    "description": "Vue d'ensemble des KPI, contexte d'affaires et actions en attente pour votre profil actuel.",
+    "hello": "Bonjour",
+    "performanceTitle": "Performance du mois",
+    "addAffiliate": "Ajouter un affilié",
+    "kpis": {
+      "prospectsSynced": "Filleuls Synchronisés",
+      "clientsConverted": "Clients Convertis",
+      "prospectToClientRate": "Taux de Conversion",
+      "affiliatesContributors": "Affiliés Contributeurs",
+      "pointsAutoAwarded": "Points Auto-Attribués"
+    },
+    "sections": {
+      "topAffiliates": "Meilleurs Affiliés par Filleuls",
+      "recentActivity": "Activité Récente",
+      "programsOverview": "Vue d'ensemble des Programmes",
+      "performanceChart": "Performance Filleuls/Clients"
+    },
+    "errors": {
+      "loadFailed": "Impossible de charger les données du tableau de bord."
+    }
+  },
+  "agents": {
+    "title": "Affiliés",
+    "eyebrow": "Gestion du réseau",
+    "description": "Invitations, attributions et contrôle des profils des affiliés / parrains.",
+    "addAgent": "Ajouter un affilié",
+    "searchPlaceholder": "Rechercher par nom, email ou code...",
+    "kpis": {
+      "total": "Affiliés",
+      "totalDescription": "Nombre total d'affiliés enregistrés pour ce compte",
+      "active": "Actifs",
+      "activeDescription": "Comptes affiliés actifs et opérationnels",
+      "pending": "Invitations en attente",
+      "pendingDescription": "Invités ou en attente d'activation",
+      "suspended": "Suspendus",
+      "suspendedDescription": "Affiliés suspendus ou inactifs côté parrainage"
+    },
+    "table": {
+      "number": "#",
+      "agent": "Affilié",
+      "email": "Email",
+      "status": "Statut",
+      "programs": "Programmes",
+      "joined": "Adhésion",
+      "program": "programme",
+      "programs_plural": "programmes",
+      "noResults": "Aucun affilié ne correspond à ces critères.",
+      "actions": {
+        "viewProfile": "Voir le profil",
+        "suspend": "Suspendre",
+        "reactivate": "Réactiver"
+      }
+    },
+    "status": {
+      "active": "Actif",
+      "pending": "En attente",
+      "suspended": "Suspendu",
+      "invited": "Invité"
+    },
+    "filters": {
+      "allStatuses": "Tous statuts",
+      "status": "Statut"
+    },
+    "dialogs": {
+      "assignedPrograms": "Programmes assignés",
+      "assignedProgramsDescription": "Liste complète des programmes actuellement attribués à cet affilié.",
+      "noPrograms": "Cet affilié n'est actuellement lié à aucun programme.",
+      "assignedOn": "Assigné le",
+      "addTitle": "Ajouter un Affilié",
+      "suspendTitle": "Suspendre l'Affilié",
+      "suspendDescription": "Cette action suspendra l'accès de l'affilié. Il ne pourra plus se connecter ni soumettre de nouveaux filleuls.",
+      "reactivateTitle": "Réactiver l'Affilié",
+      "reactivateDescription": "Cette action restaurera l'accès de l'affilié à la plateforme.",
+      "reason": "Motif (optionnel)"
+    }
+  },
+  "prospects": {
+    "title": "Filleuls",
+    "eyebrow": "Suivi des recommandations",
+    "description": "Soumission, état de synchronisation et cycle de vie des filleuls parrainés.",
+    "newProspect": "Nouveau filleul",
+    "searchPlaceholder": "Rechercher par nom, email...",
+    "myProspects": "Mes prospects",
+    "allProspects": "Tous les prospects",
+    "filters": {
+      "pipelineStage": "Étape pipeline",
+      "allStatuses": "Tous statuts",
+      "agent": "Agent",
+      "allAgents": "Tous",
+      "showDeleted": "Éléments supprimés"
+    },
+    "stages": {
+      "suspect": "Suspect",
+      "prospect_froid": "Prospect Froid",
+      "prospect_tiede": "Prospect Tiède",
+      "prospect_chaud": "Prospect Chaud",
+      "converted": "Converti",
+      "lost": "Perdu"
+    },
+    "syncStatus": {
+      "pending_sync": "Synchro en attente",
+      "synced": "Synchronisé",
+      "sync_failed": "Échec synchro",
+      "deleted": "Supprimé"
+    },
+    "table": {
+      "number": "#",
+      "contact": "Contact",
+      "contacts": "Contacts",
+      "program": "Programme",
+      "agent": "Agent",
+      "pipeline": "Pipeline",
+      "sync": "Synchro",
+      "submitted": "Soumis le",
+      "history": "Historique",
+      "removed": "Supprimé",
+      "noResults": "Aucun filleul ne correspond à votre recherche.",
+      "actions": {
+        "open": "Ouvrir le prospect",
+        "viewHistory": "Voir l'historique",
+        "viewAgent": "Voir l'agent",
+        "delete": "Supprimer le prospect"
+      }
+    },
+    "kpis": {
+      "converted": "Converti",
+      "convertedDescription": "Prospects ayant produit un résultat commercial validé",
+      "lost": "Perdu",
+      "lostDescription": "Prospects marqués comme perdus par IACRM",
+      "stageDescription": "Prospects dans cette étape du funnel"
+    },
+    "contact": {
+      "noEmail": "Pas d'email",
+      "noPhone": "Pas de téléphone"
+    },
+    "dialogs": {
+      "deleteTitle": "Supprimer le Filleul",
+      "deleteDescription": "Cette action marquera ce filleul comme supprimé. Cela peut être annulé par un administrateur.",
+      "reason": "Motif (optionnel)",
+      "addMethodTitle": "Ajouter un Filleul",
+      "addMethodDescription": "Choisissez comment vous souhaitez ajouter un nouveau filleul.",
+      "addFormOption": "Remplir le formulaire",
+      "addShareOption": "Partager le lien d'inscription"
+    }
+  },
+  "programs": {
+    "title": "Programmes",
+    "eyebrow": "Opérations",
+    "description": "Cycle de vie des programmes, assignations et règles de commission pour les convertis.",
+    "createProgram": "Créer un programme",
+    "searchPlaceholder": "Rechercher un programme...",
+    "documentation": "Documentation",
+    "tabs": {
+      "programs": "Programmes",
+      "archived": "Archivés"
+    },
+    "filters": {
+      "status": "Statut",
+      "allStatuses": "Tous les statuts",
+      "business": "Business",
+      "allBusinesses": "Tous les business",
+      "exchangeMode": "Mode d'échange",
+      "allModes": "Tous les modes",
+      "sort": "Trier les programmes",
+      "sortBy": "Trier par"
+    },
+    "status": {
+      "active": "Actif",
+      "draft": "Brouillon",
+      "paused": "En pause",
+      "suspended": "Suspendu",
+      "archived": "Archivé"
+    },
+    "exchangeModes": {
+      "cash": "Cash",
+      "reward": "Récompenses",
+      "both": "Mixte"
+    },
+    "sortOptions": {
+      "newest": "Récents",
+      "oldest": "Anciens",
+      "status": "Statut",
+      "pointsHigh": "Points (Décroissant)",
+      "pointsLow": "Points (Croissant)",
+      "agentsHigh": "Nombre d'agents ↓",
+      "agentsLow": "Nombre d'agents ↑"
+    },
+    "noResults": "Aucun programme ne correspond au filtre actuel.",
+    "dialogs": {
+      "createTitle": "Créer un Programme",
+      "editTitle": "Modifier le Programme",
+      "save": "Enregistrer",
+      "create": "Créer",
+      "assignAgents": "Assigner des Agents",
+      "assignAgentsDescription": "Sélectionnez les agents du business à rattacher à ce programme.",
+      "cashRules": "Règles Cash",
+      "rewardPack": "Pack de Récompenses",
+      "confirmDelete": "Confirmer la Suppression",
+      "deleteWarning": "Cette action est irréversible. Veuillez saisir le nom du programme pour confirmer.",
+      "lockedAgentTooltip": "Cet agent a déjà ajouté des prospects dans ce programme et ne peut pas être retiré."
+    }
+  },
+  "transactions": {
+    "title": "Transactions",
+    "eyebrow": "Historique des revenus",
+    "description": "Transactions converties, attribution de points et résultats commerciaux issus du CRM."
+  },
+  "points": {
+    "title": "Points et Portefeuille",
+    "eyebrow": "Soldes",
+    "description": "Historique de vos points, cumuls, et éligibilité aux différentes récompenses.",
+    "available": "Points disponibles",
+    "usePoints": "Utiliser mes points",
+    "availablePoints": "{{count}} pts disponibles"
+  },
+  "payouts": {
+    "title": "Demandes",
+    "eyebrow": "Traitement des échanges",
+    "description": "Consultation et traitement des demandes d'échange des points en cadeaux ou virements."
+  },
+  "exchangePacks": {
+    "title": "Packs de points",
+    "eyebrow": "Catalogue",
+    "description": "Gestion et consultation des packs de récompenses disponibles pour échange."
+  },
+  "businesses": {
+    "title": "Entreprises",
+    "eyebrow": "Gouvernance de la plateforme",
+    "description": "Gouvernance des entreprises par le super-admin, suivi des intégrations territoriales."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "eyebrow": "Alertes",
+    "description": "Historique de vos alertes, événements et messages liés au compte.",
+    "markAllRead": "Tout marquer comme lu",
+    "emptyState": "Aucune notification",
+    "unread": "non lues"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "eyebrow": "Profil et configuration",
+    "description": "Gestion de votre profil, préférences de sécurité et paramétrages d'intégration.",
+    "personalProfile": "Profil Personnel",
+    "tabs": {
+      "profile": "Profil",
+      "security": "Sécurité",
+      "api": "API"
+    }
+  },
+  "iacrm": {
+    "title": "IACRM",
+    "eyebrow": "External CRM",
+    "description": "Tableau de bord d'intégration IACRM affichant les services, clients, pipeline et facturation du système CRM externe.",
+    "notConfigured": "IACRM est requis pour faire fonctionner l'application.",
+    "configureApi": "Configurer l'API",
+    "apiNotConfigured": "API non configurée",
+    "configureTooltip": "Cliquez pour configurer l'API IACRM",
+    "tabs": {
+      "pipeline": "Pipeline",
+      "clients": "Clients",
+      "invoices": "Factures",
+      "services": "Services",
+      "docs": "Docs",
+      "settings": "Paramètres"
+    }
+  },
+  "theme": {
+    "title": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "switchToLight": "Passer en mode clair",
+    "switchToDark": "Passer en mode sombre"
+  },
+  "language": {
+    "title": "Langue",
+    "en": "English",
+    "fr": "Français",
+    "switch": "Changer de langue"
+  },
+  "table": {
+    "pagination": {
+      "showing": "Affichage de {{start}} à {{end}} sur {{total}} résultats",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "perPage": "par page"
+    }
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite",
+    "loadFailed": "Échec du chargement des données",
+    "saveFailed": "Échec de l'enregistrement des modifications",
+    "deleteFailed": "Échec de la suppression",
+    "tryAgain": "Veuillez réessayer plus tard"
+  }
+}
