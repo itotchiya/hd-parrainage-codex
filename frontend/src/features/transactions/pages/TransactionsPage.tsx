@@ -119,7 +119,7 @@ const invoiceStatusPresentation: Record<Exclude<TransactionRecord['invoice_statu
     label: 'En retard',
     className: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
   },
-  rejected: {
+  cancelled: {
     label: 'Annulée',
     className: 'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
   },

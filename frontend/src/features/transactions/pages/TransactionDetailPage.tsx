@@ -45,7 +45,7 @@ const invoiceBadgeClass = {
   unpaid: 'border-transparent bg-muted text-muted-foreground',
   overdue:
     'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-  rejected:
+  cancelled:
     'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
 } as const
 
@@ -81,12 +81,12 @@ function toTimestamp(value: string | null) {
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
-function invoiceStatusLabel(status: 'pending' | 'paid' | 'unpaid' | 'overdue' | 'rejected' | null) {
+function invoiceStatusLabel(status: 'pending' | 'paid' | 'unpaid' | 'overdue' | 'cancelled' | null) {
   if (!status) return 'Aucune facture'
   if (status === 'pending') return 'En attente'
   if (status === 'paid') return 'Réglée'
   if (status === 'overdue') return 'En retard'
-  if (status === 'rejected') return 'Annulée'
+  if (status === 'cancelled') return 'Annulée'
   return 'Impayée'
 }
 
