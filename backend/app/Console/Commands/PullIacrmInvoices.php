@@ -234,18 +234,12 @@ class PullIacrmInvoices extends Command
 
     private function mapInvoiceStatus(string $iacrmStatus): string
     {
-        if ($iacrmStatus === 'paid') {
-            return 'paid';
-        }
-
-        if ($iacrmStatus === 'overdue') {
-            return 'overdue';
-        }
-
-        if ($iacrmStatus === 'unpaid') {
-            return 'unpaid';
-        }
-
-        return 'pending';
+        return match ($iacrmStatus) {
+            'paid'      => 'paid',
+            'overdue'   => 'overdue',
+            'unpaid'    => 'unpaid',
+            'cancelled' => 'cancelled',
+            default     => 'pending',
+        };
     }
 }

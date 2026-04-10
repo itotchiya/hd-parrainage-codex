@@ -102,16 +102,27 @@ const statusSortOrder: Record<TransactionStatus, number> = {
   paid: 4,
 }
 
-function normalizeDisplayStatus(status: TransactionStatus): TransactionStatus {
-  return status === 'detected' ? 'pending' : status
-}
-
-function invoiceStatusLabel(status: TransactionRecord['invoice_status']) {
-  if (!status) return 'Aucune facture'
-  if (status === 'pending') return 'Facture en attente'
-  if (status === 'paid') return 'Facture réglée'
-  if (status === 'overdue') return 'Facture en retard'
-  return 'Facture impayée'
+const invoiceStatusPresentation: Record<Exclude<TransactionRecord['invoice_status'], null>, { label: string; className: string }> = {
+  pending: {
+    label: 'En attente',
+    className: 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+  },
+  paid: {
+    label: 'Réglée',
+    className: 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+  },
+  unpaid: {
+    label: 'Impayée',
+    className: 'border-transparent bg-muted text-muted-foreground',
+  },
+  overdue: {
+    label: 'En retard',
+    className: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+  },
+  rejected: {
+    label: 'Annulée',
+    className: 'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
+  },
 }
 
 function formatCurrency(amount: number, currencyCode: string) {
@@ -705,7 +716,6 @@ export function TransactionsPage() {
                 <TableBody>
                   {pageSlice.map((transaction, index) => {
                     const rank = (safePage - 1) * pageSize + index + 1
-                    const status = statusPresentation[normalizeDisplayStatus(transaction.status)]
                     const sync = transactionSyncPresentation(transaction)
                     const prospectHref = transaction.prospect
                       ? buildProspectDetailPath({
@@ -773,12 +783,13 @@ export function TransactionsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge className={status.className}>{status.label}</Badge>
-                            <span className="text-[11px] text-muted-foreground">
-                              {invoiceStatusLabel(transaction.invoice_status)}
-                            </span>
-                          </div>
+                          {transaction.invoice_status ? (
+                            <Badge className={invoiceStatusPresentation[transaction.invoice_status].className}>
+                              {invoiceStatusPresentation[transaction.invoice_status].label}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell">
                           <div className="flex flex-col gap-1">

@@ -1,6 +1,6 @@
 export type TransactionStatus = 'detected' | 'pending' | 'validated' | 'rejected' | 'paid'
 
-export type TransactionInvoiceStatus = 'pending' | 'paid' | 'unpaid' | 'overdue' | null
+export type TransactionInvoiceStatus = 'pending' | 'paid' | 'unpaid' | 'overdue' | 'cancelled' | null
 
 export interface TransactionRecord {
   id: string
