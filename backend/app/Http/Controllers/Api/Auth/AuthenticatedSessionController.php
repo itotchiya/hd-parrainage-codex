@@ -48,6 +48,13 @@ class AuthenticatedSessionController extends Controller
             ], 403);
         }
 
+        if ($user->email_verified_at === null) {
+            return response()->json([
+                'code' => 'AUTH_EMAIL_UNVERIFIED',
+                'message' => 'Please verify your email address before logging in. Check your inbox for the verification link.',
+            ], 403);
+        }
+
         Auth::guard('web')->login($user, (bool) $request->boolean('remember'));
         $request->session()->regenerate();
 

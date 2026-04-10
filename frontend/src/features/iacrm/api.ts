@@ -14,18 +14,37 @@ import type {
 import { logIacrmActivity } from './activityLog'
 
 // ---------------------------------------------------------------------------
-// Config persistence (localStorage)
+// Config persistence (localStorage — scoped per business / platform)
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'iacrm_api_config'
+const SCOPE_KEY = 'iacrm_scope'
 export const IACRM_CONFIG_EVENT = 'iacrm-config-updated'
 
 /** The hosted IACRM simulator — always used as the base URL. */
 export const IACRM_DEFAULT_BASE_URL = 'https://iacrm-api-simulator-production.up.railway.app'
 
+/**
+ * Returns the active IACRM scope: a business UUID or 'platform' for superadmin.
+ * Defaults to 'platform' if not set.
+ */
+function getActiveScope(): string {
+  return localStorage.getItem(SCOPE_KEY) ?? 'platform'
+}
+
+/** Call this after a successful login with the user's primary business ID (or null for platform). */
+export function setIacrmScope(businessId: string | null) {
+  const scope = businessId ?? 'platform'
+  localStorage.setItem(SCOPE_KEY, scope)
+  window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
+}
+
+function getStorageKey(): string {
+  return `iacrm_api_config_${getActiveScope()}`
+}
+
 export function getIacrmConfig(): IacrmApiConfig | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(getStorageKey())
     if (!raw) return null
     const parsed = JSON.parse(raw) as IacrmApiConfig
     // Always ensure base_url points to the hosted simulator
@@ -39,12 +58,12 @@ export function getIacrmConfig(): IacrmApiConfig | null {
 }
 
 export function saveIacrmConfig(config: IacrmApiConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  localStorage.setItem(getStorageKey(), JSON.stringify(config))
   window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
 }
 
 export function clearIacrmConfig() {
-  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(getStorageKey())
   window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
 }
 

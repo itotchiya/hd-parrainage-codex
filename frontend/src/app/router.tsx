@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { appModuleRoutes, dashboardRoute } from './navigation'
 import { ModulePlaceholderPage } from '../features/app/pages/ModulePlaceholderPage'
 import { InvitationActivationPage } from '../features/auth/pages/InvitationActivationPage'
+import { EmailVerificationPendingPage } from '../features/auth/pages/EmailVerificationPendingPage'
 import { LoginPage } from '../features/auth/pages/LoginPage'
 import { PasswordForgotPage } from '../features/auth/pages/PasswordForgotPage'
 import { PasswordResetPage } from '../features/auth/pages/PasswordResetPage'
@@ -55,6 +56,14 @@ export const router = createBrowserRouter([
     element: (
       <PublicOnly>
         <InvitationActivationPage />
+      </PublicOnly>
+    ),
+  },
+  {
+    path: '/verify-email',
+    element: (
+      <PublicOnly>
+        <EmailVerificationPendingPage />
       </PublicOnly>
     ),
   },

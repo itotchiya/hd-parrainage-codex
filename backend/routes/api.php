@@ -30,6 +30,7 @@ Route::prefix('auth')->middleware('web')->group(function (): void {
         ->name('auth.email.verify');
     Route::post('/invitation/validate', [InvitationActivationController::class, 'validateToken'])->middleware('guest');
     Route::post('/invitation/activate', [InvitationActivationController::class, 'activate'])->middleware('guest');
+    Route::post('/invitation/resend-verification', [InvitationActivationController::class, 'resendVerification'])->middleware('guest');
     Route::post('/password/forgot', [PasswordRecoveryController::class, 'sendResetToken'])->middleware('guest');
     Route::post('/password/reset', [PasswordRecoveryController::class, 'reset'])->middleware('guest');
 });

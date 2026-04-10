@@ -1,5 +1,4 @@
 import { apiRequest } from '../../lib/api'
-import type { AuthEnvelope } from '../../types/auth'
 
 interface InvitationValidationEnvelope {
   data: {
@@ -39,7 +38,17 @@ export async function activateInvitation(payload: {
   password: string
   password_confirmation: string
 }) {
-  return apiRequest<AuthEnvelope>('/auth/invitation/activate', {
+  return apiRequest<{ code: string; message: string }>('/auth/invitation/activate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function resendVerificationEmail(payload: { email: string }) {
+  return apiRequest<{ message: string }>('/auth/invitation/resend-verification', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

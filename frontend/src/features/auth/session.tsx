@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
 import { ApiError, apiRequest, ensureCsrfCookie } from '../../lib/api'
+import { setIacrmScope } from '../iacrm/api'
 import type {
   AuthEnvelope,
   AuthenticatedUser,
@@ -121,6 +122,7 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   const loginMutation = useMutation({
     mutationFn: loginRequest,
     onSuccess: (user) => {
+      setIacrmScope(user.current_business_id ?? null)
       queryClient.setQueryData(authQueryKey, user)
     },
   })
@@ -128,6 +130,7 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   const logoutMutation = useMutation({
     mutationFn: logoutRequest,
     onSuccess: () => {
+      setIacrmScope(null)
       queryClient.setQueryData(authQueryKey, null)
     },
     onSettled: async () => {
@@ -138,6 +141,12 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   })
 
   const user = sessionQuery.data ?? null
+
+  // Keep IACRM scope in sync whenever the session resolves
+  if (!sessionQuery.isPending) {
+    setIacrmScope(user?.current_business_id ?? null)
+  }
+
   const status: AuthStatus = sessionQuery.isPending
     ? 'loading'
     : user === null

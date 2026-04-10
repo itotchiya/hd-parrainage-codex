@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Auth\AuthenticatedUserResource;
+use App\Mail\InvitationEmailVerificationMail;
 use App\Models\AppNotification;
 use App\Models\BusinessUserAssignment;
 use App\Models\InvitationActivationToken;
 use App\Models\User;
+use App\Support\FrontendUrlResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 class InvitationActivationController extends Controller
@@ -126,7 +128,7 @@ class InvitationActivationController extends Controller
                 'password_hash' => (string) $payload['password'],
                 'status' => 'active',
                 'activated_at' => $user->activated_at ?? now(),
-                'email_verified_at' => $user->email_verified_at ?? now(),
+                'email_verified_at' => null,
                 'last_activity_at' => now(),
             ])->save();
 
@@ -194,17 +196,59 @@ class InvitationActivationController extends Controller
             }
         }
 
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        $verificationUrl = URL::temporarySignedRoute(
+            'auth.email.verify',
+            now()->addHours(24),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->email),
+                'redirect' => FrontendUrlResolver::verifyEmailUrl($request).'?verified=1',
+            ],
+        );
+
+        Mail::to($user->email)->send(
+            new InvitationEmailVerificationMail($user, $verificationUrl),
+        );
 
         return response()->json([
-            'data' => new AuthenticatedUserResource($user->fresh([
-                'userRoles.role.permissions',
-                'businessAssignments.business',
-                'primaryBusinessAssignment.business',
-                'agentProfile.business',
-                'userPermissionOverrides.permission',
-            ])),
+            'code' => 'ACTIVATION_SUCCESS_VERIFY_EMAIL',
+            'message' => 'Account created. Please check your email to verify your address before logging in.',
+        ]);
+    }
+
+    public function resendVerification(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = mb_strtolower(trim((string) $payload['email']));
+
+        $user = User::query()->where('email', $email)->where('status', 'active')->first();
+
+        // Always return success to avoid email enumeration
+        if ($user === null || $user->email_verified_at !== null) {
+            return response()->json([
+                'message' => 'If an account exists and is unverified, a new verification email has been sent.',
+            ]);
+        }
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'auth.email.verify',
+            now()->addHours(24),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->email),
+                'redirect' => FrontendUrlResolver::verifyEmailUrl($request).'?verified=1',
+            ],
+        );
+
+        Mail::to($user->email)->send(
+            new InvitationEmailVerificationMail($user, $verificationUrl),
+        );
+
+        return response()->json([
+            'message' => 'If an account exists and is unverified, a new verification email has been sent.',
         ]);
     }
 }

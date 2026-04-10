@@ -20,6 +20,13 @@ class FrontendUrlResolver
         return $frontendUrl.'/password/reset?email='.urlencode($email).'&token='.urlencode($token);
     }
 
+    public static function verifyEmailUrl(Request $request): string
+    {
+        $frontendUrl = self::fromRequest($request);
+
+        return $frontendUrl.'/verify-email';
+    }
+
     /**
      * @param array<string, string> $query
      */

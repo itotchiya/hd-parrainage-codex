@@ -299,7 +299,6 @@ class BusinessController extends Controller
             return [$business, $owner];
         });
 
-        // Note: IACRM business ID is required.
         // New businesses start with zero data - no agents, programs, or prospects.
         // The business owner must configure everything from scratch after activation.
 

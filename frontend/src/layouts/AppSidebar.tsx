@@ -165,7 +165,12 @@ export function AppSidebar({
                         onClick={onNavigate}
                         className={linkClassName}
                       >
-                        <Icon className="h-4.5 w-4.5 shrink-0" />
+                        <span className="relative shrink-0">
+                          <Icon className="h-4.5 w-4.5 shrink-0" />
+                          {visuallyCollapsed && navBadge ? (
+                            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-background" />
+                          ) : null}
+                        </span>
                         {!visuallyCollapsed ? (
                           <>
                             <span className="truncate font-medium">{item.label}</span>
@@ -175,8 +180,6 @@ export function AppSidebar({
                               </span>
                             ) : null}
                           </>
-                        ) : navBadge ? (
-                          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-background" />
                         ) : null}
                       </NavLink>
                     </TooltipTrigger>

@@ -139,6 +139,11 @@ export function LoginPage() {
       navigate(redirectTo, { replace: true })
     } catch (error) {
       if (error instanceof ApiError) {
+        if (error.code === 'AUTH_EMAIL_UNVERIFIED') {
+          navigate(`/verify-email?email=${encodeURIComponent(values.email)}`, { replace: true })
+          return
+        }
+
         const emailError = error.errors?.email?.[0]
 
         if (emailError) {

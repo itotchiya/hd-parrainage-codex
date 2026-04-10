@@ -223,9 +223,9 @@ export function InviteBusinessDialog({
               >
                 Annuler
               </Button>
-              <Button 
-                type="submit" 
-                size="sm" 
+              <Button
+                type="submit"
+                size="sm"
                 disabled={isPending || !selectedBusinessId || iacrmBusinesses.length === 0}
               >
                 {isPending ? (
