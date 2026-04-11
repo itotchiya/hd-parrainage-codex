@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Auth;
 
 use App\Models\UserRole;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,8 +15,12 @@ class AuthenticatedUserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $primaryBusiness = $this->primaryBusinessAssignment?->business;
-        $currentBusinessId = $primaryBusiness?->id;
+        $currentBusinessId = CurrentBusinessContext::resolve($this->resource, $request);
+        $currentBusiness = $this->businessAssignments
+            ->firstWhere('business_id', $currentBusinessId)?->business;
+        $scopedAgentProfile = $this->agentProfile !== null && $this->agentProfile->business_id === $currentBusinessId
+            ? $this->agentProfile
+            : null;
 
         return [
             'id' => $this->id,
@@ -27,11 +32,11 @@ class AuthenticatedUserResource extends JsonResource
             'last_login_at' => $this->last_login_at?->toISOString(),
             'last_activity_at' => $this->last_activity_at?->toISOString(),
             'current_business_id' => $currentBusinessId,
-            'primary_business' => $primaryBusiness === null ? null : [
-                'id' => $primaryBusiness->id,
-                'slug' => $primaryBusiness->slug,
-                'display_name' => $primaryBusiness->display_name,
-                'status' => $primaryBusiness->status,
+            'primary_business' => $currentBusiness === null ? null : [
+                'id' => $currentBusiness->id,
+                'slug' => $currentBusiness->slug,
+                'display_name' => $currentBusiness->display_name,
+                'status' => $currentBusiness->status,
             ],
             'business_assignments' => $this->businessAssignments
                 ->where('status', 'active')
@@ -48,15 +53,22 @@ class AuthenticatedUserResource extends JsonResource
                     ],
                 ])
                 ->values(),
-            'agent_profile' => $this->agentProfile === null ? null : [
-                'id' => $this->agentProfile->id,
-                'business_id' => $this->agentProfile->business_id,
-                'agent_code' => $this->agentProfile->agent_code,
-                'status' => $this->agentProfile->status,
+            'agent_profile' => $scopedAgentProfile === null ? null : [
+                'id' => $scopedAgentProfile->id,
+                'business_id' => $scopedAgentProfile->business_id,
+                'agent_code' => $scopedAgentProfile->agent_code,
+                'status' => $scopedAgentProfile->status,
             ],
             'roles' => $this->userRoles
                 ->where('status', 'active')
                 ->filter(fn (UserRole $assignment) => $assignment->expires_at === null || $assignment->expires_at->isFuture())
+                ->filter(function (UserRole $assignment) use ($currentBusinessId): bool {
+                    if ($assignment->scope_type === 'global') {
+                        return true;
+                    }
+
+                    return $assignment->business_id === $currentBusinessId;
+                })
                 ->map(fn (UserRole $assignment) => [
                     'slug' => $assignment->role?->slug,
                     'name' => $assignment->role?->name,

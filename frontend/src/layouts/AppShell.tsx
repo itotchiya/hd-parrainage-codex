@@ -8,6 +8,7 @@ import { useAuthSession } from '../features/auth/session'
 import { getIacrmConfig, hasIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
 import { fetchNotifications } from '../features/notifications/api'
 import { fetchPointsSummary } from '../features/points/api'
+import { isCurrentBusinessAgent, isCurrentBusinessOwner, isSuperAdminUser } from '../lib/auth-scope'
 import { AppSidebar } from './AppSidebar'
 import { LanguageSwitcher } from '@/components/app/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
@@ -113,7 +114,7 @@ export function AppShell() {
     queryFn: fetchNotifications,
     staleTime: 30_000,
   })
-  const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
+  const isSuperAdmin = isSuperAdminUser(user)
   const pointsSidebarQuery = useQuery({
     queryKey: ['points', 'sidebar-available'],
     queryFn: () => fetchPointsSummary(),
@@ -121,7 +122,7 @@ export function AppShell() {
     enabled: hasPermission('points.view') && !isSuperAdmin,
   })
 
-  const isBusinessOwner = user?.agent_profile === null && hasPermission('settings.view-business')
+  const isBusinessOwner = isCurrentBusinessOwner(user)
   const shouldShowIacrmCta = !iacrmConfigured && (isSuperAdmin || isBusinessOwner)
   // These paths are business-scoped management surfaces — not relevant for platform admin
   const superAdminHiddenPaths = ['/agents', '/prospects', '/commissions', '/payouts', '/exchange-packs', '/transactions']
@@ -147,7 +148,7 @@ export function AppShell() {
   const availablePointsBadge = `${availablePoints.toLocaleString('fr-FR')} pts`
   const userInitial = user?.display_name?.trim().charAt(0).toUpperCase() ?? 'U'
   const displayName = user?.display_name?.trim() ?? 'User'
-  const isAgent = user?.roles.some((r) => r.slug === 'agent') ?? (user?.agent_profile !== undefined && user?.agent_profile !== null)
+  const isAgent = isCurrentBusinessAgent(user)
   const shouldShowAgentPointsCta = isAgent && hasPermission('points.view')
 
   const pathSegments = location.pathname.split('/').filter(Boolean)

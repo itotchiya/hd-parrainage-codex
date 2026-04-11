@@ -9,6 +9,7 @@ use App\Models\ExchangeRequest;
 use App\Models\PointsLedger;
 use App\Models\Program;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use App\Support\Points\PointsWalletMetrics;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ class ExchangeRequestController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'exchange-request.view', $businessId);
 
@@ -61,7 +62,7 @@ class ExchangeRequestController extends Controller
     public function show(Request $request, string $exchangeRequestId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'exchange-request.view', $businessId);
 
@@ -763,14 +764,18 @@ class ExchangeRequestController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function ownerBusinessId(User $user): string
     {
-        $businessId = $user->primaryBusinessAssignment?->business_id;
+        $businessId = $this->currentBusinessId($user);
 
         abort_if($businessId === null, 403, 'No business scope is available for this action.');
 

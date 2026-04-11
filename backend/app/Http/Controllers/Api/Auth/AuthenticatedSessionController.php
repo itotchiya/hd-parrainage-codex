@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Auth\AuthenticatedUserResource;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,14 +64,18 @@ class AuthenticatedSessionController extends Controller
             'last_activity_at' => now(),
         ])->save();
 
+        $freshUser = $user->fresh([
+            'userRoles.role.permissions',
+            'businessAssignments.business',
+            'primaryBusinessAssignment.business',
+            'agentProfile.business',
+            'userPermissionOverrides.permission',
+        ]);
+
+        CurrentBusinessContext::resolve($freshUser, $request);
+
         return response()->json([
-            'data' => new AuthenticatedUserResource($user->fresh([
-                'userRoles.role.permissions',
-                'businessAssignments.business',
-                'primaryBusinessAssignment.business',
-                'agentProfile.business',
-                'userPermissionOverrides.permission',
-            ])),
+            'data' => new AuthenticatedUserResource($freshUser),
         ]);
     }
 

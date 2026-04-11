@@ -10,6 +10,7 @@ use App\Models\Prospect;
 use App\Models\ProspectStatusHistory;
 use App\Models\SyncJob;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class ProspectController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'prospect.view', $businessId);
 
@@ -47,7 +48,7 @@ class ProspectController extends Controller
     public function deleted(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         if ($this->activeRoleSlugs($user, $businessId)->contains('agent')) {
             abort_unless($user->hasPermissionId('prospect.view-own-deleted-history', $businessId), 403, 'Forbidden.');
@@ -187,7 +188,7 @@ class ProspectController extends Controller
     public function show(Request $request, string $prospectId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'prospect.view', $businessId);
 
@@ -210,7 +211,7 @@ class ProspectController extends Controller
     public function history(Request $request, string $prospectId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'prospect.view', $businessId);
 
@@ -371,9 +372,13 @@ class ProspectController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function activeRoleSlugs(User $user, ?string $businessId = null): Collection

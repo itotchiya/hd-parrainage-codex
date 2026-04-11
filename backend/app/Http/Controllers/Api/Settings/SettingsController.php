@@ -6,6 +6,7 @@ use App\Mail\SettingsEmailVerificationMail;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use App\Support\FrontendUrlResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class SettingsController extends Controller
     public function show(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $canView = $user->hasPermissionId('settings.view-platform', $businessId)
             || $user->hasPermissionId('settings.view-business', $businessId)
@@ -72,7 +73,7 @@ class SettingsController extends Controller
     public function updateOwn(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         $payload = $request->validate([
@@ -104,7 +105,7 @@ class SettingsController extends Controller
     public function resendOwnEmailVerification(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         if ($user->pending_email !== null && $user->pending_email !== '') {
@@ -124,7 +125,7 @@ class SettingsController extends Controller
     public function requestOwnEmailChange(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         $payload = $request->validate([
@@ -143,7 +144,7 @@ class SettingsController extends Controller
     public function verifyOwnEmailCode(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         $payload = $request->validate([
@@ -179,7 +180,7 @@ class SettingsController extends Controller
     public function updateOwnPassword(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         $payload = $request->validate([
@@ -327,7 +328,7 @@ class SettingsController extends Controller
     public function uploadOwnAvatar(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         abort_unless($user->hasPermissionId('settings.update-own', $businessId), 403, 'Forbidden.');
 
         $payload = $request->validate([
@@ -472,14 +473,18 @@ class SettingsController extends Controller
         ]);
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function ownerBusinessId(User $user): string
     {
-        $businessId = $user->primaryBusinessAssignment?->business_id;
+        $businessId = $this->currentBusinessId($user);
         abort_if($businessId === null, 403, 'No business scope is available for this action.');
         return $businessId;
     }

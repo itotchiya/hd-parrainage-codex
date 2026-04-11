@@ -8,6 +8,7 @@ use App\Models\AppNotification;
 use App\Models\BusinessUserAssignment;
 use App\Models\InvitationActivationToken;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use App\Support\FrontendUrlResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,18 +111,7 @@ class InvitationActivationController extends Controller
             ]);
         }
 
-        // Resolve businessId from any assignment (not just active ones), because
-        // the assignment is still 'invited' at this point and primaryBusinessAssignment
-        // filters to status='active' only.
-        $businessId = $user->agentProfile?->business_id;
-
-        if ($businessId === null) {
-            $anyAssignment = BusinessUserAssignment::query()
-                ->where('user_id', $user->id)
-                ->where('is_primary', true)
-                ->first();
-            $businessId = $anyAssignment?->business_id;
-        }
+        $businessId = CurrentBusinessContext::resolveInvitationTargetBusinessId($user);
 
         DB::transaction(function () use ($user, $token, $payload, $businessId): void {
             $user->forceFill([
@@ -132,7 +122,11 @@ class InvitationActivationController extends Controller
                 'last_activity_at' => now(),
             ])->save();
 
-            if ($user->agentProfile !== null && $user->agentProfile->status !== 'active') {
+            if (
+                $user->agentProfile !== null &&
+                $user->agentProfile->business_id === $businessId &&
+                $user->agentProfile->status !== 'active'
+            ) {
                 $user->agentProfile->forceFill([
                     'status' => 'active',
                     'activated_at' => $user->agentProfile->activated_at ?? now(),
@@ -140,22 +134,50 @@ class InvitationActivationController extends Controller
             }
 
             if ($businessId !== null) {
-                // Activate both owner and agent assignments (was previously only 'agent')
-                BusinessUserAssignment::query()
+                $assignmentQuery = BusinessUserAssignment::query()
                     ->where('business_id', $businessId)
                     ->where('user_id', $user->id)
-                    ->whereIn('assignment_type', ['owner', 'agent'])
-                    ->update([
+                    ->whereIn('assignment_type', ['owner', 'agent']);
+
+                $assignmentQuery->update([
                         'status' => 'active',
                         'activated_at' => now(),
                         'updated_at' => now(),
                     ]);
+
+                $ownerAssignmentExists = BusinessUserAssignment::query()
+                    ->where('business_id', $businessId)
+                    ->where('user_id', $user->id)
+                    ->where('assignment_type', 'owner')
+                    ->exists();
+
+                if ($ownerAssignmentExists) {
+                    BusinessUserAssignment::query()
+                        ->where('user_id', $user->id)
+                        ->where('assignment_type', 'owner')
+                        ->where('is_primary', true)
+                        ->update([
+                            'is_primary' => false,
+                            'updated_at' => now(),
+                        ]);
+
+                    BusinessUserAssignment::query()
+                        ->where('business_id', $businessId)
+                        ->where('user_id', $user->id)
+                        ->where('assignment_type', 'owner')
+                        ->update([
+                            'is_primary' => true,
+                            'updated_at' => now(),
+                        ]);
+                }
             }
 
             $token->forceFill([
                 'used_at' => now(),
             ])->save();
         });
+
+        CurrentBusinessContext::remember($request, $businessId);
 
         if ($businessId !== null) {
             AppNotification::query()->create([

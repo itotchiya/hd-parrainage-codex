@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Transactions\TransactionResource;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class TransactionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'transaction.view', $businessId);
 
@@ -41,7 +42,7 @@ class TransactionController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'transaction.view', $businessId);
 
@@ -178,9 +179,13 @@ class TransactionController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function activeRoleSlugs(User $user, ?string $businessId = null): Collection

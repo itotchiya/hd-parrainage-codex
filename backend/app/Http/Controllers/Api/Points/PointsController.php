@@ -9,6 +9,7 @@ use App\Models\PointsLedger;
 use App\Models\Prospect;
 use App\Models\Program;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use App\Support\Points\PointsWalletMetrics;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class PointsController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'points.view', $businessId);
 
@@ -50,7 +51,7 @@ class PointsController extends Controller
     public function ledger(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'points.view', $businessId);
 
@@ -105,7 +106,7 @@ class PointsController extends Controller
     public function byProgram(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'points.view', $businessId);
 
@@ -222,7 +223,7 @@ class PointsController extends Controller
 
     private function ledgerQuery(User $user): Builder
     {
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $roleSlugs = $this->activeRoleSlugs($user, $businessId);
         $query = PointsLedger::query();
 
@@ -348,9 +349,13 @@ class PointsController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function activeRoleSlugs(User $user, ?string $businessId = null): Collection

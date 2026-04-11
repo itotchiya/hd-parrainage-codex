@@ -7,6 +7,7 @@ use App\Models\Agent;
 use App\Models\Prospect;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class BusinessDashboardController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         abort_if($businessId === null, 403, 'No active business scope is available.');
 
@@ -288,9 +289,9 @@ class BusinessDashboardController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request $request, User $user): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        return CurrentBusinessContext::resolve($user, $request);
     }
 
     private function activeRoleSlugs(User $user, ?string $businessId = null): Collection

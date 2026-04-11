@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Sync\SyncJobResource;
 use App\Models\SyncJob;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class SyncJobController extends Controller
     public function overview(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'iacrm.sync-view', $businessId);
 
         $baseQuery = $this->scopedSyncJobsQuery($user);
@@ -66,7 +67,7 @@ class SyncJobController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'iacrm.sync-view', $businessId);
 
         $query = $this->scopedSyncJobsQuery($user)
@@ -104,7 +105,7 @@ class SyncJobController extends Controller
     public function show(Request $request, string $jobId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'iacrm.sync-view', $businessId);
 
         $job = $this->scopedSyncJobsQuery($user)
@@ -119,7 +120,7 @@ class SyncJobController extends Controller
     public function retry(Request $request, string $jobId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'iacrm.sync-retry', $businessId);
 
         $job = $this->scopedSyncJobsQuery($user)->findOrFail($jobId);
@@ -188,9 +189,13 @@ class SyncJobController extends Controller
         ]);
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function assertPermission(User $user, string $permissionId, ?string $businessId = null): void

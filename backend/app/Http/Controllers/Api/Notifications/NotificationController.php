@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Notifications\AppNotificationResource;
 use App\Models\AppNotification;
 use App\Models\User;
+use App\Support\CurrentBusinessContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +15,7 @@ class NotificationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'notification.view', $businessId);
 
         $query = AppNotification::query()
@@ -44,7 +45,7 @@ class NotificationController extends Controller
     public function markRead(Request $request, string $notificationId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'notification.mark-read', $businessId);
 
         $record = AppNotification::query()
@@ -63,7 +64,7 @@ class NotificationController extends Controller
     public function markAllRead(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'notification.mark-read', $businessId);
 
         AppNotification::query()
@@ -101,8 +102,8 @@ class NotificationController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request $request, User $user): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        return CurrentBusinessContext::resolve($user, $request);
     }
 }

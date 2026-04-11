@@ -12,6 +12,7 @@ use App\Models\InvitationActivationToken;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Support\CurrentBusinessContext;
 use App\Support\FrontendUrlResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -29,10 +30,10 @@ class AgentController extends Controller
     public function show(Request $request, string $agentId): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
         $this->assertPermission($user, 'agent.view', $businessId);
 
-        $agent = $this->scopedAgentsQuery($user)
+        $agent = $this->scopedAgentsQuery($user, $businessId)
             ->with([
                 'user',
                 'programAssignments' => function ($query): void {
@@ -69,11 +70,11 @@ class AgentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $this->resolveApiUser($request);
-        $businessId = $this->currentBusinessId($user);
+        $businessId = $this->currentBusinessId($request, $user);
 
         $this->assertPermission($user, 'agent.view', $businessId);
 
-        $query = $this->scopedAgentsQuery($user)
+        $query = $this->scopedAgentsQuery($user, $businessId)
             ->with([
                 'user',
                 'programAssignments' => function ($query): void {
@@ -500,9 +501,8 @@ class AgentController extends Controller
         return str_contains((string) $exception->getMessage(), 'agents_business_id_agent_code_unique');
     }
 
-    private function scopedAgentsQuery(User $user): Builder
+    private function scopedAgentsQuery(User $user, ?string $businessId): Builder
     {
-        $businessId = $this->currentBusinessId($user);
         $query = Agent::query();
 
         if ($businessId !== null && $user->activeRoleSlugs($businessId)->contains('business-owner')) {
@@ -532,14 +532,18 @@ class AgentController extends Controller
         abort_unless($user->hasPermissionId($permissionId, $businessId), 403, 'Forbidden.');
     }
 
-    private function currentBusinessId(User $user): ?string
+    private function currentBusinessId(Request|User $requestOrUser, ?User $user = null): ?string
     {
-        return $user->primaryBusinessAssignment?->business_id ?? $user->agentProfile?->business_id;
+        if ($requestOrUser instanceof Request) {
+            return CurrentBusinessContext::resolve($user, $requestOrUser);
+        }
+
+        return CurrentBusinessContext::resolve($requestOrUser);
     }
 
     private function ownerBusinessId(User $user): string
     {
-        $businessId = $user->primaryBusinessAssignment?->business_id;
+        $businessId = $this->currentBusinessId($user);
         abort_if($businessId === null, 403, 'No business scope is available for this action.');
         return $businessId;
     }

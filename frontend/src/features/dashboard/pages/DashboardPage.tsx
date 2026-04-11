@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Percent, Plus, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
+import { isCurrentBusinessAgent, isCurrentBusinessOwner, isSuperAdminUser } from '../../../lib/auth-scope'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents } from '../../agents/api'
 import { fetchBusinessDashboardSummary } from '../api'
@@ -76,11 +77,9 @@ function DashboardPageSkeleton() {
 export function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuthSession()
-  const isSuperAdmin = user?.roles.some((r) => r.slug === 'super-admin') ?? false
-  const isAgent = user?.roles.some((r) => r.slug === 'agent') ?? (user?.agent_profile != null)
-  const isBusinessOwner = Boolean(
-    user?.roles.some((role) => role.slug === 'business-owner' || role.name === 'Business Owner'),
-  )
+  const isSuperAdmin = isSuperAdminUser(user)
+  const isBusinessOwner = isCurrentBusinessOwner(user)
+  const isAgent = isCurrentBusinessAgent(user)
 
   const programsQuery = useQuery({
     queryKey: ['dashboard', 'programs'],
