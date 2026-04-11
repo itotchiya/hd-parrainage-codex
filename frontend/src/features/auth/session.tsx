@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   type PropsWithChildren,
   type ReactNode,
 } from 'react'
@@ -11,7 +12,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
-import { ApiError, apiRequest, ensureCsrfCookie } from '../../lib/api'
+import { ApiError, apiRequest, ensureCsrfCookie, registerUnauthorizedHandler } from '../../lib/api'
 import { fetchBusinessIacrmSettings } from '../settings/api'
 import { clearIacrmConfig, saveIacrmConfig, setIacrmScope } from '../iacrm/api'
 import type {
@@ -118,7 +119,6 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     queryKey: authQueryKey,
     queryFn: fetchCurrentUser,
     retry: false,
-    staleTime: 60_000,
   })
 
   const loginMutation = useMutation({
@@ -143,6 +143,24 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   })
 
   const user = sessionQuery.data ?? null
+  const redirectingRef = useRef(false)
+
+  useEffect(() => {
+    registerUnauthorizedHandler(() => {
+      if (redirectingRef.current) {
+        return
+      }
+      const isAuthRoute = ['/login', '/session-expired', '/activate-invitation', '/verify-email', '/password/forgot', '/password/reset']
+        .some((path) => window.location.pathname.startsWith(path))
+      if (isAuthRoute) {
+        return
+      }
+      redirectingRef.current = true
+      setIacrmScope(null)
+      queryClient.setQueryData(authQueryKey, null)
+      window.location.href = '/session-expired'
+    })
+  }, [queryClient])
 
   useEffect(() => {
     if (sessionQuery.isPending) {

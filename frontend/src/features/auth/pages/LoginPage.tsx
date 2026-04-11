@@ -38,29 +38,79 @@ type DemoAccount = {
   icon: 'shield' | 'building' | 'users'
 }
 
-const useDemoAccounts = (): DemoAccount[] => {
+type DemoAccountGroup = {
+  title: string
+  accounts: DemoAccount[]
+}
+
+const useDemoAccounts = (): DemoAccountGroup[] => {
   const { t } = useTranslation()
   return [
     {
-      id: 'super-admin',
-      label: t('auth.roles.superAdmin'),
-      subtitle: t('auth.roleDescriptions.superAdmin'),
-      email: 'superadmin@hd-parrainage.test',
-      icon: 'shield',
+      title: 'Demo with data',
+      accounts: [
+        {
+          id: 'super-admin',
+          label: t('auth.roles.superAdmin'),
+          subtitle: t('auth.roleDescriptions.superAdmin'),
+          email: 'superadmin@hd-parrainage.test',
+          icon: 'shield',
+        },
+        {
+          id: 'business-owner',
+          label: t('auth.roles.businessOwner'),
+          subtitle: t('auth.roleDescriptions.businessOwner'),
+          email: 'owner@havetdigital.test',
+          icon: 'building',
+        },
+        {
+          id: 'agent',
+          label: t('auth.roles.agent'),
+          subtitle: t('auth.roleDescriptions.agent'),
+          email: 'agent@havetdigital.test',
+          icon: 'users',
+        },
+        {
+          id: 'agent2',
+          label: `${t('auth.roles.agent')} 2`,
+          subtitle: t('auth.roleDescriptions.agent'),
+          email: 'agent2@havetdigital.test',
+          icon: 'users',
+        },
+      ],
     },
     {
-      id: 'business-owner',
-      label: t('auth.roles.businessOwner'),
-      subtitle: t('auth.roleDescriptions.businessOwner'),
-      email: 'owner@havetdigital.test',
-      icon: 'building',
-    },
-    {
-      id: 'agent',
-      label: t('auth.roles.agent'),
-      subtitle: t('auth.roleDescriptions.agent'),
-      email: 'agent@havetdigital.test',
-      icon: 'users',
+      title: 'Empty demo accounts',
+      accounts: [
+        {
+          id: 'empty-super-admin',
+          label: `${t('auth.roles.superAdmin')} (empty)`,
+          subtitle: 'Clean platform account with no data',
+          email: 'empty-superadmin@hd-parrainage.test',
+          icon: 'shield',
+        },
+        {
+          id: 'empty-business-owner',
+          label: `${t('auth.roles.businessOwner')} (empty)`,
+          subtitle: 'Clean business account with no data',
+          email: 'empty-owner@demo-business.test',
+          icon: 'building',
+        },
+        {
+          id: 'empty-agent1',
+          label: `${t('auth.roles.agent')} 1 (empty)`,
+          subtitle: 'Clean agent account with no data',
+          email: 'empty-agent1@demo-business.test',
+          icon: 'users',
+        },
+        {
+          id: 'empty-agent2',
+          label: `${t('auth.roles.agent')} 2 (empty)`,
+          subtitle: 'Clean agent account with no data',
+          email: 'empty-agent2@demo-business.test',
+          icon: 'users',
+        },
+      ],
     },
   ]
 }
@@ -115,7 +165,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams()
   const { login, loginPending } = useAuthSession()
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null)
-  const demoAccounts = useDemoAccounts()
+  const demoAccountGroups = useDemoAccounts()
 
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
@@ -257,7 +307,7 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   {t('auth.demoAccess')}
@@ -267,14 +317,21 @@ export function LoginPage() {
                 </Badge>
               </div>
 
-              <div className="grid gap-2.5">
-                {demoAccounts.map((account) => (
-                  <DemoAccountCard
-                    key={account.id}
-                    account={account}
-                    selected={selectedEmail === account.email}
-                    onSelect={() => applyDemoAccount(account.email)}
-                  />
+              <div className="space-y-4">
+                {demoAccountGroups.map((group) => (
+                  <div key={group.title} className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
+                    <div className="grid gap-2">
+                      {group.accounts.map((account) => (
+                        <DemoAccountCard
+                          key={account.id}
+                          account={account}
+                          selected={selectedEmail === account.email}
+                          onSelect={() => applyDemoAccount(account.email)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
 

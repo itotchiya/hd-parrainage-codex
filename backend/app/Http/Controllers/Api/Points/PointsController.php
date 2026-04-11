@@ -223,7 +223,7 @@ class PointsController extends Controller
 
     private function ledgerQuery(User $user): Builder
     {
-        $businessId = $this->currentBusinessId($request, $user);
+        $businessId = $this->currentBusinessId($user);
         $roleSlugs = $this->activeRoleSlugs($user, $businessId);
         $query = PointsLedger::query();
 

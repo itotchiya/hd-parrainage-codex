@@ -13,6 +13,10 @@ if [ ! -f vendor/autoload.php ]; then
   done
 fi
 
+# Clear stale scheduler overlap locks after container restarts so periodic
+# sync commands resume immediately.
+php artisan schedule:clear-cache >/dev/null 2>&1 || true
+
 while true; do
   php artisan schedule:run --verbose --no-interaction
   sleep 60

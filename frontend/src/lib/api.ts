@@ -6,6 +6,17 @@ type ApiPayload = {
   errors?: Record<string, string | string[]>
 }
 
+let onUnauthorized: (() => void) | null = null
+
+export function registerUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler
+}
+
+function shouldTriggerUnauthorized(path: string): boolean {
+  const ignored = ['/auth/me', '/auth/login']
+  return !ignored.some((prefix) => path.startsWith(prefix))
+}
+
 function buildApiUrl(path: string) {
   return `${env.apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`
 }
@@ -117,6 +128,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}) {
   const payload = await readPayload(response)
 
   if (!response.ok) {
+    if (response.status === 401 && shouldTriggerUnauthorized(path)) {
+      onUnauthorized?.()
+    }
     throw new ApiError(response.status, payload)
   }
 

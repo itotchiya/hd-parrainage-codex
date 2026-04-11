@@ -225,6 +225,7 @@ class PullIacrmInvoices extends Command
         $invoiceReference = (string) ($invoice['invoice_reference'] ?? $iacrmInvoiceId);
         $issuedAt = $invoice['issued_at'] ?? null;
         $paidAt = ($iacrmStatus === 'paid' && ! empty($invoice['paid_at'])) ? $invoice['paid_at'] : null;
+        $syncedAt = now();
 
         $existing = Transaction::query()
             ->where('iacrm_transaction_id', $iacrmInvoiceId)
@@ -253,7 +254,7 @@ class PullIacrmInvoices extends Command
                     'invoice_status' => $this->mapInvoiceStatus($iacrmStatus),
                     'occurred_at' => $issuedAt ? now()->parse((string) $issuedAt) : now(),
                     'paid_at' => $paidAt ? now()->parse((string) $paidAt) : null,
-                    'last_synced_at' => now(),
+                    'last_synced_at' => $syncedAt,
                     'raw_iacrm_payload' => $invoice,
                 ]);
             }
@@ -263,6 +264,12 @@ class PullIacrmInvoices extends Command
             $expectedInvoiceStatus = $this->mapInvoiceStatus($iacrmStatus);
 
             if ($existing->status === $transactionStatus && $existing->invoice_status === $expectedInvoiceStatus) {
+                if (! $dryRun) {
+                    $existing->update([
+                        'last_synced_at' => $syncedAt,
+                        'raw_iacrm_payload' => $invoice,
+                    ]);
+                }
                 $skipped++;
                 return compact('created', 'updated', 'pointed', 'skipped');
             }
@@ -274,7 +281,7 @@ class PullIacrmInvoices extends Command
                     'status' => $transactionStatus,
                     'invoice_status' => $expectedInvoiceStatus,
                     'paid_at' => $paidAt ? now()->parse((string) $paidAt) : $existing->paid_at,
-                    'last_synced_at' => now(),
+                    'last_synced_at' => $syncedAt,
                     'raw_iacrm_payload' => $invoice,
                 ]);
             }

@@ -194,9 +194,13 @@ class PullIacrmProspectStages extends Command
     {
         $currentStage = $prospect->pipeline_stage;
         $currentConversionStatus = $prospect->conversion_status;
+        $syncedAt = now();
 
         if (in_array($iacrmStage, self::ACTIVE_STAGES, true)) {
             if ($currentStage === $iacrmStage && $currentConversionStatus === 'open') {
+                if (! $dryRun) {
+                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                }
                 return false;
             }
 
@@ -207,7 +211,8 @@ class PullIacrmProspectStages extends Command
                     'pipeline_stage' => $iacrmStage,
                     'progression_status' => $iacrmStage,
                     'conversion_status' => 'open',
-                    'pipeline_stage_changed_at' => now(),
+                    'pipeline_stage_changed_at' => $syncedAt,
+                    'last_synced_at' => $syncedAt,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -227,6 +232,9 @@ class PullIacrmProspectStages extends Command
 
         if ($iacrmStage === 'converted') {
             if ($currentConversionStatus === 'converted') {
+                if (! $dryRun) {
+                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                }
                 return false;
             }
 
@@ -235,8 +243,9 @@ class PullIacrmProspectStages extends Command
             if (! $dryRun) {
                 $prospect->update([
                     'conversion_status' => 'converted',
-                    'converted_at' => now(),
+                    'converted_at' => $syncedAt,
                     'progression_status' => 'converted',
+                    'last_synced_at' => $syncedAt,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -256,6 +265,9 @@ class PullIacrmProspectStages extends Command
 
         if ($iacrmStage === 'lost') {
             if ($currentConversionStatus === 'lost') {
+                if (! $dryRun) {
+                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                }
                 return false;
             }
 
@@ -264,8 +276,9 @@ class PullIacrmProspectStages extends Command
             if (! $dryRun) {
                 $prospect->update([
                     'conversion_status' => 'lost',
-                    'lost_at' => now(),
+                    'lost_at' => $syncedAt,
                     'progression_status' => 'lost',
+                    'last_synced_at' => $syncedAt,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -284,5 +297,18 @@ class PullIacrmProspectStages extends Command
         }
 
         return false;
+    }
+
+    private function refreshSyncTimestamp(Prospect $prospect, \Illuminate\Support\Carbon $syncedAt): void
+    {
+        $updates = [
+            'last_synced_at' => $syncedAt,
+        ];
+
+        if ($prospect->first_synced_at === null) {
+            $updates['first_synced_at'] = $syncedAt;
+        }
+
+        $prospect->update($updates);
     }
 }

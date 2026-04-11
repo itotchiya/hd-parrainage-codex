@@ -469,28 +469,12 @@ class AgentController extends Controller
 
     private function nextAgentCode(string $businessId): string
     {
-        $codes = Agent::query()
-            ->withTrashed()
-            ->where('business_id', $businessId)
-            ->whereNotNull('agent_code')
-            ->pluck('agent_code');
-
-        $max = 0;
-        foreach ($codes as $code) {
-            if (preg_match('/^AGT-(\d+)$/', (string) $code, $matches) === 1) {
-                $max = max($max, (int) $matches[1]);
-            }
-        }
-
-        $next = $max + 1;
         do {
-            $candidate = 'AGT-'.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+            $candidate = 'AGT-' . Str::random(8);
             $exists = Agent::query()
                 ->withTrashed()
-                ->where('business_id', $businessId)
                 ->where('agent_code', $candidate)
                 ->exists();
-            $next++;
         } while ($exists);
 
         return $candidate;
@@ -498,7 +482,9 @@ class AgentController extends Controller
 
     private function isAgentCodeUniqueViolation(QueryException $exception): bool
     {
-        return str_contains((string) $exception->getMessage(), 'agents_business_id_agent_code_unique');
+        $message = (string) $exception->getMessage();
+        return str_contains($message, 'agents_agent_code_unique')
+            || str_contains($message, 'agents_business_id_agent_code_unique');
     }
 
     private function scopedAgentsQuery(User $user, ?string $businessId): Builder

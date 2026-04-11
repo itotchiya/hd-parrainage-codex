@@ -154,6 +154,78 @@ class FoundationSeeder extends Seeder
                 ],
             );
 
+            // Data-rich demo agent 2 (assigned to HAVET Digital with existing demo data)
+            $agentUser2 = User::query()->updateOrCreate(
+                ['email' => 'agent2@havetdigital.test'],
+                [
+                    'display_name' => 'HAVET Digital Agent 2',
+                    'password_hash' => 'Password123!',
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                    'created_by_user_id' => $businessOwner->id,
+                ],
+            );
+
+            // Empty demo accounts (no business data)
+            $emptySuperAdmin = User::query()->updateOrCreate(
+                ['email' => 'empty-superadmin@hd-parrainage.test'],
+                [
+                    'display_name' => 'Empty Super Admin',
+                    'password_hash' => 'Password123!',
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                    'last_login_at' => now(),
+                ],
+            );
+
+            $emptyBusinessOwner = User::query()->updateOrCreate(
+                ['email' => 'empty-owner@demo-business.test'],
+                [
+                    'display_name' => 'Empty Business Owner',
+                    'password_hash' => 'Password123!',
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                    'created_by_user_id' => $emptySuperAdmin->id,
+                ],
+            );
+
+            $emptyAgent1 = User::query()->updateOrCreate(
+                ['email' => 'empty-agent1@demo-business.test'],
+                [
+                    'display_name' => 'Empty Agent 1',
+                    'password_hash' => 'Password123!',
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                    'created_by_user_id' => $emptyBusinessOwner->id,
+                ],
+            );
+
+            $emptyAgent2 = User::query()->updateOrCreate(
+                ['email' => 'empty-agent2@demo-business.test'],
+                [
+                    'display_name' => 'Empty Agent 2',
+                    'password_hash' => 'Password123!',
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'email_verified_at' => now(),
+                    'last_activity_at' => now(),
+                    'created_by_user_id' => $emptyBusinessOwner->id,
+                ],
+            );
+
             $business = Business::query()->updateOrCreate(
                 ['slug' => 'havetdigital'],
                 [
@@ -209,6 +281,24 @@ class FoundationSeeder extends Seeder
                     'approved_by_user_id' => null,
                     'rejected_at' => now()->subDays(6),
                     'rejected_by_user_id' => $superAdmin->id,
+                ],
+            );
+
+            $emptyBusiness = Business::query()->updateOrCreate(
+                ['slug' => 'emptydemo'],
+                [
+                    'legal_name' => 'Empty Demo Business SARL',
+                    'display_name' => 'Empty Demo Business',
+                    'industry' => 'Services',
+                    'website_url' => 'https://empty-demo.test',
+                    'contact_email' => 'contact@empty-demo.test',
+                    'contact_phone' => '+33 1 00 00 00 01',
+                    'country_code' => 'FR',
+                    'currency_code' => 'EUR',
+                    'timezone' => 'Europe/Paris',
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approved_by_user_id' => $emptySuperAdmin->id,
                 ],
             );
 
@@ -292,6 +382,102 @@ class FoundationSeeder extends Seeder
                 ],
             );
 
+            Agent::query()->updateOrCreate(
+                [
+                    'business_id' => $business->id,
+                    'user_id' => $agentUser2->id,
+                ],
+                [
+                    'agent_code' => 'AGT-DEMO-002',
+                    'status' => 'active',
+                    'invited_by_user_id' => $businessOwner->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'last_activity_at' => now(),
+                    'notes' => 'Seeded data-rich demo agent 2 profile.',
+                ],
+            );
+
+            BusinessUserAssignment::query()->updateOrCreate(
+                [
+                    'business_id' => $emptyBusiness->id,
+                    'user_id' => $emptyBusinessOwner->id,
+                    'assignment_type' => 'owner',
+                ],
+                [
+                    'status' => 'active',
+                    'is_primary' => true,
+                    'assigned_by_user_id' => $emptySuperAdmin->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'starts_at' => now(),
+                ],
+            );
+
+            BusinessUserAssignment::query()->updateOrCreate(
+                [
+                    'business_id' => $emptyBusiness->id,
+                    'user_id' => $emptyAgent1->id,
+                    'assignment_type' => 'agent',
+                ],
+                [
+                    'status' => 'active',
+                    'is_primary' => true,
+                    'assigned_by_user_id' => $emptyBusinessOwner->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'starts_at' => now(),
+                ],
+            );
+
+            BusinessUserAssignment::query()->updateOrCreate(
+                [
+                    'business_id' => $emptyBusiness->id,
+                    'user_id' => $emptyAgent2->id,
+                    'assignment_type' => 'agent',
+                ],
+                [
+                    'status' => 'active',
+                    'is_primary' => true,
+                    'assigned_by_user_id' => $emptyBusinessOwner->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'starts_at' => now(),
+                ],
+            );
+
+            Agent::query()->updateOrCreate(
+                [
+                    'business_id' => $emptyBusiness->id,
+                    'user_id' => $emptyAgent1->id,
+                ],
+                [
+                    'agent_code' => 'AGT-EMPTY-001',
+                    'status' => 'active',
+                    'invited_by_user_id' => $emptyBusinessOwner->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'last_activity_at' => now(),
+                    'notes' => 'Seeded empty demo agent 1 profile.',
+                ],
+            );
+
+            Agent::query()->updateOrCreate(
+                [
+                    'business_id' => $emptyBusiness->id,
+                    'user_id' => $emptyAgent2->id,
+                ],
+                [
+                    'agent_code' => 'AGT-EMPTY-002',
+                    'status' => 'active',
+                    'invited_by_user_id' => $emptyBusinessOwner->id,
+                    'invited_at' => now(),
+                    'activated_at' => now(),
+                    'last_activity_at' => now(),
+                    'notes' => 'Seeded empty demo agent 2 profile.',
+                ],
+            );
+
             UserRole::query()->updateOrCreate(
                 [
                     'user_id' => $superAdmin->id,
@@ -348,6 +534,76 @@ class FoundationSeeder extends Seeder
                 ],
             );
 
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $agentUser2->id,
+                    'role_id' => $roleModels['agent']->id,
+                    'scope_type' => 'business',
+                    'business_id' => $business->id,
+                ],
+                [
+                    'assigned_by_user_id' => $businessOwner->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $emptySuperAdmin->id,
+                    'role_id' => $roleModels['super-admin']->id,
+                    'scope_type' => 'global',
+                    'business_id' => null,
+                ],
+                [
+                    'assigned_by_user_id' => $emptySuperAdmin->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $emptyBusinessOwner->id,
+                    'role_id' => $roleModels['business-owner']->id,
+                    'scope_type' => 'business',
+                    'business_id' => $emptyBusiness->id,
+                ],
+                [
+                    'assigned_by_user_id' => $emptySuperAdmin->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $emptyAgent1->id,
+                    'role_id' => $roleModels['agent']->id,
+                    'scope_type' => 'business',
+                    'business_id' => $emptyBusiness->id,
+                ],
+                [
+                    'assigned_by_user_id' => $emptyBusinessOwner->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
+            UserRole::query()->updateOrCreate(
+                [
+                    'user_id' => $emptyAgent2->id,
+                    'role_id' => $roleModels['agent']->id,
+                    'scope_type' => 'business',
+                    'business_id' => $emptyBusiness->id,
+                ],
+                [
+                    'assigned_by_user_id' => $emptyBusinessOwner->id,
+                    'assigned_at' => now(),
+                    'status' => 'active',
+                ],
+            );
+
             InvitationActivationToken::query()
                 ->where('user_id', $invitedAgentUser->id)
                 ->delete();
@@ -365,6 +621,11 @@ class FoundationSeeder extends Seeder
                 $superAdmin->id,
                 $businessOwner->id,
                 $agentUser->id,
+                $agentUser2->id,
+                $emptySuperAdmin->id,
+                $emptyBusinessOwner->id,
+                $emptyAgent1->id,
+                $emptyAgent2->id,
             ])->delete();
 
             AppNotification::query()->create([
@@ -397,6 +658,61 @@ class FoundationSeeder extends Seeder
                 'message' => 'Your agent profile is active and assigned to your business scope.',
                 'severity' => 'info',
                 'metadata' => ['agent_code' => 'AGT-001'],
+                'read_at' => null,
+            ]);
+
+            AppNotification::query()->create([
+                'recipient_user_id' => $agentUser2->id,
+                'business_id' => $business->id,
+                'notification_type' => 'agent',
+                'title' => 'Agent profile linked',
+                'message' => 'Your agent profile is active and assigned to your business scope.',
+                'severity' => 'info',
+                'metadata' => ['agent_code' => 'AGT-DEMO-002'],
+                'read_at' => null,
+            ]);
+
+            AppNotification::query()->create([
+                'recipient_user_id' => $emptySuperAdmin->id,
+                'business_id' => null,
+                'notification_type' => 'platform',
+                'title' => 'Empty demo account ready',
+                'message' => 'This is an empty superadmin account for testing clean dashboards.',
+                'severity' => 'info',
+                'metadata' => ['source' => 'empty-demo-seeder'],
+                'read_at' => null,
+            ]);
+
+            AppNotification::query()->create([
+                'recipient_user_id' => $emptyBusinessOwner->id,
+                'business_id' => $emptyBusiness->id,
+                'notification_type' => 'business',
+                'title' => 'Business workspace active',
+                'message' => 'Your empty business workspace is ready for testing.',
+                'severity' => 'success',
+                'metadata' => ['business_slug' => $emptyBusiness->slug],
+                'read_at' => null,
+            ]);
+
+            AppNotification::query()->create([
+                'recipient_user_id' => $emptyAgent1->id,
+                'business_id' => $emptyBusiness->id,
+                'notification_type' => 'agent',
+                'title' => 'Agent profile linked',
+                'message' => 'Your empty agent profile is active for testing.',
+                'severity' => 'info',
+                'metadata' => ['agent_code' => 'AGT-EMPTY-001'],
+                'read_at' => null,
+            ]);
+
+            AppNotification::query()->create([
+                'recipient_user_id' => $emptyAgent2->id,
+                'business_id' => $emptyBusiness->id,
+                'notification_type' => 'agent',
+                'title' => 'Agent profile linked',
+                'message' => 'Your empty agent profile is active for testing.',
+                'severity' => 'info',
+                'metadata' => ['agent_code' => 'AGT-EMPTY-002'],
                 'read_at' => null,
             ]);
 

@@ -30,6 +30,13 @@ class ProgramDemoSeeder extends Seeder
 
         $additionalAgents = [
             [
+                'email' => 'agent2@havetdigital.test',
+                'display_name' => 'HAVET Digital Agent 2',
+                'agent_code' => 'AGT-DEMO-002',
+                'invited_at' => $previousMonth->copy()->addDays(1),
+                'activated_at' => $previousMonth->copy()->addDays(1),
+            ],
+            [
                 'email' => 'pierre.bernard@havetdigital.test',
                 'display_name' => 'Pierre Bernard',
                 'agent_code' => 'AGT-002',
@@ -316,12 +323,14 @@ class ProgramDemoSeeder extends Seeder
         $assignmentMap = [
             ['program' => 'site-vitrine', 'agent_index' => 0],
             ['program' => 'site-vitrine', 'agent_index' => 1],
-            ['program' => 'site-vitrine', 'agent_index' => 4],
+            ['program' => 'site-vitrine', 'agent_index' => 2],
+            ['program' => 'site-vitrine', 'agent_index' => 5],
             ['program' => 'saas-automation', 'agent_index' => 0],
-            ['program' => 'saas-automation', 'agent_index' => 2],
-            ['program' => 'saas-automation', 'agent_index' => 5],
-            ['program' => 'print-branding', 'agent_index' => 1],
-            ['program' => 'print-branding', 'agent_index' => 3],
+            ['program' => 'saas-automation', 'agent_index' => 1],
+            ['program' => 'saas-automation', 'agent_index' => 3],
+            ['program' => 'saas-automation', 'agent_index' => 6],
+            ['program' => 'print-branding', 'agent_index' => 2],
+            ['program' => 'print-branding', 'agent_index' => 4],
         ];
 
         foreach ($assignmentMap as $assignmentSeed) {
