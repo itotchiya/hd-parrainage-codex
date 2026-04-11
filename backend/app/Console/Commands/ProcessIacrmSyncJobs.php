@@ -13,11 +13,6 @@ class ProcessIacrmSyncJobs extends Command
 
     public function handle(IacrmSyncService $service): int
     {
-        if (! $service->isConfigured()) {
-            $this->warn('IACRM is not configured (IACRM_BASE_URL / IACRM_API_KEY missing). Skipping.');
-            return self::SUCCESS;
-        }
-
         $limit = (int) $this->option('limit');
 
         $jobs = SyncJob::query()

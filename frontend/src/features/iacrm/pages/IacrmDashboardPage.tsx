@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getIacrmConfig } from '../api'
+import { getIacrmConfig, hasIacrmConfig } from '../api'
 import { useAuthSession } from '../../auth/session'
 import { IacrmServicesPanel } from '../components/IacrmServicesPanel'
 import { IacrmClientsPanel } from '../components/IacrmClientsPanel'
@@ -76,7 +76,7 @@ export function IacrmDashboardPage() {
   }
 
   if (isSuperAdmin) {
-    const superAdminNeedsConfig = superAdminTab === 'businesses' && !config?.base_url
+    const superAdminNeedsConfig = superAdminTab === 'businesses' && !hasIacrmConfig(config)
 
     return (
       <section className="app-section">
@@ -121,7 +121,7 @@ export function IacrmDashboardPage() {
   }
 
   const dataTabsNeedConfig: IacrmTabId[] = ['pipeline', 'clients', 'services', 'invoices']
-  const needsConfig = dataTabsNeedConfig.includes(activeTab) && !config?.base_url
+  const needsConfig = dataTabsNeedConfig.includes(activeTab) && !hasIacrmConfig(config)
 
   return (
     <section className="app-section">

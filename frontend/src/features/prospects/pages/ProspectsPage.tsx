@@ -20,7 +20,7 @@ import {
 } from '../api'
 import { buildProspectDetailPath } from '../paths'
 import { addLocalIacrmProspect } from '../../iacrm/prospectStore'
-import { getIacrmConfig } from '../../iacrm/api'
+import { getIacrmConfig, hasIacrmConfig } from '../../iacrm/api'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { SortableTableHead, type SortDirection } from '@/components/app/SortableTableHead'
 import { TablePaginationBar } from '@/components/app/TablePaginationBar'
@@ -287,7 +287,7 @@ export function ProspectsPage() {
       await queryClient.invalidateQueries({ queryKey: deletedProspectsQueryKey })
       // Mirror new prospect into the IACRM local store when IACRM is configured
       const iacrmConfig = getIacrmConfig()
-      if (iacrmConfig?.base_url) {
+      if (hasIacrmConfig(iacrmConfig)) {
         addLocalIacrmProspect({
           iacrm_id: `local_${crypto.randomUUID()}`,
           contact_name: variables.contact_name,

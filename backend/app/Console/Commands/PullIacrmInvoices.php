@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Business;
 use App\Models\PointsLedger;
 use App\Models\Prospect;
 use App\Models\Transaction;
+use App\Services\IacrmConfigResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -18,43 +20,137 @@ use Throwable;
  *   1. GET /invoices from IACRM
  *   2. For each invoice with a prospect_iacrm_id, find the local prospect
  *   3. Create or update the matching Transaction record
- *   4. If status = 'paid' and not yet paid locally → award points to the agent
+ *   4. If status = 'paid' and not yet paid locally -> award points to the agent
  */
 class PullIacrmInvoices extends Command
 {
-    protected $signature   = 'iacrm:pull-invoices {--dry-run : Log changes without persisting them}';
+    protected $signature = 'iacrm:pull-invoices {--dry-run : Log changes without persisting them}';
     protected $description = 'Poll IACRM for invoices linked to prospects and sync them as Transactions';
 
-    /** Map IACRM invoice status → Transaction status */
+    /** Map IACRM invoice status -> Transaction status */
     private const STATUS_MAP = [
-        'pending'   => 'pending',
-        'unpaid'    => 'pending',
-        'overdue'   => 'pending',
-        'paid'      => 'paid',
+        'pending' => 'pending',
+        'unpaid' => 'pending',
+        'overdue' => 'pending',
+        'paid' => 'paid',
         'cancelled' => 'rejected',
     ];
 
-    public function handle(): int
+    public function handle(IacrmConfigResolver $configResolver): int
     {
-        $baseUrl = rtrim((string) config('services.iacrm.base_url', ''), '/') ?: null;
-        $apiKey  = (string) config('services.iacrm.api_key', '') ?: null;
+        $dryRun = (bool) $this->option('dry-run');
+        $configuredBusinesses = $configResolver->businessesWithStoredCredentials();
 
-        if (! $baseUrl || ! $apiKey) {
-            $this->warn('IACRM_BASE_URL or IACRM_API_KEY is not set. Skipping.');
-            return self::SUCCESS;
+        if ($configuredBusinesses->isEmpty()) {
+            if (! $configResolver->hasDefaultConfig()) {
+                $this->warn('No business-scoped IACRM credentials are configured. Skipping.');
+                return self::SUCCESS;
+            }
+
+            return $this->runLegacyPull($configResolver->defaultConfig(), $dryRun);
         }
 
-        $dryRun = (bool) $this->option('dry-run');
+        $created = 0;
+        $updated = 0;
+        $pointed = 0;
+        $skipped = 0;
+        $failed = 0;
 
-        // ── 1. Fetch all invoices from IACRM ────────────────────────────────
+        foreach ($configuredBusinesses as $business) {
+            $config = $configResolver->forBusiness($business->id, false);
+
+            if ($config['base_url'] === null || $config['api_key'] === null) {
+                $failed++;
+                $this->warn("Skipping {$business->display_name}: missing business-scoped IACRM credentials.");
+                continue;
+            }
+
+            $result = $this->pullBusinessInvoices($business, $config, $dryRun);
+            $created += $result['created'];
+            $updated += $result['updated'];
+            $pointed += $result['pointed'];
+            $skipped += $result['skipped'];
+            $failed += $result['failed'];
+        }
+
+        $mode = $dryRun ? ' [DRY RUN]' : '';
+        $this->info("Done{$mode} — {$created} created, {$updated} updated, {$pointed} points awarded, {$skipped} skipped, {$failed} failed.");
+        Log::info("[IacrmInvoicePull] Done{$mode}", compact('created', 'updated', 'pointed', 'skipped', 'failed'));
+
+        return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * @param array{base_url: ?string, api_key: ?string, source: string} $config
+     * @return array{created: int, updated: int, pointed: int, skipped: int, failed: int}
+     */
+    private function pullBusinessInvoices(Business $business, array $config, bool $dryRun): array
+    {
         try {
             $response = Http::withHeaders([
-                'X-IACRM-API-Key' => $apiKey,
-                'Accept'          => 'application/json',
-            ])->timeout(15)->get("{$baseUrl}/invoices");
+                'X-IACRM-API-Key' => $config['api_key'],
+                'Accept' => 'application/json',
+            ])->timeout(15)->get("{$config['base_url']}/invoices");
 
             if ($response->failed()) {
-                $this->error("IACRM /invoices returned {$response->status()}: " . $response->body());
+                $this->error("{$business->display_name}: /invoices returned {$response->status()}: {$response->body()}");
+                return ['created' => 0, 'updated' => 0, 'pointed' => 0, 'skipped' => 0, 'failed' => 1];
+            }
+        } catch (Throwable $e) {
+            $this->error("{$business->display_name}: failed to reach IACRM: {$e->getMessage()}");
+            return ['created' => 0, 'updated' => 0, 'pointed' => 0, 'skipped' => 0, 'failed' => 1];
+        }
+
+        /** @var array<array<string, mixed>> $invoices */
+        $invoices = $response->json('data', []);
+        $linkedInvoices = array_filter($invoices, static fn (array $invoice): bool => ! empty($invoice['prospect_iacrm_id']));
+
+        if (empty($linkedInvoices)) {
+            $this->line("{$business->display_name}: no prospect-linked invoices returned by IACRM.");
+            return ['created' => 0, 'updated' => 0, 'pointed' => 0, 'skipped' => 0, 'failed' => 0];
+        }
+
+        $prospectIds = array_unique(array_column(array_values($linkedInvoices), 'prospect_iacrm_id'));
+
+        $localProspects = Prospect::query()
+            ->where('business_id', $business->id)
+            ->whereIn('iacrm_prospect_id', $prospectIds)
+            ->whereNull('deleted_at')
+            ->with('program')
+            ->get()
+            ->keyBy('iacrm_prospect_id');
+
+        $created = 0;
+        $updated = 0;
+        $pointed = 0;
+        $skipped = 0;
+
+        $this->line("Reconciling {$business->display_name} invoices...");
+
+        foreach ($linkedInvoices as $invoice) {
+            $result = $this->syncInvoice($invoice, $localProspects, $dryRun);
+            $created += $result['created'];
+            $updated += $result['updated'];
+            $pointed += $result['pointed'];
+            $skipped += $result['skipped'];
+        }
+
+        return ['created' => $created, 'updated' => $updated, 'pointed' => $pointed, 'skipped' => $skipped, 'failed' => 0];
+    }
+
+    /**
+     * @param array{base_url: ?string, api_key: ?string, source: string} $config
+     */
+    private function runLegacyPull(array $config, bool $dryRun): int
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-IACRM-API-Key' => $config['api_key'],
+                'Accept' => 'application/json',
+            ])->timeout(15)->get("{$config['base_url']}/invoices");
+
+            if ($response->failed()) {
+                $this->error("IACRM /invoices returned {$response->status()}: {$response->body()}");
                 return self::FAILURE;
             }
         } catch (Throwable $e) {
@@ -64,17 +160,14 @@ class PullIacrmInvoices extends Command
 
         /** @var array<array<string, mixed>> $invoices */
         $invoices = $response->json('data', []);
+        $linkedInvoices = array_filter($invoices, static fn (array $invoice): bool => ! empty($invoice['prospect_iacrm_id']));
 
-        // Only process invoices that are linked to a prospect
-        $linked = array_filter($invoices, fn ($i) => ! empty($i['prospect_iacrm_id']));
-
-        if (empty($linked)) {
+        if (empty($linkedInvoices)) {
             $this->line('No prospect-linked invoices returned by IACRM.');
             return self::SUCCESS;
         }
 
-        // ── 2. Build lookup: iacrm_prospect_id → local Prospect ─────────────
-        $prospectIds = array_unique(array_column(array_values($linked), 'prospect_iacrm_id'));
+        $prospectIds = array_unique(array_column(array_values($linkedInvoices), 'prospect_iacrm_id'));
 
         $localProspects = Prospect::query()
             ->whereIn('iacrm_prospect_id', $prospectIds)
@@ -88,128 +181,147 @@ class PullIacrmInvoices extends Command
         $pointed = 0;
         $skipped = 0;
 
-        foreach ($linked as $inv) {
-            $iacrmInvId      = $inv['iacrm_id']          ?? null;
-            $prospectIacrmId = $inv['prospect_iacrm_id'] ?? null;
-            $iacrmStatus     = $inv['status']             ?? 'pending';
+        foreach ($linkedInvoices as $invoice) {
+            $result = $this->syncInvoice($invoice, $localProspects, $dryRun);
+            $created += $result['created'];
+            $updated += $result['updated'];
+            $pointed += $result['pointed'];
+            $skipped += $result['skipped'];
+        }
 
-            if (! $iacrmInvId || ! $prospectIacrmId) {
-                $skipped++;
-                continue;
+        $mode = $dryRun ? ' [DRY RUN]' : '';
+        $this->info("Done{$mode} — {$created} created, {$updated} updated, {$pointed} points awarded, {$skipped} skipped.");
+        Log::info("[IacrmInvoicePull] Done{$mode}", compact('created', 'updated', 'pointed', 'skipped'));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param array<string, mixed> $invoice
+     * @param \Illuminate\Support\Collection<string, Prospect> $localProspects
+     * @return array{created: int, updated: int, pointed: int, skipped: int}
+     */
+    private function syncInvoice(array $invoice, $localProspects, bool $dryRun): array
+    {
+        $iacrmInvoiceId = $invoice['iacrm_id'] ?? null;
+        $prospectIacrmId = $invoice['prospect_iacrm_id'] ?? null;
+        $iacrmStatus = $invoice['status'] ?? 'pending';
+
+        if (! $iacrmInvoiceId || ! $prospectIacrmId) {
+            return ['created' => 0, 'updated' => 0, 'pointed' => 0, 'skipped' => 1];
+        }
+
+        /** @var Prospect|null $prospect */
+        $prospect = $localProspects[$prospectIacrmId] ?? null;
+        if ($prospect === null) {
+            $this->line("  ! Prospect IACRM ID {$prospectIacrmId} not found locally — skipping invoice {$iacrmInvoiceId}");
+            return ['created' => 0, 'updated' => 0, 'pointed' => 0, 'skipped' => 1];
+        }
+
+        $transactionStatus = self::STATUS_MAP[$iacrmStatus] ?? 'pending';
+        $amount = (float) ($invoice['amount'] ?? 0);
+        $currency = (string) ($invoice['currency'] ?? 'EUR');
+        $productName = (string) ($invoice['product_name'] ?? 'Service IACRM');
+        $invoiceReference = (string) ($invoice['invoice_reference'] ?? $iacrmInvoiceId);
+        $issuedAt = $invoice['issued_at'] ?? null;
+        $paidAt = ($iacrmStatus === 'paid' && ! empty($invoice['paid_at'])) ? $invoice['paid_at'] : null;
+
+        $existing = Transaction::query()
+            ->where('iacrm_transaction_id', $iacrmInvoiceId)
+            ->first();
+
+        $created = 0;
+        $updated = 0;
+        $pointed = 0;
+        $skipped = 0;
+
+        if ($existing === null) {
+            $this->line("  + [{$prospect->contact_name}] New invoice {$invoiceReference} ({$amount} {$currency}) -> {$transactionStatus}");
+
+            if (! $dryRun) {
+                $existing = Transaction::query()->create([
+                    'business_id' => $prospect->business_id,
+                    'program_id' => $prospect->program_id,
+                    'agent_id' => $prospect->agent_id,
+                    'prospect_id' => $prospect->id,
+                    'iacrm_transaction_id' => $iacrmInvoiceId,
+                    'transaction_reference' => $invoiceReference,
+                    'product_name' => $productName,
+                    'amount' => $amount,
+                    'currency_code' => $currency,
+                    'status' => $transactionStatus,
+                    'invoice_status' => $this->mapInvoiceStatus($iacrmStatus),
+                    'occurred_at' => $issuedAt ? now()->parse((string) $issuedAt) : now(),
+                    'paid_at' => $paidAt ? now()->parse((string) $paidAt) : null,
+                    'last_synced_at' => now(),
+                    'raw_iacrm_payload' => $invoice,
+                ]);
             }
 
-            $prospect = $localProspects[$prospectIacrmId] ?? null;
-            if (! $prospect) {
-                $this->line("  ⚠ Prospect IACRM ID {$prospectIacrmId} not found locally — skipping invoice {$iacrmInvId}");
+            $created++;
+        } else {
+            $expectedInvoiceStatus = $this->mapInvoiceStatus($iacrmStatus);
+
+            if ($existing->status === $transactionStatus && $existing->invoice_status === $expectedInvoiceStatus) {
                 $skipped++;
-                continue;
+                return compact('created', 'updated', 'pointed', 'skipped');
             }
 
-            $txStatus      = self::STATUS_MAP[$iacrmStatus] ?? 'pending';
-            $amount        = (float) ($inv['amount']    ?? 0);
-            $currency      = (string) ($inv['currency'] ?? 'EUR');
-            $productName   = (string) ($inv['product_name']      ?? 'Service IACRM');
-            $invoiceRef    = (string) ($inv['invoice_reference']  ?? $iacrmInvId);
-            $issuedAt      = $inv['issued_at'] ?? null;
-            $paidAt        = ($iacrmStatus === 'paid' && ! empty($inv['paid_at'])) ? $inv['paid_at'] : null;
+            $this->line("  ~ [{$prospect->contact_name}] {$invoiceReference} {$existing->status} -> {$transactionStatus}");
 
-            // ── 3. Find or create the local Transaction ──────────────────────
-            $existing = Transaction::query()
-                ->where('iacrm_transaction_id', $iacrmInvId)
-                ->first();
+            if (! $dryRun) {
+                $existing->update([
+                    'status' => $transactionStatus,
+                    'invoice_status' => $expectedInvoiceStatus,
+                    'paid_at' => $paidAt ? now()->parse((string) $paidAt) : $existing->paid_at,
+                    'last_synced_at' => now(),
+                    'raw_iacrm_payload' => $invoice,
+                ]);
+            }
 
-            if ($existing === null) {
-                // New invoice → create transaction
-                $this->line("  + [{$prospect->contact_name}] Nouvelle facture {$invoiceRef} ({$amount} {$currency}) → {$txStatus}");
+            $updated++;
+        }
+
+        if ($transactionStatus === 'paid' && $existing !== null && $existing->points_awarded === null) {
+            $pointsAwarded = $this->computePoints($prospect, $amount);
+
+            if ($pointsAwarded > 0) {
+                $this->line("  * [{$prospect->contact_name}] {$pointsAwarded} pts -> agent {$prospect->agent_id}");
 
                 if (! $dryRun) {
-                    $existing = Transaction::query()->create([
-                        'business_id'           => $prospect->business_id,
-                        'program_id'            => $prospect->program_id,
-                        'agent_id'              => $prospect->agent_id,
-                        'prospect_id'           => $prospect->id,
-                        'iacrm_transaction_id'  => $iacrmInvId,
-                        'transaction_reference' => $invoiceRef,
-                        'product_name'          => $productName,
-                        'amount'                => $amount,
-                        'currency_code'         => $currency,
-                        'status'                => $txStatus,
-                        'invoice_status'        => $this->mapInvoiceStatus($iacrmStatus),
-                        'occurred_at'           => $issuedAt ? now()->parse($issuedAt) : now(),
-                        'paid_at'               => $paidAt ? now()->parse($paidAt) : null,
-                        'last_synced_at'        => now(),
-                        'raw_iacrm_payload'     => $inv,
-                    ]);
-                }
-                $created++;
-            } else {
-                // Existing invoice — check if status changed
-                $prevStatus = $existing->status;
-                if ($prevStatus === $txStatus && $existing->invoice_status === $this->mapInvoiceStatus($iacrmStatus)) {
-                    $skipped++;
-                    continue;
-                }
+                    $idempotencyKey = "transaction-{$existing->id}-points";
 
-                $this->line("  ↺ [{$prospect->contact_name}] {$invoiceRef} {$prevStatus} → {$txStatus}");
+                    $alreadyExists = PointsLedger::query()
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->exists();
 
-                if (! $dryRun) {
-                    $existing->update([
-                        'status'            => $txStatus,
-                        'invoice_status'    => $this->mapInvoiceStatus($iacrmStatus),
-                        'paid_at'           => $paidAt ? now()->parse($paidAt) : $existing->paid_at,
-                        'last_synced_at'    => now(),
-                        'raw_iacrm_payload' => $inv,
-                    ]);
-                }
-                $updated++;
-            }
+                    if (! $alreadyExists) {
+                        DB::transaction(function () use ($existing, $prospect, $pointsAwarded, $idempotencyKey): void {
+                            PointsLedger::query()->create([
+                                'business_id' => $prospect->business_id,
+                                'program_id' => $prospect->program_id,
+                                'agent_id' => $prospect->agent_id,
+                                'prospect_id' => $prospect->id,
+                                'transaction_id' => $existing->id,
+                                'entry_type' => 'accrual',
+                                'entry_status' => 'available',
+                                'points_delta' => $pointsAwarded,
+                                'source' => "iacrm-invoice-{$existing->iacrm_transaction_id}",
+                                'description' => "Facture IACRM payée : {$existing->transaction_reference} ({$existing->amount} {$existing->currency_code})",
+                                'idempotency_key' => $idempotencyKey,
+                                'effective_at' => $existing->paid_at ?? now(),
+                                'created_by_user_id' => null,
+                            ]);
 
-            // ── 4. Award points when invoice is paid ─────────────────────────
-            if ($txStatus === 'paid' && $existing !== null && $existing->points_awarded === null) {
-                $pointsAwarded = $this->computePoints($prospect, $amount);
-
-                if ($pointsAwarded > 0) {
-                    $this->line("  ★ [{$prospect->contact_name}] {$pointsAwarded} pts → agent {$prospect->agent_id}");
-
-                    if (! $dryRun) {
-                        $idempotencyKey = "transaction-{$existing->id}-points";
-
-                        $alreadyExists = PointsLedger::query()
-                            ->where('idempotency_key', $idempotencyKey)
-                            ->exists();
-
-                        if (! $alreadyExists) {
-                            DB::transaction(function () use ($existing, $prospect, $pointsAwarded, $idempotencyKey): void {
-                                PointsLedger::query()->create([
-                                    'business_id'       => $prospect->business_id,
-                                    'program_id'        => $prospect->program_id,
-                                    'agent_id'          => $prospect->agent_id,
-                                    'prospect_id'       => $prospect->id,
-                                    'transaction_id'    => $existing->id,
-                                    'entry_type'        => 'accrual',
-                                    'entry_status'      => 'available',
-                                    'points_delta'      => $pointsAwarded,
-                                    'source'            => "iacrm-invoice-{$existing->iacrm_transaction_id}",
-                                    'description'       => "Facture IACRM payée : {$existing->transaction_reference} ({$existing->amount} {$existing->currency_code})",
-                                    'idempotency_key'   => $idempotencyKey,
-                                    'effective_at'      => $existing->paid_at ?? now(),
-                                    'created_by_user_id' => null,
-                                ]);
-
-                                $existing->update(['points_awarded' => $pointsAwarded]);
-                            });
-                            $pointed++;
-                        }
+                            $existing->update(['points_awarded' => $pointsAwarded]);
+                        });
+                        $pointed++;
                     }
                 }
             }
         }
 
-        $mode = $dryRun ? ' [DRY RUN]' : '';
-        $this->info("Done{$mode} — {$created} créées, {$updated} mises à jour, {$pointed} points attribués, {$skipped} ignorées.");
-        Log::info("[IacrmInvoicePull] Done{$mode}", compact('created', 'updated', 'pointed', 'skipped'));
-
-        return self::SUCCESS;
+        return compact('created', 'updated', 'pointed', 'skipped');
     }
 
     private function computePoints(Prospect $prospect, float $amount): int
@@ -219,12 +331,10 @@ class PullIacrmInvoices extends Command
             return 0;
         }
 
-        // Fixed points per transaction takes priority
         if ($program->points_per_transaction !== null && $program->points_per_transaction > 0) {
             return (int) $program->points_per_transaction;
         }
 
-        // Points per euro (integer result)
         if ($program->points_per_euro !== null && $program->points_per_euro > 0) {
             return (int) round($amount * $program->points_per_euro);
         }
@@ -235,11 +345,11 @@ class PullIacrmInvoices extends Command
     private function mapInvoiceStatus(string $iacrmStatus): string
     {
         return match ($iacrmStatus) {
-            'paid'      => 'paid',
-            'overdue'   => 'overdue',
-            'unpaid'    => 'unpaid',
+            'paid' => 'paid',
+            'overdue' => 'overdue',
+            'unpaid' => 'unpaid',
             'cancelled' => 'cancelled',
-            default     => 'pending',
+            default => 'pending',
         };
     }
 }

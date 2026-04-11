@@ -13,6 +13,7 @@ import {
   fetchIacrmPlatformBusinessServices,
   fetchIacrmServices,
   getIacrmConfig,
+  hasIacrmConfig,
   saveIacrmConfig,
   testIacrmConnection,
 } from './api'
@@ -24,7 +25,7 @@ import type {
 import { IACRM_STORE_EVENT, getLocalIacrmProspects } from './prospectStore'
 
 function isConfigured() {
-  return !!getIacrmConfig()?.base_url
+  return hasIacrmConfig()
 }
 
 // ---------------------------------------------------------------------------

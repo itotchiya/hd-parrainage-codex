@@ -1,3 +1,5 @@
+import type { IacrmApiConfig } from './iacrm'
+
 export interface SettingsPayload {
   user: {
     id: string
@@ -31,4 +33,16 @@ export interface SettingsPayload {
 
 export interface SettingsEnvelope {
   data: SettingsPayload
+}
+
+export interface BusinessIacrmSettingsEnvelope {
+  data: IacrmApiConfig
+}
+
+export interface BusinessIacrmTestEnvelope {
+  data: IacrmApiConfig
+  meta: {
+    ok: boolean
+    message: string
+  }
 }

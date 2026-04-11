@@ -106,6 +106,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::patch('/settings/own/password', [SettingsController::class, 'updateOwnPassword']);
     Route::patch('/settings/business', [SettingsController::class, 'updateBusiness']);
     Route::post('/settings/business/logo', [SettingsController::class, 'uploadBusinessLogo']);
+    Route::get('/settings/business/iacrm', [SettingsController::class, 'showBusinessIacrm']);
+    Route::patch('/settings/business/iacrm', [SettingsController::class, 'updateBusinessIacrm']);
+    Route::post('/settings/business/iacrm/test', [SettingsController::class, 'testBusinessIacrm']);
     Route::get('/exchange-requests', [ExchangeRequestController::class, 'index']);
     Route::post('/exchange-requests/reward', [ExchangeRequestController::class, 'storeReward']);
     Route::post('/exchange-requests/cash', [ExchangeRequestController::class, 'storeCash']);

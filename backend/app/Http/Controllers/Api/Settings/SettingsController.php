@@ -10,6 +10,7 @@ use App\Support\FrontendUrlResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -227,6 +228,100 @@ class SettingsController extends Controller
         ])->save();
 
         return $this->show($request);
+    }
+
+    public function showBusinessIacrm(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.view-business', $businessId), 403, 'Forbidden.');
+
+        $business = Business::query()->findOrFail($businessId);
+
+        return response()->json([
+            'data' => $this->businessIacrmPayload($business),
+        ]);
+    }
+
+    public function updateBusinessIacrm(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-business', $businessId), 403, 'Forbidden.');
+
+        $payload = $this->validatedBusinessIacrmPayload($request);
+        $business = Business::query()->findOrFail($businessId);
+        $currentApiKey = $business->iacrm_api_key;
+        $currentBaseUrl = $business->iacrm_base_url;
+        $nextBaseUrl = rtrim((string) $payload['base_url'], '/');
+        $nextApiKey = trim((string) $payload['api_key']);
+
+        $business->forceFill([
+            'iacrm_base_url' => $nextBaseUrl,
+            'iacrm_api_key' => $nextApiKey !== '' ? $nextApiKey : null,
+            'iacrm_auto_sync_enabled' => (bool) $payload['auto_sync_enabled'],
+            'iacrm_connection_status' => $currentApiKey !== $nextApiKey || $currentBaseUrl !== $nextBaseUrl
+                ? 'untested'
+                : $business->iacrm_connection_status,
+            'iacrm_last_tested_at' => $currentApiKey !== $nextApiKey || $currentBaseUrl !== $nextBaseUrl
+                ? null
+                : $business->iacrm_last_tested_at,
+        ])->save();
+
+        return response()->json([
+            'data' => $this->businessIacrmPayload($business->fresh()),
+        ]);
+    }
+
+    public function testBusinessIacrm(Request $request): JsonResponse
+    {
+        $user = $this->resolveApiUser($request);
+        $businessId = $this->ownerBusinessId($user);
+        abort_unless($user->hasPermissionId('settings.update-business', $businessId), 403, 'Forbidden.');
+
+        $payload = $this->validatedBusinessIacrmPayload($request);
+        $business = Business::query()->findOrFail($businessId);
+        $baseUrl = rtrim((string) $payload['base_url'], '/');
+        $apiKey = trim((string) $payload['api_key']);
+
+        abort_if($apiKey === '', 422, 'An IACRM API key is required to test the connection.');
+
+        $ok = false;
+        $message = 'Connection successful.';
+
+        try {
+            $response = Http::withHeaders([
+                'X-IACRM-API-Key' => $apiKey,
+                'Accept' => 'application/json',
+            ])->timeout(10)->post("{$baseUrl}/auth/token", [
+                'api_key' => $apiKey,
+                'grant_type' => 'api_key',
+            ]);
+
+            if ($response->successful()) {
+                $ok = true;
+            } else {
+                $message = $response->body() !== '' ? $response->body() : "IACRM returned {$response->status()}.";
+            }
+        } catch (\Throwable $exception) {
+            $message = $exception->getMessage();
+        }
+
+        $business->forceFill([
+            'iacrm_base_url' => $baseUrl,
+            'iacrm_api_key' => $apiKey,
+            'iacrm_auto_sync_enabled' => (bool) $payload['auto_sync_enabled'],
+            'iacrm_connection_status' => $ok ? 'connected' : 'failed',
+            'iacrm_last_tested_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'data' => $this->businessIacrmPayload($business->fresh()),
+            'meta' => [
+                'ok' => $ok,
+                'message' => $message,
+            ],
+        ]);
     }
 
     public function uploadOwnAvatar(Request $request): JsonResponse
@@ -451,5 +546,40 @@ class SettingsController extends Controller
     private function generateVerificationCode(): string
     {
         return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @return array{base_url: string, api_key: string, auto_sync_enabled: bool, last_tested_at: ?string, connection_status: string}
+     */
+    private function businessIacrmPayload(Business $business): array
+    {
+        $defaultBaseUrl = rtrim((string) config('services.iacrm.base_url', ''), '/');
+
+        return [
+            'base_url' => $business->iacrm_base_url ? rtrim((string) $business->iacrm_base_url, '/') : $defaultBaseUrl,
+            'api_key' => $business->iacrm_api_key ?? '',
+            'auto_sync_enabled' => (bool) $business->iacrm_auto_sync_enabled,
+            'last_tested_at' => $business->iacrm_last_tested_at?->toISOString(),
+            'connection_status' => $business->iacrm_connection_status ?: 'untested',
+        ];
+    }
+
+    /**
+     * @return array{base_url: string, api_key: string, auto_sync_enabled: bool}
+     */
+    private function validatedBusinessIacrmPayload(Request $request): array
+    {
+        /** @var array{base_url: string, api_key?: ?string, auto_sync_enabled?: bool} $payload */
+        $payload = $request->validate([
+            'base_url' => ['required', 'url', 'max:255'],
+            'api_key' => ['nullable', 'string', 'max:255'],
+            'auto_sync_enabled' => ['sometimes', 'boolean'],
+        ]);
+
+        return [
+            'base_url' => trim((string) $payload['base_url']),
+            'api_key' => trim((string) ($payload['api_key'] ?? '')),
+            'auto_sync_enabled' => (bool) ($payload['auto_sync_enabled'] ?? false),
+        ];
     }
 }

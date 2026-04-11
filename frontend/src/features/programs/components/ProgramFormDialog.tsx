@@ -8,7 +8,7 @@ import type {
   ProgramRecord,
 } from '../../../types/programs'
 import { useIacrmServices } from '../../iacrm/hooks'
-import { getIacrmConfig } from '../../iacrm/api'
+import { getIacrmConfig, hasIacrmConfig } from '../../iacrm/api'
 import { IacrmConfigGate } from '@/components/app/IacrmConfigGate'
 import {
   Dialog,
@@ -246,7 +246,7 @@ export function ProgramFormDialog({
   const [stepErrors, setStepErrors] = useState<StepErrors>({})
   const [selectedServiceId, setSelectedServiceId] = useState('')
 
-  const iacrmConfigured = !!getIacrmConfig()?.base_url
+  const iacrmConfigured = hasIacrmConfig(getIacrmConfig())
   const iacrmServicesQuery = useIacrmServices()
   const activeIacrmServices = useMemo(
     () => (iacrmServicesQuery.data?.data ?? []).filter((s) => s.is_active),

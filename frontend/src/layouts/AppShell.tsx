@@ -5,7 +5,7 @@ import { AlertTriangle, Bell, ChevronDown, Gift, LogOut, Monitor, Moon, PanelLef
 import { useNavigation, useActiveRoute } from '../app/useNavigation'
 import { useTranslation } from 'react-i18next'
 import { useAuthSession } from '../features/auth/session'
-import { getIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
+import { getIacrmConfig, hasIacrmConfig, IACRM_CONFIG_EVENT } from '../features/iacrm/api'
 import { fetchNotifications } from '../features/notifications/api'
 import { fetchPointsSummary } from '../features/points/api'
 import { AppSidebar } from './AppSidebar'
@@ -105,7 +105,7 @@ export function AppShell() {
   const [breadcrumbTrail, setBreadcrumbTrail] = useState<AppBreadcrumbItem[] | null>(null)
   const [iacrmConfigured, setIacrmConfigured] = useState(() => {
     if (typeof window === 'undefined') return true
-    return Boolean(getIacrmConfig()?.base_url)
+    return hasIacrmConfig()
   })
 
   const notificationsQuery = useQuery({
@@ -290,7 +290,7 @@ export function AppShell() {
     if (typeof window === 'undefined') return
 
     const syncConfigState = () => {
-      setIacrmConfigured(Boolean(getIacrmConfig()?.base_url))
+      setIacrmConfigured(hasIacrmConfig(getIacrmConfig()))
     }
 
     syncConfigState()

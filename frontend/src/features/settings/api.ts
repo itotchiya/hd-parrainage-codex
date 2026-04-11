@@ -1,5 +1,9 @@
 import { apiRequest } from '../../lib/api'
-import type { SettingsEnvelope } from '../../types/settings'
+import type {
+  BusinessIacrmSettingsEnvelope,
+  BusinessIacrmTestEnvelope,
+  SettingsEnvelope,
+} from '../../types/settings'
 import type { SyncOverviewEnvelope } from '../../types/sync'
 
 export async function fetchSettings() {
@@ -86,6 +90,34 @@ export async function uploadBusinessLogo(file: File) {
   return apiRequest<SettingsEnvelope>('/v1/settings/business/logo', {
     method: 'POST',
     body,
+  })
+}
+
+export async function fetchBusinessIacrmSettings() {
+  return apiRequest<BusinessIacrmSettingsEnvelope>('/v1/settings/business/iacrm')
+}
+
+export async function updateBusinessIacrmSettings(payload: {
+  base_url: string
+  api_key?: string | null
+  auto_sync_enabled: boolean
+}) {
+  return apiRequest<BusinessIacrmSettingsEnvelope>('/v1/settings/business/iacrm', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function testBusinessIacrmConnection(payload: {
+  base_url: string
+  api_key: string
+  auto_sync_enabled: boolean
+}) {
+  return apiRequest<BusinessIacrmTestEnvelope>('/v1/settings/business/iacrm/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
 }
 

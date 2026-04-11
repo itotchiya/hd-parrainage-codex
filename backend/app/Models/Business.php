@@ -32,6 +32,11 @@ class Business extends Model
         'timezone',
         'status',
         'iacrm_business_id',
+        'iacrm_base_url',
+        'iacrm_api_key',
+        'iacrm_auto_sync_enabled',
+        'iacrm_connection_status',
+        'iacrm_last_tested_at',
         'approved_at',
         'approved_by_user_id',
         'rejected_at',
@@ -49,6 +54,9 @@ class Business extends Model
             'suspended_at' => 'datetime',
             'archived_at' => 'datetime',
             'last_synced_at' => 'datetime',
+            'iacrm_auto_sync_enabled' => 'boolean',
+            'iacrm_last_tested_at' => 'datetime',
+            'iacrm_api_key' => 'encrypted',
             'deleted_at' => 'datetime',
         ];
     }

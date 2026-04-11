@@ -11,18 +11,15 @@ use Throwable;
 
 class IacrmSyncService
 {
-    private ?string $baseUrl;
-    private ?string $apiKey;
-
-    public function __construct()
+    public function __construct(private readonly IacrmConfigResolver $configResolver)
     {
-        $this->baseUrl = rtrim((string) config('services.iacrm.base_url', ''), '/') ?: null;
-        $this->apiKey  = (string) config('services.iacrm.api_key', '') ?: null;
     }
 
-    public function isConfigured(): bool
+    public function isConfigured(?string $businessId = null, bool $allowFallback = true): bool
     {
-        return $this->baseUrl !== null && $this->apiKey !== null;
+        $config = $this->configResolver->forBusiness($businessId, $allowFallback);
+
+        return $config['base_url'] !== null && $config['api_key'] !== null;
     }
 
     /**
@@ -30,8 +27,8 @@ class IacrmSyncService
      */
     public function process(SyncJob $job): bool
     {
-        if (! $this->isConfigured()) {
-            $this->fail($job, 'not_configured', 'IACRM_BASE_URL or IACRM_API_KEY is not set in backend config.');
+        if (! $this->isConfigured($job->business_id)) {
+            $this->fail($job, 'not_configured', 'No IACRM credentials are configured for this business.');
             return false;
         }
 
@@ -157,6 +154,8 @@ class IacrmSyncService
 
         $payload = [
             'contact_name'   => $prospect->contact_name,
+            'contact_email'  => $prospect->contact_email,
+            'contact_phone'  => $prospect->contact_phone_e164 ?? $prospect->contact_phone_raw,
             'company_name'   => $prospect->company_name,
             'stage'          => $prospect->pipeline_stage ?? 'suspect',
             'assigned_agent' => $prospect->agent_id,
@@ -223,7 +222,15 @@ class IacrmSyncService
 
     private function request(string $method, string $path, array $data, ?SyncJob $job = null): Response
     {
-        $url = $this->baseUrl . $path;
+        $config = $this->configResolver->forBusiness($job?->business_id);
+        $baseUrl = $config['base_url'];
+        $apiKey = $config['api_key'];
+
+        if ($baseUrl === null || $apiKey === null) {
+            throw new \RuntimeException('IACRM credentials are missing for this sync request.');
+        }
+
+        $url = $baseUrl . $path;
 
         Log::debug("[IacrmSync] HTTP {$method}", [
             'url'  => $url,
@@ -233,7 +240,7 @@ class IacrmSyncService
         $response = null;
         try {
             $http = Http::withHeaders([
-                'X-IACRM-API-Key' => $this->apiKey,
+                'X-IACRM-API-Key' => $apiKey,
                 'Accept'          => 'application/json',
             ])->timeout(10);
 

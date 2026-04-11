@@ -3,7 +3,7 @@ import { Building2, UserPlus2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ApiError } from '../../../lib/api'
 import { useIacrmClients } from '../../iacrm/hooks'
-import { getIacrmConfig } from '../../iacrm/api'
+import { getIacrmConfig, hasIacrmConfig } from '../../iacrm/api'
 import { IacrmConfigGate } from '@/components/app/IacrmConfigGate'
 import {
   Dialog,
@@ -49,7 +49,7 @@ export function AddAgentDialog({
   const [email, setEmail] = useState('')
   const [notes, setNotes] = useState('')
 
-  const iacrmConfigured = !!getIacrmConfig()?.base_url
+  const iacrmConfigured = hasIacrmConfig(getIacrmConfig())
   const clientsQuery = useIacrmClients()
   const activeClients = (clientsQuery.data?.data ?? []).filter((c) => c.status === 'active')
 

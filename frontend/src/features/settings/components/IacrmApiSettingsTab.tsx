@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeCheck,
   Cable,
@@ -11,14 +12,26 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react'
+import { useAuthSession } from '../../auth/session'
+import {
+  fetchBusinessIacrmSettings,
+  testBusinessIacrmConnection,
+  updateBusinessIacrmSettings,
+} from '../api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { clearIacrmConfig, getIacrmConfig, IACRM_DEFAULT_BASE_URL, saveIacrmConfig } from '../../iacrm/api'
-import { useTestIacrmConnection } from '../../iacrm/hooks'
+import {
+  clearIacrmConfig,
+  getIacrmConfig,
+  hasIacrmConfig,
+  IACRM_DEFAULT_BASE_URL,
+  saveIacrmConfig,
+  testIacrmConnection,
+} from '../../iacrm/api'
 import type { IacrmApiConfig } from '../../../types/iacrm'
 
 type ApiTone = 'neutral' | 'active' | 'success' | 'warning' | 'danger'
@@ -58,7 +71,7 @@ function SnapshotMetric({
   label: string
   value: string
   hint?: string
-  badge?: React.ReactNode
+  badge?: ReactNode
 }) {
   return (
     <div className="space-y-1.5">
@@ -75,6 +88,8 @@ function SnapshotMetric({
   )
 }
 
+const businessIacrmQueryKey = ['settings', 'business', 'iacrm']
+
 export function IacrmApiSettingsTab({
   syncAlertsValue,
   failedJobsValue,
@@ -82,13 +97,111 @@ export function IacrmApiSettingsTab({
   syncAlertsValue: string
   failedJobsValue: string
 }) {
-  const existingConfig = getIacrmConfig()
+  const queryClient = useQueryClient()
+  const { user } = useAuthSession()
+  const canManageBusinessIacrm =
+    Boolean(user?.current_business_id) &&
+    (user?.permissions.includes('settings.view-business') || user?.permissions.includes('settings.update-business'))
+
+  const businessConfigQuery = useQuery({
+    queryKey: [...businessIacrmQueryKey, user?.current_business_id],
+    queryFn: fetchBusinessIacrmSettings,
+    enabled: canManageBusinessIacrm,
+  })
+
+  const existingConfig = useMemo(
+    () => (canManageBusinessIacrm ? businessConfigQuery.data?.data ?? null : getIacrmConfig()),
+    [businessConfigQuery.data?.data, canManageBusinessIacrm],
+  )
 
   const [apiKey, setApiKey] = useState(existingConfig?.api_key ?? '')
   const [autoSync, setAutoSync] = useState(existingConfig?.auto_sync_enabled ?? false)
   const [showApiKey, setShowApiKey] = useState(false)
 
-  const testMutation = useTestIacrmConnection()
+  useEffect(() => {
+    setApiKey(existingConfig?.api_key ?? '')
+    setAutoSync(existingConfig?.auto_sync_enabled ?? false)
+  }, [existingConfig?.api_key, existingConfig?.auto_sync_enabled])
+
+  const saveMutation = useMutation({
+    mutationFn: async (config: IacrmApiConfig) => {
+      if (canManageBusinessIacrm) {
+        return updateBusinessIacrmSettings({
+          base_url: config.base_url,
+          api_key: config.api_key,
+          auto_sync_enabled: config.auto_sync_enabled,
+        })
+      }
+
+      saveIacrmConfig(config)
+      return { data: config }
+    },
+    onSuccess: (response) => {
+      saveIacrmConfig(response.data)
+      if (canManageBusinessIacrm) {
+        queryClient.setQueryData([...businessIacrmQueryKey, user?.current_business_id], response)
+      }
+      toast.success('Configuration CRM enregistrée.', { id: 'settings-api-toast' })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Impossible d’enregistrer la configuration CRM.', {
+        id: 'settings-api-toast',
+      })
+    },
+  })
+
+  const testMutation = useMutation({
+    mutationFn: async (config: IacrmApiConfig) => {
+      if (canManageBusinessIacrm) {
+        return testBusinessIacrmConnection({
+          base_url: config.base_url,
+          api_key: config.api_key,
+          auto_sync_enabled: config.auto_sync_enabled,
+        })
+      }
+
+      saveIacrmConfig(config)
+      const result = await testIacrmConnection()
+      const nextConfig: IacrmApiConfig = {
+        ...config,
+        connection_status: result.ok ? 'connected' : 'failed',
+        last_tested_at: new Date().toISOString(),
+      }
+      saveIacrmConfig(nextConfig)
+
+      return {
+        data: nextConfig,
+        meta: result,
+      }
+    },
+    onSuccess: (response) => {
+      saveIacrmConfig(response.data)
+      if (canManageBusinessIacrm) {
+        queryClient.setQueryData([...businessIacrmQueryKey, user?.current_business_id], { data: response.data })
+      }
+
+      if (response.meta.ok) {
+        toast.success('Connexion CRM validée.', { id: 'settings-api-toast' })
+        return
+      }
+
+      toast.error(`Échec de connexion : ${response.meta.message}`, { id: 'settings-api-toast' })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Impossible de tester la connexion CRM.', {
+        id: 'settings-api-toast',
+      })
+    },
+  })
+
+  const resolvedBaseUrl = existingConfig?.base_url ?? IACRM_DEFAULT_BASE_URL
+  const currentConfig = (): IacrmApiConfig => ({
+    base_url: resolvedBaseUrl,
+    api_key: apiKey.trim(),
+    auto_sync_enabled: autoSync,
+    last_tested_at: existingConfig?.last_tested_at ?? null,
+    connection_status: existingConfig?.connection_status ?? 'untested',
+  })
 
   const connectionStatus = existingConfig?.connection_status ?? 'untested'
   const lastTested = existingConfig?.last_tested_at
@@ -120,50 +233,43 @@ export function IacrmApiSettingsTab({
   const pressureTone: ApiTone = failedJobsCount > 0 ? 'warning' : 'success'
   const existingApiKey = existingConfig?.api_key ?? ''
   const existingAutoSync = existingConfig?.auto_sync_enabled ?? false
-  const hasConfigChanges =
-    apiKey.trim() !== existingApiKey ||
-    autoSync !== existingAutoSync
-  const saveDisabledReason = !hasConfigChanges
-    ? existingApiKey
-      ? 'La clé actuelle est déjà enregistrée. Change la clé ou ajoute une nouvelle valeur pour enregistrer.'
-      : 'Aucun changement à enregistrer.'
-    : null
-
-  function currentConfig(): IacrmApiConfig {
-    return {
-      base_url: IACRM_DEFAULT_BASE_URL,
-      api_key: apiKey.trim(),
-      auto_sync_enabled: autoSync,
-      last_tested_at: existingConfig?.last_tested_at ?? null,
-      connection_status: existingConfig?.connection_status ?? 'untested',
-    }
-  }
+  const hasConfigChanges = apiKey.trim() !== existingApiKey || autoSync !== existingAutoSync
+  const loadingRemoteConfig = canManageBusinessIacrm && businessConfigQuery.isPending
+  const saveDisabledReason = loadingRemoteConfig
+    ? 'Chargement de la configuration business en cours.'
+    : !hasConfigChanges
+      ? existingApiKey
+        ? 'La clé actuelle est déjà enregistrée. Change la clé ou le mode de synchro pour enregistrer.'
+        : 'Aucun changement à enregistrer.'
+      : null
 
   function handleSave() {
-    saveIacrmConfig(currentConfig())
-    toast.success('Configuration CRM enregistrée.', { id: 'settings-api-toast' })
+    saveMutation.mutate(currentConfig())
   }
 
-  async function handleTest() {
-    saveIacrmConfig(currentConfig())
-    const result = await testMutation.mutateAsync()
-    if (result.ok) {
-      toast.success('Connexion CRM validée.', { id: 'settings-api-toast' })
-      return
-    }
-    toast.error(`Échec de connexion : ${result.message}`, { id: 'settings-api-toast' })
+  function handleTest() {
+    testMutation.mutate(currentConfig())
   }
 
   function handleClearKey() {
     setApiKey('')
-    saveIacrmConfig({
-      ...currentConfig(),
-      api_key: '',
-    })
-    toast.warning('Clé API supprimée.', { id: 'settings-api-toast' })
+    toast.warning(
+      canManageBusinessIacrm
+        ? 'Clé API retirée du formulaire. Enregistre pour appliquer la suppression au backend.'
+        : 'Clé API supprimée localement du formulaire.',
+      { id: 'settings-api-toast' },
+    )
   }
 
   function handleResetConfig() {
+    if (canManageBusinessIacrm) {
+      setApiKey(existingConfig?.api_key ?? '')
+      setAutoSync(existingConfig?.auto_sync_enabled ?? false)
+      setShowApiKey(false)
+      toast.warning('Brouillon local réinitialisé depuis la configuration backend.', { id: 'settings-api-toast' })
+      return
+    }
+
     clearIacrmConfig()
     setApiKey('')
     setAutoSync(false)
@@ -179,7 +285,10 @@ export function IacrmApiSettingsTab({
         <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
           <p className="text-xs text-muted-foreground">
             Serveur IACRM :{' '}
-            <span className="font-mono text-foreground">{IACRM_DEFAULT_BASE_URL}</span>
+            <span className="font-mono text-foreground">{resolvedBaseUrl}</span>
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Source : {canManageBusinessIacrm ? 'backend business config' : 'local browser config'}
           </p>
         </div>
 
@@ -236,21 +345,32 @@ export function IacrmApiSettingsTab({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" className="gap-2" disabled={Boolean(saveDisabledReason)} onClick={handleSave}>
+          <Button
+            type="button"
+            className="gap-2"
+            disabled={Boolean(saveDisabledReason) || saveMutation.isPending}
+            onClick={handleSave}
+          >
             <BadgeCheck className="size-4" />
-            Save config
+            {saveMutation.isPending ? 'Saving...' : 'Save config'}
           </Button>
           <Button
             type="button"
             variant="outline"
             className="gap-2"
-            disabled={testMutation.isPending}
+            disabled={testMutation.isPending || apiKey.trim().length === 0 || loadingRemoteConfig}
             onClick={handleTest}
           >
             <FlaskConical className="size-4" />
             {testMutation.isPending ? 'Testing...' : 'Test connection'}
           </Button>
-          <Button type="button" variant="outline" className="gap-2" onClick={handleClearKey} disabled={apiKey.length === 0}>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={handleClearKey}
+            disabled={apiKey.length === 0}
+          >
             <Trash2 className="size-4" />
             Clear key
           </Button>
@@ -304,6 +424,12 @@ export function IacrmApiSettingsTab({
           </div>
         </div>
 
+        {!hasIacrmConfig(existingConfig) ? (
+          <p className="text-sm text-muted-foreground">
+            Cette configuration doit contenir une clé API valide. Sans clé, les formulaires business peuvent s’ouvrir
+            mais les appels directs au simulateur IACRM resteront bloqués.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )

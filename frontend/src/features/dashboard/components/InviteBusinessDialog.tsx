@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Building2, Loader2 } from 'lucide-react'
 import type { ApiError } from '../../../lib/api'
 import { useIacrmPlatformBusinesses } from '../../iacrm/hooks'
-import { getIacrmConfig } from '../../iacrm/api'
+import { getIacrmConfig, hasIacrmConfig } from '../../iacrm/api'
 import { IacrmConfigGate } from '@/components/app/IacrmConfigGate'
 import {
   Dialog,
@@ -61,7 +61,7 @@ export function InviteBusinessDialog({
   const [ownerEmail, setOwnerEmail] = useState('')
   const [notes, setNotes] = useState('')
 
-  const iacrmConfigured = !!getIacrmConfig()?.base_url
+  const iacrmConfigured = hasIacrmConfig(getIacrmConfig())
   const platformQuery = useIacrmPlatformBusinesses()
   const iacrmBusinesses = (platformQuery.data?.data ?? []).filter(
     (b) => !existingIacrmIds.has(b.iacrm_id),

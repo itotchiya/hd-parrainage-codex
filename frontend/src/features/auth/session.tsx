@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   type PropsWithChildren,
   type ReactNode,
 } from 'react'
@@ -11,7 +12,8 @@ import {
 } from '@tanstack/react-query'
 import { Navigate, useLocation } from 'react-router-dom'
 import { ApiError, apiRequest, ensureCsrfCookie } from '../../lib/api'
-import { setIacrmScope } from '../iacrm/api'
+import { fetchBusinessIacrmSettings } from '../settings/api'
+import { clearIacrmConfig, saveIacrmConfig, setIacrmScope } from '../iacrm/api'
 import type {
   AuthEnvelope,
   AuthenticatedUser,
@@ -142,10 +144,47 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
 
   const user = sessionQuery.data ?? null
 
-  // Keep IACRM scope in sync whenever the session resolves
-  if (!sessionQuery.isPending) {
+  useEffect(() => {
+    if (sessionQuery.isPending) {
+      return
+    }
+
     setIacrmScope(user?.current_business_id ?? null)
-  }
+
+    if (user === null) {
+      return
+    }
+
+    const canHydrateBusinessIacrm =
+      user.current_business_id !== null &&
+      (user.permissions.includes('settings.view-business') || user.permissions.includes('settings.update-business'))
+
+    if (!canHydrateBusinessIacrm) {
+      if (user.current_business_id !== null) {
+        clearIacrmConfig()
+      }
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const response = await fetchBusinessIacrmSettings()
+        if (!cancelled) {
+          saveIacrmConfig(response.data)
+        }
+      } catch {
+        if (!cancelled) {
+          clearIacrmConfig()
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionQuery.isPending, user])
 
   const status: AuthStatus = sessionQuery.isPending
     ? 'loading'

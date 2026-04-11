@@ -67,6 +67,10 @@ export function clearIacrmConfig() {
   window.dispatchEvent(new CustomEvent(IACRM_CONFIG_EVENT))
 }
 
+export function hasIacrmConfig(config: IacrmApiConfig | null = getIacrmConfig()) {
+  return Boolean(config?.base_url && config.api_key.trim().length > 0)
+}
+
 // ---------------------------------------------------------------------------
 // IACRM HTTP client (separate from the Laravel apiRequest)
 // ---------------------------------------------------------------------------
@@ -82,13 +86,14 @@ class IacrmApiError extends Error {
 
 async function iacrmRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const config = getIacrmConfig()
-  if (!config?.base_url) throw new IacrmApiError(0, 'IACRM API not configured')
+  if (!hasIacrmConfig(config)) throw new IacrmApiError(0, 'IACRM API not configured')
+  const resolvedConfig = config as IacrmApiConfig
 
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
-  if (config.api_key) headers.set('X-IACRM-API-Key', config.api_key)
+  headers.set('X-IACRM-API-Key', resolvedConfig.api_key.trim())
 
-  const url = `${config.base_url.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`
+  const url = `${resolvedConfig.base_url.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`
   const method = (init.method ?? 'GET').toUpperCase() as 'GET' | 'POST' | 'PATCH' | 'DELETE'
   const type = path.includes('/auth/') ? 'test' : method === 'GET' ? 'pull' : 'push'
   const t0 = Date.now()
