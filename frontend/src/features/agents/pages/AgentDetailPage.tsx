@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Search, UserCheck, UserX } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import {
   DetailEmptyState,
@@ -242,6 +243,7 @@ function AgentDetailSkeleton() {
 
 export function AgentDetailPage() {
   const { agentId } = useParams<{ agentId: string }>()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthSession()
@@ -304,8 +306,8 @@ export function AgentDetailPage() {
   useAppBreadcrumbTrail(
     agent
       ? [
-          { label: 'Agents', to: '/agents' },
-          { label: agent.display_name ?? 'Affilié' },
+          { label: t('navigation.agents'), to: '/agents' },
+          { label: agent.display_name ?? t('agents.detail.breadcrumbFallback') },
         ]
       : null,
   )
@@ -721,7 +723,6 @@ export function AgentDetailPage() {
                         <Link
                           to={buildProspectDetailPath({
                             prospectId: prospect.id,
-                            agentId,
                           })}
                           className="block cursor-pointer rounded-md px-1 py-0.5 text-left transition hover:bg-muted/40"
                         >

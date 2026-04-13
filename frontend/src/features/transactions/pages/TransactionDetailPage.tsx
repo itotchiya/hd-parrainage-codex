@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -49,9 +50,9 @@ const invoiceBadgeClass = {
     'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
 } as const
 
-function formatDate(value: string | null, withTime = false) {
+function formatDate(value: string | null, withTime = false, t?: (key: string) => string) {
   if (!value) {
-    return 'Indisponible'
+    return t ? t('common.notAvailable') : 'Unavailable'
   }
 
   return new Date(value).toLocaleString('fr-FR', {
@@ -81,13 +82,22 @@ function toTimestamp(value: string | null) {
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
-function invoiceStatusLabel(status: 'pending' | 'paid' | 'unpaid' | 'overdue' | 'cancelled' | null) {
-  if (!status) return 'Aucune facture'
-  if (status === 'pending') return 'En attente'
-  if (status === 'paid') return 'Réglée'
-  if (status === 'overdue') return 'En retard'
-  if (status === 'cancelled') return 'Annulée'
-  return 'Impayée'
+function statusLabel(status: string, t: (key: string) => string) {
+  if (status === 'detected') return t('transactions.status.detected')
+  if (status === 'pending') return t('transactions.status.pending')
+  if (status === 'validated') return t('transactions.status.validated')
+  if (status === 'rejected') return t('transactions.status.rejected')
+  if (status === 'paid') return t('transactions.status.paid')
+  return status
+}
+
+function invoiceStatusLabel(status: 'pending' | 'paid' | 'unpaid' | 'overdue' | 'cancelled' | null, t: (key: string) => string) {
+  if (!status) return t('transactions.invoiceStatus.none')
+  if (status === 'pending') return t('transactions.invoiceStatus.pending')
+  if (status === 'paid') return t('transactions.invoiceStatus.paid')
+  if (status === 'overdue') return t('transactions.invoiceStatus.overdue')
+  if (status === 'cancelled') return t('transactions.invoiceStatus.cancelled')
+  return t('transactions.invoiceStatus.unpaid')
 }
 
 function syncState(transaction: {
@@ -95,10 +105,10 @@ function syncState(transaction: {
   iacrm_transaction_id: string | null
   last_synced_at: string | null
   rejected_at: string | null
-}) {
+}, t: (key: string) => string) {
   if (transaction.status === 'rejected') {
     return {
-      label: 'Rejet métier',
+      label: t('transactions.sync.rejected'),
       className:
         'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
     }
@@ -106,7 +116,7 @@ function syncState(transaction: {
 
   if (transaction.iacrm_transaction_id && transaction.last_synced_at) {
     return {
-      label: 'Synchronisée',
+      label: t('transactions.sync.synced'),
       className:
         'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
     }
@@ -114,14 +124,14 @@ function syncState(transaction: {
 
   if (transaction.last_synced_at) {
     return {
-      label: 'Trace locale',
+      label: t('transactions.sync.localTrace'),
       className:
         'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
     }
   }
 
   return {
-    label: 'En attente',
+    label: t('transactions.sync.pending'),
     className:
       'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
   }
@@ -242,6 +252,7 @@ function TransactionDetailSkeleton() {
 }
 
 export function TransactionDetailPage() {
+  const { t } = useTranslation()
   const { user } = useAuthSession()
   const isAgentView = Boolean(user?.agent_profile)
   const { transactionId } = useParams<{ transactionId: string }>()
@@ -261,7 +272,7 @@ export function TransactionDetailPage() {
   useAppBreadcrumbTrail(
     transaction
       ? [
-          { label: 'Transactions', to: '/transactions' },
+          { label: t('transactions.detail.breadcrumb'), to: '/transactions' },
           { label: transaction.transaction_reference },
         ]
       : null,
@@ -275,9 +286,9 @@ export function TransactionDetailPage() {
       ? invoiceBadgeClass[transaction.invoice_status]
       : 'border-transparent bg-muted text-muted-foreground'
   const sync = transaction
-    ? syncState(transaction)
+    ? syncState(transaction, t)
     : {
-        label: 'En attente',
+        label: t('transactions.sync.pending'),
         className:
           'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
       }
@@ -285,7 +296,6 @@ export function TransactionDetailPage() {
     transaction && transaction.prospect
       ? buildProspectDetailPath({
           prospectId: transaction.prospect.id,
-          agentId: transaction.agent_id,
         })
       : null
 
@@ -295,29 +305,31 @@ export function TransactionDetailPage() {
     return [
       {
         key: 'status',
-        label: 'Statut transaction',
-        value: statusLabel(transaction.status),
-        badge: <Badge className={transactionStatusClass}>{statusLabel(transaction.status)}</Badge>,
+        label: t('transactions.detail.sync.status'),
+        value: statusLabel(transaction.status, t),
+        badge: <Badge className={transactionStatusClass}>{statusLabel(transaction.status, t)}</Badge>,
         updatedAt: transaction.rejected_at ?? transaction.validated_at ?? transaction.occurred_at,
       },
       {
         key: 'invoice',
-        label: 'Facturation',
-        value: invoiceStatusLabel(transaction.invoice_status),
-        badge: <Badge className={invoiceClass}>{invoiceStatusLabel(transaction.invoice_status)}</Badge>,
+        label: t('transactions.detail.sync.invoice'),
+        value: invoiceStatusLabel(transaction.invoice_status, t),
+        badge: <Badge className={invoiceClass}>{invoiceStatusLabel(transaction.invoice_status, t)}</Badge>,
         updatedAt: transaction.paid_at ?? transaction.validated_at ?? null,
       },
       {
         key: 'sync',
-        label: 'Synchronisation IACRM',
-        value: transaction.iacrm_transaction_id ?? 'Aucune référence liée',
+        label: t('transactions.detail.sync.iacrm'),
+        value: transaction.iacrm_transaction_id ?? t('transactions.detail.sync.noReference'),
         badge: <Badge className={sync.className}>{sync.label}</Badge>,
         updatedAt: transaction.last_synced_at,
       },
       {
         key: 'recognition',
-        label: 'Reconnaissance',
-        value: transaction.recognized_at ? 'Transaction reconnue' : 'En attente de reconnaissance',
+        label: t('transactions.detail.sync.recognition'),
+        value: transaction.recognized_at
+          ? t('transactions.detail.sync.recognized')
+          : t('transactions.detail.sync.awaitingRecognition'),
         badge: (
           <Badge
             className={
@@ -326,13 +338,13 @@ export function TransactionDetailPage() {
                 : 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300'
             }
           >
-            {transaction.recognized_at ? 'Reconnue' : 'En attente'}
+            {transaction.recognized_at ? t('transactions.detail.sync.recognizedBadge') : t('transactions.detail.sync.awaitingBadge')}
           </Badge>
         ),
         updatedAt: transaction.recognized_at,
       },
     ]
-  }, [invoiceClass, sync.className, sync.label, transaction, transactionStatusClass])
+  }, [invoiceClass, sync.className, sync.label, t, transaction, transactionStatusClass])
 
   const auditRows = useMemo(() => {
     if (!transaction) return []
@@ -340,55 +352,55 @@ export function TransactionDetailPage() {
     return [
       {
         key: 'occurred',
-        event: 'Transaction détectée',
-        system: 'Moteur transactionnel',
-        detail: `Référence ${transaction.transaction_reference}`,
+        event: t('transactions.detail.audit.occurred.event'),
+        system: t('transactions.detail.audit.occurred.system'),
+        detail: t('transactions.detail.audit.occurred.detail', { reference: transaction.transaction_reference }),
         occurredAt: transaction.occurred_at,
       },
       transaction.recognized_at
         ? {
             key: 'recognized',
-            event: 'Transaction reconnue',
-            system: 'IACRM / rapprochement',
-            detail: 'La transaction a été reconnue et rapprochée au flux commercial.',
+            event: t('transactions.detail.audit.recognized.event'),
+            system: t('transactions.detail.audit.recognized.system'),
+            detail: t('transactions.detail.audit.recognized.detail'),
             occurredAt: transaction.recognized_at,
           }
         : null,
       transaction.validated_at
         ? {
             key: 'validated',
-            event: 'Transaction validée',
-            system: 'Pipeline financier',
-            detail: 'Le montant a été validé et peut alimenter le calcul de points.',
+            event: t('transactions.detail.audit.validated.event'),
+            system: t('transactions.detail.audit.validated.system'),
+            detail: t('transactions.detail.audit.validated.detail'),
             occurredAt: transaction.validated_at,
           }
         : null,
       transaction.rejected_at
         ? {
             key: 'rejected',
-            event: 'Transaction rejetée',
-            system: 'Contrôle métier',
-            detail: 'La transaction a été rejetée avant validation finale.',
+            event: t('transactions.detail.audit.rejected.event'),
+            system: t('transactions.detail.audit.rejected.system'),
+            detail: t('transactions.detail.audit.rejected.detail'),
             occurredAt: transaction.rejected_at,
           }
         : null,
       transaction.paid_at
         ? {
             key: 'paid',
-            event: 'Transaction réglée',
-            system: 'Suivi facturation',
-            detail: 'Le règlement commercial a été enregistré comme payé.',
+            event: t('transactions.detail.audit.paid.event'),
+            system: t('transactions.detail.audit.paid.system'),
+            detail: t('transactions.detail.audit.paid.detail'),
             occurredAt: transaction.paid_at,
           }
         : null,
       transaction.last_synced_at
         ? {
             key: 'synced',
-            event: 'Dernière synchronisation',
-            system: 'IACRM',
+            event: t('transactions.detail.audit.synced.event'),
+            system: t('transactions.detail.audit.synced.system'),
             detail: transaction.iacrm_transaction_id
-              ? `Référence externe ${transaction.iacrm_transaction_id}`
-              : 'Synchronisation enregistrée sans référence externe.',
+              ? t('transactions.detail.audit.synced.detailWithRef', { ref: transaction.iacrm_transaction_id })
+              : t('transactions.detail.audit.synced.detailNoRef'),
             occurredAt: transaction.last_synced_at,
           }
         : null,
@@ -399,7 +411,7 @@ export function TransactionDetailPage() {
       detail: string
       occurredAt: string | null
     }>
-  }, [transaction])
+  }, [t, transaction])
 
   const sortedSyncRows = useMemo(() => {
     return [...syncRows].sort((left, right) => {
@@ -438,7 +450,7 @@ export function TransactionDetailPage() {
   if (!transactionId) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Identifiant de transaction manquant.
+        {t('transactions.detail.error.missingId')}
       </article>
     )
   }
@@ -458,7 +470,7 @@ export function TransactionDetailPage() {
   if (!transaction) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Transaction introuvable.
+        {t('transactions.detail.error.notFound')}
       </article>
     )
   }
@@ -468,7 +480,7 @@ export function TransactionDetailPage() {
       <PageHeader
         beforeTitle={
           <Button asChild variant="ghost" size="icon-sm" className="shrink-0">
-            <Link to="/transactions" aria-label="Retour à la liste des transactions">
+            <Link to="/transactions" aria-label={t('transactions.detail.back')}>
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
@@ -476,10 +488,10 @@ export function TransactionDetailPage() {
         title={transaction.transaction_reference}
         titleAddon={
           <>
-            <Badge className={transactionStatusClass}>{statusLabel(transaction.status)}</Badge>
+            <Badge className={transactionStatusClass}>{statusLabel(transaction.status, t)}</Badge>
             <Badge className={sync.className}>{sync.label}</Badge>
             {transaction.invoice_status ? (
-              <Badge className={invoiceClass}>{invoiceStatusLabel(transaction.invoice_status)}</Badge>
+              <Badge className={invoiceClass}>{invoiceStatusLabel(transaction.invoice_status, t)}</Badge>
             ) : null}
           </>
         }
@@ -487,12 +499,12 @@ export function TransactionDetailPage() {
           <PageHeaderToolbar>
             {prospectHref ? (
               <Button asChild variant="outline">
-                <Link to={prospectHref}>Voir le prospect</Link>
+                <Link to={prospectHref}>{t('transactions.detail.viewProspect')}</Link>
               </Button>
             ) : null}
             {transaction.program_id ? (
               <Button asChild variant="outline">
-                <Link to={`/programs/${transaction.program_id}`}>Voir le programme</Link>
+                <Link to={`/programs/${transaction.program_id}`}>{t('transactions.detail.viewProgram')}</Link>
               </Button>
             ) : null}
           </PageHeaderToolbar>
@@ -502,39 +514,39 @@ export function TransactionDetailPage() {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {!isAgentView ? (
           <KpiCard
-            title="Montant"
+            title={t('transactions.detail.kpi.amount.title')}
             value={formatCurrency(transaction.amount, transaction.currency_code)}
-            description="Valeur commerciale de la transaction"
+            description={t('transactions.detail.kpi.amount.description')}
             badge={kpiSnapshotBadge(transaction.product_name)}
             icon={Banknote}
             tone="success"
           />
         ) : null}
         <KpiCard
-          title="Points attribués"
+          title={t('transactions.detail.kpi.points.title')}
           value={
             transaction.points_awarded === null
-              ? 'En attente'
+              ? t('transactions.detail.kpi.points.pending')
               : `${transaction.points_awarded.toLocaleString('fr-FR')} pts`
           }
-          description="Crédit affilié généré"
-          badge={kpiSnapshotBadge(transaction.program_name ?? 'Sans programme')}
+          description={t('transactions.detail.kpi.points.description')}
+          badge={kpiSnapshotBadge(transaction.program_name ?? t('transactions.fallback.noProgram'))}
           icon={CircleDollarSign}
           tone="primary"
         />
         <KpiCard
-          title="Survenue"
-          value={formatDate(transaction.occurred_at)}
-          description="Date métier de la transaction"
-          badge={kpiSnapshotBadge(transaction.agent_name ?? 'Sans affilié')}
+          title={t('transactions.detail.kpi.occurred.title')}
+          value={formatDate(transaction.occurred_at, false, t)}
+          description={t('transactions.detail.kpi.occurred.description')}
+          badge={kpiSnapshotBadge(transaction.agent_name ?? t('transactions.fallback.noAgent'))}
           icon={CalendarClock}
           tone="warning"
         />
         <KpiCard
-          title="Dernière synchro"
-          value={formatDate(transaction.last_synced_at)}
-          description="Trace de synchronisation IACRM"
-          badge={kpiSnapshotBadge(transaction.iacrm_transaction_id ?? 'Sans référence')}
+          title={t('transactions.detail.kpi.lastSync.title')}
+          value={formatDate(transaction.last_synced_at, false, t)}
+          description={t('transactions.detail.kpi.lastSync.description')}
+          badge={kpiSnapshotBadge(transaction.iacrm_transaction_id ?? t('transactions.detail.kpi.lastSync.noReference'))}
           icon={RefreshCcw}
           tone="info"
         />
@@ -543,8 +555,8 @@ export function TransactionDetailPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         <DetailSectionCard
           className="border-0"
-          title="Vue transaction"
-          description="Référence, produit et données financières utiles pour la lecture métier."
+          title={t('transactions.detail.overview.title')}
+          description={t('transactions.detail.overview.description')}
           contentClassName="pt-5"
         >
           <EntityCardIdentity
@@ -554,7 +566,7 @@ export function TransactionDetailPage() {
               </div>
             }
             title={transaction.product_name}
-            description={transaction.business_name ?? 'Transaction rattachée à la plateforme'}
+            description={transaction.business_name ?? t('transactions.detail.overview.platformTransaction')}
             badge={
               <>
                 <Badge variant="secondary" className="text-xs">
@@ -573,41 +585,41 @@ export function TransactionDetailPage() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Référence</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.reference')}</p>
               <p className="mt-1 text-xs font-medium text-foreground">{transaction.transaction_reference}</p>
             </div>
             {!isAgentView ? (
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Montant</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.amount')}</p>
                 <p className="mt-1 text-xs font-medium text-foreground">
                   {formatCurrency(transaction.amount, transaction.currency_code)}
                 </p>
               </div>
             ) : null}
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Points</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.points')}</p>
               <p className="mt-1 text-xs font-medium text-foreground">
                 {transaction.points_awarded === null
-                  ? 'En attente'
+                  ? t('transactions.detail.meta.pointsPending')
                   : `${transaction.points_awarded.toLocaleString('fr-FR')} pts`}
               </p>
             </div>
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Survenue</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.occurred')}</p>
               <p className="mt-1 text-xs font-medium text-foreground">
-                {formatDate(transaction.occurred_at, true)}
+                {formatDate(transaction.occurred_at, true, t)}
               </p>
             </div>
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Validée</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.validated')}</p>
               <p className="mt-1 text-xs font-medium text-foreground">
-                {formatDate(transaction.validated_at, true)}
+                {formatDate(transaction.validated_at, true, t)}
               </p>
             </div>
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Réglée</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{t('transactions.detail.meta.paid')}</p>
               <p className="mt-1 text-xs font-medium text-foreground">
-                {formatDate(transaction.paid_at, true)}
+                {formatDate(transaction.paid_at, true, t)}
               </p>
             </div>
           </div>
@@ -615,41 +627,41 @@ export function TransactionDetailPage() {
 
         <DetailSectionCard
           className="border-0"
-          title="Contexte commercial"
-          description="Programme, affilié référent et prospect rattaché à la transaction."
+          title={t('transactions.detail.context.title')}
+          description={t('transactions.detail.context.description')}
           contentClassName="space-y-3 pt-5"
         >
           <RelationRow
-            eyebrow="Programme"
-            title={transaction.program_name ?? 'Aucun programme'}
+            eyebrow={t('transactions.detail.context.program')}
+            title={transaction.program_name ?? t('transactions.fallback.noProgram')}
             description={
               transaction.program_name
-                ? 'Programme source de la transaction'
-                : 'Aucun rattachement programme'
+                ? t('transactions.detail.context.programDescription')
+                : t('transactions.detail.context.noProgram')
             }
             to={transaction.program_id ? `/programs/${transaction.program_id}` : null}
             badge={
               transaction.program_name ? (
                 <Badge className="bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
-                  Actif
+                  {t('transactions.detail.context.active')}
                 </Badge>
               ) : undefined
             }
           />
           <RelationRow
-            eyebrow="Affilié"
-            title={transaction.agent_name ?? 'Aucun affilié'}
-            description={transaction.agent_email ?? 'Aucun email renseigné'}
+            eyebrow={t('transactions.detail.context.agent')}
+            title={transaction.agent_name ?? t('transactions.fallback.noAgent')}
+            description={transaction.agent_email ?? t('transactions.fallback.noEmail')}
             to={transaction.agent_id ? `/agents/${transaction.agent_id}` : null}
-            badge={transaction.agent_name ? <Badge variant="secondary">Affilié</Badge> : undefined}
+            badge={transaction.agent_name ? <Badge variant="secondary">{t('transactions.detail.context.affiliateBadge')}</Badge> : undefined}
           />
           <RelationRow
-            eyebrow="Prospect"
-            title={transaction.prospect?.contact_name ?? 'Aucun prospect lié'}
+            eyebrow={t('transactions.detail.context.prospect')}
+            title={transaction.prospect?.contact_name ?? t('transactions.fallback.noLinkedProspect')}
             description={
               transaction.prospect
-                ? `${transaction.prospect.company_name ?? 'Sans société'} / ${transaction.prospect.pipeline_stage}`
-                : "Cette transaction n'est reliée à aucun prospect local."
+                ? `${transaction.prospect.company_name ?? t('transactions.fallback.noCompany')} / ${transaction.prospect.pipeline_stage}`
+                : t('transactions.detail.context.noProspect')
             }
             to={prospectHref}
             badge={transaction.prospect ? <Workflow className="size-4 text-muted-foreground" /> : undefined}
@@ -660,9 +672,9 @@ export function TransactionDetailPage() {
       <div className="space-y-4">
         <DetailSectionCard
           className="border-0"
-          title="Synchronisation"
-          description="Lecture rapide des repères de synchronisation et de rapprochement."
-          right={<Badge variant="secondary">{syncRows.length} repères</Badge>}
+          title={t('transactions.detail.sync.title')}
+          description={t('transactions.detail.sync.description')}
+          right={<Badge variant="secondary">{t('transactions.detail.sync.markers', { count: syncRows.length })}</Badge>}
           contentClassName="pt-4"
         >
           <div className="overflow-hidden rounded-lg bg-background/40">
@@ -670,9 +682,9 @@ export function TransactionDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Élément</TableHead>
-                    <TableHead>Valeur</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead>{t('transactions.detail.sync.table.element')}</TableHead>
+                    <TableHead>{t('transactions.detail.sync.table.value')}</TableHead>
+                    <TableHead>{t('transactions.detail.sync.table.status')}</TableHead>
                     <SortableTableHead
                       sortKey="updatedAt"
                       activeKey={syncSortKey}
@@ -681,7 +693,7 @@ export function TransactionDetailPage() {
                       className="text-right"
                       align="right"
                     >
-                      Dernière mise à jour
+                      {t('transactions.detail.sync.table.lastUpdate')}
                     </SortableTableHead>
                   </TableRow>
                 </TableHeader>
@@ -692,7 +704,7 @@ export function TransactionDetailPage() {
                       <TableCell className="text-muted-foreground">{row.value}</TableCell>
                       <TableCell>{row.badge}</TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {formatDate(row.updatedAt, true)}
+                        {formatDate(row.updatedAt, true, t)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -704,13 +716,13 @@ export function TransactionDetailPage() {
 
         <DetailSectionCard
           className="border-0"
-          title="Audit trail"
-          description="Étapes enregistrées sur la transaction, classées du plus récent au plus ancien."
-          right={<Badge variant="secondary">{auditRows.length} événements</Badge>}
+          title={t('transactions.detail.audit.title')}
+          description={t('transactions.detail.audit.description')}
+          right={<Badge variant="secondary">{t('transactions.detail.audit.events', { count: auditRows.length })}</Badge>}
           contentClassName="pt-4"
         >
           {auditRows.length === 0 ? (
-            <DetailEmptyState message="Aucun événement horodaté n'est encore disponible pour cette transaction." />
+            <DetailEmptyState message={t('transactions.detail.audit.empty')} />
           ) : (
             <div className="overflow-hidden rounded-lg bg-background/40">
               <div className="overflow-x-auto">
@@ -723,18 +735,18 @@ export function TransactionDetailPage() {
                         direction={historySortDirection}
                         onSort={handleHistorySort}
                       >
-                        Date
+                        {t('transactions.detail.audit.table.date')}
                       </SortableTableHead>
-                      <TableHead>Étape</TableHead>
-                      <TableHead>Système</TableHead>
-                      <TableHead>Détail</TableHead>
+                      <TableHead>{t('transactions.detail.audit.table.step')}</TableHead>
+                      <TableHead>{t('transactions.detail.audit.table.system')}</TableHead>
+                      <TableHead>{t('transactions.detail.audit.table.detail')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedAuditRows.map((row) => (
                       <TableRow key={row.key}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {formatDate(row.occurredAt, true)}
+                          {formatDate(row.occurredAt, true, t)}
                         </TableCell>
                         <TableCell className="font-medium text-foreground">{row.event}</TableCell>
                         <TableCell className="text-muted-foreground">{row.system}</TableCell>
@@ -750,13 +762,4 @@ export function TransactionDetailPage() {
       </div>
     </section>
   )
-}
-
-function statusLabel(status: string) {
-  if (status === 'detected') return 'Détectée'
-  if (status === 'pending') return 'En attente'
-  if (status === 'validated') return 'Validée'
-  if (status === 'rejected') return 'Rejetée'
-  if (status === 'paid') return 'Payée'
-  return status
 }

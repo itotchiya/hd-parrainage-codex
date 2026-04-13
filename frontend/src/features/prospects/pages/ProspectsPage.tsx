@@ -352,7 +352,7 @@ export function ProspectsPage() {
             prospect.agent_id,
             {
               id: prospect.agent_id,
-              name: prospect.agent_name ?? 'Unknown agent',
+              name: prospect.agent_name ?? t('prospects.table.unknownAgent'),
             },
           ]),
       ).values(),
@@ -462,7 +462,7 @@ export function ProspectsPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Prospects"
+        title={t('prospects.title')}
         right={
           <PageHeaderToolbar>
             {hasActiveFilters ? (
@@ -612,7 +612,7 @@ export function ProspectsPage() {
             title={isAgentView ? t('prospects.myProspects') : t('prospects.allProspects')}
           />
           <article className="rounded-lg border border-dashed border-border bg-muted/15 app-card-padding">
-            <p className="app-eyebrow">Liste des filleuls</p>
+            <p className="app-eyebrow">{t('prospects.listEyebrow')}</p>
             <h2 className="mt-2 text-lg font-semibold text-foreground">
               {t('prospects.table.noResults')}
             </h2>
@@ -621,7 +621,7 @@ export function ProspectsPage() {
       ) : (
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
-            title={isAgentView ? 'Mes prospects' : 'Tous les prospects'}
+            title={isAgentView ? t('prospects.myProspects') : t('prospects.allProspects')}
           />
           <div className="overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
@@ -636,7 +636,7 @@ export function ProspectsPage() {
                       onSort={handleSort}
                       className="min-w-[11rem]"
                     >
-                      Contact
+                      {t('prospects.table.contact')}
                     </SortableTableHead>
                     <TableHead className="hidden min-w-[11rem] sm:table-cell">{t('prospects.table.contacts')}</TableHead>
                     {isAgentView ? (
@@ -649,7 +649,7 @@ export function ProspectsPage() {
                         onSort={handleSort}
                         className="hidden min-w-[8rem] lg:table-cell"
                       >
-                        Agent
+                        {t('prospects.table.agent')}
                       </SortableTableHead>
                     )}
                     <SortableTableHead
@@ -721,7 +721,6 @@ export function ProspectsPage() {
                         <Link
                           to={buildProspectDetailPath({
                             prospectId: prospect.id,
-                            agentId: prospect.agent_id,
                           })}
                           className="group -m-1 block rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
@@ -732,18 +731,18 @@ export function ProspectsPage() {
                             <p className="truncate text-xs text-muted-foreground">{prospect.company_name}</p>
                           ) : null}
                           <p className="mt-0.5 text-[11px] text-muted-foreground sm:hidden">
-                            Submitted {formatDashboardDateTimeFr(prospect.submitted_at)}
+                            {t('prospects.table.submitted')} {formatDashboardDateTimeFr(prospect.submitted_at)}
                           </p>
                           {prospect.deleted_at ? (
                             <p
                               className="mt-1 truncate text-[11px] text-destructive"
                               title={
                                 prospect.soft_delete_reason
-                                  ? `${prospect.deleted_by_user?.display_name ?? 'Unknown'} — ${prospect.soft_delete_reason}`
+                                  ? `${prospect.deleted_by_user?.display_name ?? t('common.unknown')} — ${prospect.soft_delete_reason}`
                                   : undefined
                               }
                             >
-                              Deleted {formatDashboardDateTimeFr(prospect.deleted_at)}
+                              {t('prospects.deleted')} {formatDashboardDateTimeFr(prospect.deleted_at)}
                             </p>
                           ) : null}
                         </Link>
@@ -833,19 +832,18 @@ export function ProspectsPage() {
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-col gap-1">
                           <span className="text-sm tabular-nums text-foreground">
-                            {(prospect.history_count ?? 0).toLocaleString('fr-FR')} events
+                            {(prospect.history_count ?? 0).toLocaleString('fr-FR')} {t('prospects.table.events')}
                           </span>
                           <Link
                             to={buildProspectDetailPath({
                               prospectId: prospect.id,
-                              agentId: prospect.agent_id,
                               hash: '#prospect-history',
                             })}
                             className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4 decoration-border hover:decoration-primary"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <History className="size-3.5 shrink-0" aria-hidden />
-                            Timeline
+                            {t('prospects.table.timeline')}
                           </Link>
                         </div>
                       </TableCell>
@@ -874,7 +872,6 @@ export function ProspectsPage() {
                                     <Link
                                       to={buildProspectDetailPath({
                                         prospectId: prospect.id,
-                                        agentId: prospect.agent_id,
                                       })}
                                       aria-label={t('prospects.table.actions.open')}
                                     >
@@ -895,7 +892,6 @@ export function ProspectsPage() {
                                     <Link
                                       to={buildProspectDetailPath({
                                         prospectId: prospect.id,
-                                        agentId: prospect.agent_id,
                                         hash: '#prospect-history',
                                       })}
                                       aria-label={t('prospects.table.actions.viewHistory')}
@@ -959,7 +955,6 @@ export function ProspectsPage() {
                                   <Link
                                     to={buildProspectDetailPath({
                                       prospectId: prospect.id,
-                                      agentId: prospect.agent_id,
                                     })}
                                   >
                                     <Eye className="size-4 text-primary" />
@@ -970,12 +965,11 @@ export function ProspectsPage() {
                                   <Link
                                     to={buildProspectDetailPath({
                                       prospectId: prospect.id,
-                                      agentId: prospect.agent_id,
                                       hash: '#prospect-history',
                                     })}
                                   >
                                     <History className="size-4 text-blue-500" />
-                                    <span>Timeline</span>
+                                    <span>{t('prospects.table.timeline')}</span>
                                   </Link>
                                 </DropdownMenuItem>
                                 {prospect.agent_id ? (

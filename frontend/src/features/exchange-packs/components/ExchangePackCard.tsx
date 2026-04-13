@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLink, Loader2, MoreVertical, Pencil, Power, RotateCcw, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { EntityCardIdentity } from '@/components/app/EntityCardIdentity'
 import { exchangePackStatusBadgeClass, programStatusBadgeClass } from '@/features/dashboard/utils/semanticBadges'
@@ -33,17 +34,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import type { ExchangePackRecord } from '@/types/programs'
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Date inconnue'
-  return new Date(value).toLocaleDateString('fr-FR', {
+function formatDate(value: string | null | undefined, locale: string) {
+  if (!value) return null
+  return new Date(value).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   })
-}
-
-function itemCountLabel(count: number) {
-  return `${count} cadeau${count === 1 ? '' : 'x'}`
 }
 
 function ClickableInfoCard({
@@ -83,10 +80,6 @@ function CompactMetaItem({
   )
 }
 
-function linkedProgramsLabel(count: number) {
-  return `${count} lié${count === 1 ? '' : 's'}`
-}
-
 export function ExchangePackCard({
   pack,
   onEdit,
@@ -100,6 +93,7 @@ export function ExchangePackCard({
   isUpdatingStatus?: boolean
   onDelete: (pack: ExchangePackRecord) => void
 }) {
+  const { t, i18n } = useTranslation()
   const [detailDialog, setDetailDialog] = useState<'rewards' | 'programs' | 'updated' | null>(null)
   const activeItemsCount = pack.active_items_count ?? pack.items.length
   const linkedPrograms = pack.linked_programs ?? []
@@ -110,15 +104,17 @@ export function ExchangePackCard({
   const canActivate = pack.actions?.can_activate ?? pack.status === 'inactive'
   const disableBlockedReason =
     !canDisable && linkedProgramsCount > 0
-      ? "Impossible de désactiver ce pack tant qu'il est utilisé par un programme."
+      ? t('exchangePacks.card.tooltip.disableBlockedByPrograms')
       : !canDisable
-        ? "Vous n'avez pas la permission de désactiver ce pack."
+        ? t('exchangePacks.card.tooltip.disableBlockedPermission')
         : null
   const deleteBlockedReason = canDelete
     ? null
     : linkedProgramsCount > 0
-      ? "Impossible de supprimer ce pack tant qu'il est utilisé par un programme."
-      : "Vous n'avez pas la permission de supprimer ce pack."
+      ? t('exchangePacks.card.tooltip.deleteBlockedByPrograms')
+      : t('exchangePacks.card.tooltip.deleteBlockedPermission')
+
+  const dateText = formatDate(pack.updated_at, i18n.language) ?? t('exchangePacks.detail.unknownDate')
 
   return (
     <Card className="rounded-lg border-0 shadow-none">
@@ -127,13 +123,13 @@ export function ExchangePackCard({
           <Link to={`/exchange-packs/${pack.id}`} className="group flex min-w-0 flex-1 cursor-pointer items-start">
             <EntityCardIdentity
               title={pack.name}
-              description={pack.description ?? 'Aucune description pour ce pack.'}
+              description={pack.description ?? t('exchangePacks.card.noDescription')}
               badge={
                 <Badge
                   variant="secondary"
                   className={cn('border-0', exchangePackStatusBadgeClass(pack.status))}
                 >
-                  {pack.status === 'inactive' ? 'Désactivé' : 'Actif'}
+                  {pack.status === 'inactive' ? t('exchangePacks.status.inactive') : t('exchangePacks.status.active')}
                 </Badge>
               }
               className="flex-1"
@@ -144,7 +140,7 @@ export function ExchangePackCard({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="cursor-pointer" aria-label={`Actions pour ${pack.name}`}>
+              <Button type="button" variant="ghost" size="icon" className="cursor-pointer" aria-label={`${t('common.actions')} ${pack.name}`}>
                 <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -152,12 +148,12 @@ export function ExchangePackCard({
               <DropdownMenuItem asChild>
                 <Link to={`/exchange-packs/${pack.id}`} className="cursor-pointer">
                   <ExternalLink className="size-4" />
-                  Ouvrir
+                  {t('exchangePacks.card.open')}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!canUpdate} className="cursor-pointer" onSelect={() => onEdit(pack)}>
                 <Pencil className="size-4" />
-                Modifier
+                {t('exchangePacks.card.edit')}
               </DropdownMenuItem>
               {pack.status === 'inactive' ? (
                 <DropdownMenuItem
@@ -166,7 +162,7 @@ export function ExchangePackCard({
                   onSelect={() => onToggleStatus(pack, 'active')}
                 >
                   {isUpdatingStatus ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-                  Réactiver
+                  {t('exchangePacks.card.reactivate')}
                 </DropdownMenuItem>
               ) : (
                 <TooltipProvider>
@@ -179,7 +175,7 @@ export function ExchangePackCard({
                           onSelect={() => onToggleStatus(pack, 'inactive')}
                         >
                           {isUpdatingStatus ? <Loader2 className="size-4 animate-spin" /> : <Power className="size-4" />}
-                          Désactiver
+                          {t('exchangePacks.card.deactivate')}
                         </DropdownMenuItem>
                       </div>
                     </TooltipTrigger>
@@ -200,7 +196,7 @@ export function ExchangePackCard({
                         onSelect={() => onDelete(pack)}
                       >
                         <Trash2 className="size-4" />
-                        Supprimer
+                        {t('exchangePacks.card.delete')}
                       </DropdownMenuItem>
                     </div>
                   </TooltipTrigger>
@@ -217,23 +213,23 @@ export function ExchangePackCard({
       <CardContent className="space-y-2 px-3 pb-3 pt-0 sm:px-4">
         <div className="grid gap-2 sm:grid-cols-3">
           <ClickableInfoCard onClick={() => setDetailDialog('rewards')}>
-            <CompactMetaItem label="Cadeaux" value={itemCountLabel(activeItemsCount)} />
+            <CompactMetaItem label={t('exchangePacks.card.gifts')} value={t('exchangePacks.card.giftCount', { count: activeItemsCount })} />
           </ClickableInfoCard>
           <ClickableInfoCard onClick={() => setDetailDialog('programs')}>
-            <CompactMetaItem label="Programmes" value={linkedProgramsLabel(linkedProgramsCount)} />
+            <CompactMetaItem label={t('exchangePacks.card.programs')} value={t('exchangePacks.card.programCount', { count: linkedProgramsCount })} />
           </ClickableInfoCard>
           <ClickableInfoCard onClick={() => setDetailDialog('updated')}>
-            <CompactMetaItem label="Mis à jour" value={formatDate(pack.updated_at)} />
+            <CompactMetaItem label={t('exchangePacks.card.updated')} value={dateText} />
           </ClickableInfoCard>
         </div>
 
         <ClickableInfoCard onClick={() => setDetailDialog('rewards')}>
           <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="app-eyebrow text-amber-900 dark:text-amber-300">Aperçu cadeaux</p>
+              <p className="app-eyebrow text-amber-900 dark:text-amber-300">{t('exchangePacks.card.giftPreview')}</p>
               {activeItemsCount === 0 ? (
                 <Badge variant="outline" size="xs" className="border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300">
-                  Non assignable
+                  {t('exchangePacks.card.notAssignable')}
                 </Badge>
               ) : null}
             </div>
@@ -241,18 +237,18 @@ export function ExchangePackCard({
               <div className="mt-2 space-y-1 text-xs font-medium text-foreground">
                 {pack.items.slice(0, 4).map((item) => (
                   <p key={item.id}>
-                    {item.title} - {item.points_cost.toLocaleString('fr-FR')} pts
+                    {item.title} - {item.points_cost.toLocaleString(i18n.language)} {t('common.pts')}
                   </p>
                 ))}
                 {pack.items.length > 4 ? (
                   <p className="pt-1 text-xs text-muted-foreground">
-                    +{pack.items.length - 4} cadeau{pack.items.length - 4 === 1 ? '' : 'x'}
+                    {t('exchangePacks.card.additionalGifts', { count: pack.items.length - 4 })}
                   </p>
                 ) : null}
               </div>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Aucun cadeau actif. Ajoutez au moins un cadeau avant d'utiliser ce pack dans un programme.
+                {t('exchangePacks.card.noActiveGifts')}
               </p>
             )}
           </div>
@@ -261,9 +257,9 @@ export function ExchangePackCard({
         <Dialog open={detailDialog === 'rewards'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Récompenses du pack</DialogTitle>
+              <DialogTitle>{t('exchangePacks.card.dialog.rewardsTitle')}</DialogTitle>
               <DialogDescription>
-                Cadeaux configurés dans {pack.name}.
+                {t('exchangePacks.card.dialog.rewardsDescription', { name: pack.name })}
               </DialogDescription>
             </DialogHeader>
 
@@ -283,7 +279,7 @@ export function ExchangePackCard({
                       <ItemContent>
                         <ItemTitle>{item.title}</ItemTitle>
                         <ItemDescription>
-                          <strong>{item.points_cost.toLocaleString('fr-FR')} pts</strong>
+                          <strong>{item.points_cost.toLocaleString(i18n.language)} {t('common.pts')}</strong>
                         </ItemDescription>
                       </ItemContent>
                     </Item>
@@ -291,14 +287,14 @@ export function ExchangePackCard({
                 </div>
               ) : (
                 <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                  Aucun cadeau configuré.
+                  {t('exchangePacks.card.dialog.noGiftsConfigured')}
                 </p>
               )}
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDetailDialog(null)}>
-                Fermer
+                {t('exchangePacks.card.dialog.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -307,9 +303,9 @@ export function ExchangePackCard({
         <Dialog open={detailDialog === 'programs'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="max-h-[88vh] overflow-hidden sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Programmes utilisant ce pack</DialogTitle>
+              <DialogTitle>{t('exchangePacks.card.dialog.programsTitle')}</DialogTitle>
               <DialogDescription>
-                Liste complète des programmes liés à {pack.name}.
+                {t('exchangePacks.card.dialog.programsDescription', { name: pack.name })}
               </DialogDescription>
             </DialogHeader>
 
@@ -328,10 +324,10 @@ export function ExchangePackCard({
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
+                          {t('exchangePacks.detail.agentCount', { count: program.assigned_agents_count ?? 0 })}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
-                          {program.status}
+                          {t(`programs.status.${program.status}`)}
                         </Badge>
                         <ExternalLink className="size-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
                       </div>
@@ -340,14 +336,14 @@ export function ExchangePackCard({
                 ))
               ) : (
                 <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
-                  Aucun programme n'utilise encore ce pack.
+                  {t('exchangePacks.card.dialog.noProgramsUsingPack')}
                 </p>
               )}
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDetailDialog(null)}>
-                Fermer
+                {t('exchangePacks.card.dialog.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -356,17 +352,17 @@ export function ExchangePackCard({
         <Dialog open={detailDialog === 'updated'} onOpenChange={(open) => !open && setDetailDialog(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Mis à jour</DialogTitle>
+              <DialogTitle>{t('exchangePacks.card.dialog.updatedTitle')}</DialogTitle>
               <DialogDescription>
-                Dernière mise à jour enregistrée sur ce pack.
+                {t('exchangePacks.card.dialog.updatedDescription')}
               </DialogDescription>
             </DialogHeader>
 
-            <CompactMetaItem label="Mis à jour" value={formatDate(pack.updated_at)} />
+            <CompactMetaItem label={t('exchangePacks.card.updated')} value={dateText} />
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDetailDialog(null)}>
-                Fermer
+                {t('exchangePacks.card.dialog.close')}
               </Button>
             </DialogFooter>
           </DialogContent>

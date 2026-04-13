@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Archive,
   ArrowLeft,
@@ -288,6 +289,7 @@ function ProgramDetailSkeleton() {
 }
 
 export function ProgramDetailPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { programId } = useParams<{ programId: string }>()
@@ -438,7 +440,7 @@ export function ProgramDetailPage() {
   useAppBreadcrumbTrail(
     programQuery.data?.data
       ? [
-          { label: 'Programs', to: '/programs' },
+          { label: t('navigation.programs'), to: '/programs' },
           { label: programQuery.data.data.name },
         ]
       : null,
@@ -1186,7 +1188,6 @@ export function ProgramDetailPage() {
                           <Link
                             to={buildProspectDetailPath({
                               prospectId: prospect.id,
-                              agentId: prospect.agent_id,
                             })}
                             className="group -m-1 block min-w-0 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           >

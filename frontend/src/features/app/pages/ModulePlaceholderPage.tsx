@@ -11,7 +11,7 @@ export function ModulePlaceholderPage({
   const { user } = useAuthSession()
 
   const roleNames = user?.roles
-    .map((role) => role.name ?? role.slug ?? 'Unknown role')
+    .map((role) => role.name ?? role.slug ?? t('common.unknown'))
     .join(' / ')
 
   return (
@@ -27,22 +27,22 @@ export function ModulePlaceholderPage({
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-[1.5rem] border border-border bg-muted/30 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Current operator
+              {t('system.modulePlaceholder.currentOperator')}
             </p>
             <p className="mt-3 text-lg font-semibold text-foreground">
-              {user?.display_name ?? 'Unknown user'}
+              {user?.display_name ?? t('system.modulePlaceholder.unknownUser')}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">{roleNames}</p>
           </div>
           <div className="rounded-[1.5rem] border border-border bg-muted/30 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Active business scope
+              {t('system.modulePlaceholder.activeBusinessScope')}
             </p>
             <p className="mt-3 text-lg font-semibold text-foreground">
-              {user?.primary_business?.display_name ?? 'Global platform scope'}
+              {user?.primary_business?.display_name ?? t('system.modulePlaceholder.globalPlatformScope')}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              This screen is already protected by the live permission payload from the backend.
+              {t('system.modulePlaceholder.scopeDescription')}
             </p>
           </div>
         </div>
@@ -51,10 +51,10 @@ export function ModulePlaceholderPage({
       <aside className="space-y-5">
         <article className="rounded-[2rem] border border-border bg-foreground p-7 text-background shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-background/70">
-            Integration-ready boundary
+            {t('system.modulePlaceholder.integrationReadyBoundary')}
           </p>
           <p className="mt-4 text-sm leading-7 text-background/80">
-            This module is intentionally present before its business API lands, so later integrations can attach to a stable route, shell, and permission contract.
+            {t('system.modulePlaceholder.integrationDescription')}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             {route.permissions.map((permissionId) => (
@@ -70,12 +70,12 @@ export function ModulePlaceholderPage({
 
         <article className="rounded-[2rem] border border-dashed border-border bg-card/70 p-7">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-            Next implementation focus
+            {t('system.modulePlaceholder.nextImplementationFocus')}
           </p>
           <ul className="mt-4 space-y-3 text-sm leading-7 text-muted-foreground">
-            <li>Connect the route to its backend list and detail endpoints.</li>
-            <li>Apply loading, empty, and error states from the canonical screen spec.</li>
-            <li>Keep action-level controls disabled or hidden from the resolved permission payload.</li>
+            <li>{t('system.modulePlaceholder.focus.connectEndpoints')}</li>
+            <li>{t('system.modulePlaceholder.focus.states')}</li>
+            <li>{t('system.modulePlaceholder.focus.permissions')}</li>
           </ul>
         </article>
       </aside>

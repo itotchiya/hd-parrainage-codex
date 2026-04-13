@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -15,7 +16,7 @@ import {
 
 import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
-import { formatDashboardDateFr, formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
+import { formatDashboardDateFr } from '@/features/dashboard/utils/semanticBadges'
 import { useAuthSession } from '@/features/auth/session'
 import { fetchAgents } from '@/features/agents/api'
 import { fetchPrograms } from '@/features/programs/api'
@@ -66,63 +67,12 @@ type TransactionSortKey =
   | 'points'
   | 'occurred'
 
-const statusPresentation: Record<TransactionStatus, { label: string; className: string }> = {
-  detected: {
-    label: 'En attente',
-    className:
-      'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-  },
-  pending: {
-    label: 'En attente',
-    className:
-      'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-  },
-  validated: {
-    label: 'Validée',
-    className:
-      'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
-  },
-  rejected: {
-    label: 'Rejetée',
-    className:
-      'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-  },
-  paid: {
-    label: 'Payée',
-    className:
-      'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-  },
-}
-
 const statusSortOrder: Record<TransactionStatus, number> = {
   detected: 1,
   pending: 1,
   validated: 2,
   rejected: 3,
   paid: 4,
-}
-
-const invoiceStatusPresentation: Record<Exclude<TransactionRecord['invoice_status'], null>, { label: string; className: string }> = {
-  pending: {
-    label: 'En attente',
-    className: 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
-  },
-  paid: {
-    label: 'Réglée',
-    className: 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-  },
-  unpaid: {
-    label: 'Impayée',
-    className: 'border-transparent bg-muted text-muted-foreground',
-  },
-  overdue: {
-    label: 'En retard',
-    className: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-  },
-  cancelled: {
-    label: 'Annulée',
-    className: 'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
-  },
 }
 
 function formatCurrency(amount: number, currencyCode: string) {
@@ -137,77 +87,6 @@ function toTimestamp(value: string | null) {
   if (!value) return Number.NEGATIVE_INFINITY
   const parsed = new Date(value).getTime()
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
-}
-
-function transactionSyncPresentation(transaction: TransactionRecord) {
-  if (transaction.status === 'rejected') {
-    return {
-      label: 'Rejet métier',
-      className:
-        'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-      helper: transaction.rejected_at ? `Rejetée le ${formatDashboardDateTimeFr(transaction.rejected_at)}` : 'Rejetée',
-      rank: 0,
-    }
-  }
-
-  if (transaction.iacrm_transaction_id && transaction.last_synced_at) {
-    return {
-      label: 'Synchronisée',
-      className:
-        'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-      helper: formatDashboardDateTimeFr(transaction.last_synced_at),
-      rank: 3,
-    }
-  }
-
-  if (transaction.last_synced_at) {
-    return {
-      label: 'Trace locale',
-      className:
-        'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-      helper: formatDashboardDateTimeFr(transaction.last_synced_at),
-      rank: 2,
-    }
-  }
-
-  return {
-    label: 'En attente',
-    className:
-      'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
-    helper: 'Aucune synchro',
-    rank: 1,
-  }
-}
-
-function compareTransactions(
-  left: TransactionRecord,
-  right: TransactionRecord,
-  key: TransactionSortKey,
-  direction: SortDirection,
-) {
-  const modifier = direction === 'asc' ? 1 : -1
-  const result =
-    key === 'occurred'
-      ? toTimestamp(left.occurred_at) - toTimestamp(right.occurred_at)
-      : key === 'points'
-        ? (left.points_awarded ?? 0) - (right.points_awarded ?? 0)
-        : key === 'amount'
-          ? left.amount - right.amount
-          : key === 'sync'
-            ? transactionSyncPresentation(left).rank - transactionSyncPresentation(right).rank
-            : key === 'status'
-              ? statusSortOrder[left.status] - statusSortOrder[right.status]
-              : key === 'program'
-                ? (left.program_name ?? '').localeCompare(right.program_name ?? '')
-                : key === 'prospect'
-                  ? (left.prospect_name ?? left.prospect_company_name ?? '').localeCompare(
-                      right.prospect_name ?? right.prospect_company_name ?? '',
-                    )
-                  : `${left.product_name} ${left.transaction_reference}`.localeCompare(
-                      `${right.product_name} ${right.transaction_reference}`,
-                    )
-
-  return result * modifier
 }
 
 function TransactionsPageSkeleton() {
@@ -248,10 +127,135 @@ function TransactionsPageSkeleton() {
 }
 
 export function TransactionsPage() {
+  const { t } = useTranslation()
   const { user, hasPermission } = useAuthSession()
   const isAgentView = Boolean(user?.agent_profile)
   const canViewAgents = !isAgentView && hasPermission('agent.view')
   const canViewPrograms = hasPermission('program.view')
+
+  const statusPresentation: Record<TransactionStatus, { label: string; className: string }> = {
+    detected: {
+      label: t('transactions.status.pending'),
+      className:
+        'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
+    },
+    pending: {
+      label: t('transactions.status.pending'),
+      className:
+        'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
+    },
+    validated: {
+      label: t('transactions.status.validated'),
+      className:
+        'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+    },
+    rejected: {
+      label: t('transactions.status.rejected'),
+      className:
+        'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+    },
+    paid: {
+      label: t('transactions.status.paid'),
+      className:
+        'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+    },
+  }
+
+  const invoiceStatusPresentation: Record<Exclude<TransactionRecord['invoice_status'], null>, { label: string; className: string }> = {
+    pending: {
+      label: t('transactions.invoiceStatus.pending'),
+      className: 'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+    },
+    paid: {
+      label: t('transactions.invoiceStatus.paid'),
+      className: 'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+    },
+    unpaid: {
+      label: t('transactions.invoiceStatus.unpaid'),
+      className: 'border-transparent bg-muted text-muted-foreground',
+    },
+    overdue: {
+      label: t('transactions.invoiceStatus.overdue'),
+      className: 'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+    },
+    cancelled: {
+      label: t('transactions.invoiceStatus.cancelled'),
+      className: 'border-transparent bg-gray-500/15 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300',
+    },
+  }
+
+  function transactionSyncPresentation(transaction: TransactionRecord) {
+    if (transaction.status === 'rejected') {
+      return {
+        label: t('transactions.sync.rejected'),
+        className:
+          'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+        helper: transaction.rejected_at
+          ? t('transactions.sync.rejectedAt', { date: formatDashboardDateFr(transaction.rejected_at) })
+          : t('transactions.sync.rejected'),
+        rank: 0,
+      }
+    }
+
+    if (transaction.iacrm_transaction_id && transaction.last_synced_at) {
+      return {
+        label: t('transactions.sync.synced'),
+        className:
+          'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+        helper: transaction.last_synced_at ? formatDashboardDateFr(transaction.last_synced_at) : '',
+        rank: 3,
+      }
+    }
+
+    if (transaction.last_synced_at) {
+      return {
+        label: t('transactions.sync.localTrace'),
+        className:
+          'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
+        helper: transaction.last_synced_at ? formatDashboardDateFr(transaction.last_synced_at) : '',
+        rank: 2,
+      }
+    }
+
+    return {
+      label: t('transactions.sync.pending'),
+      className:
+        'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+      helper: t('transactions.sync.noSync'),
+      rank: 1,
+    }
+  }
+
+  function compareTransactions(
+    left: TransactionRecord,
+    right: TransactionRecord,
+    key: TransactionSortKey,
+    direction: SortDirection,
+  ) {
+    const modifier = direction === 'asc' ? 1 : -1
+    const result =
+      key === 'occurred'
+        ? toTimestamp(left.occurred_at) - toTimestamp(right.occurred_at)
+        : key === 'points'
+          ? (left.points_awarded ?? 0) - (right.points_awarded ?? 0)
+          : key === 'amount'
+            ? left.amount - right.amount
+            : key === 'sync'
+              ? transactionSyncPresentation(left).rank - transactionSyncPresentation(right).rank
+              : key === 'status'
+                ? statusSortOrder[left.status] - statusSortOrder[right.status]
+                : key === 'program'
+                  ? (left.program_name ?? '').localeCompare(right.program_name ?? '')
+                  : key === 'prospect'
+                    ? (left.prospect_name ?? left.prospect_company_name ?? '').localeCompare(
+                        right.prospect_name ?? right.prospect_company_name ?? '',
+                      )
+                    : `${left.product_name} ${left.transaction_reference}`.localeCompare(
+                        `${right.product_name} ${right.transaction_reference}`,
+                      )
+
+    return result * modifier
+  }
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | TransactionStatus>('all')
@@ -333,16 +337,16 @@ export function TransactionsPage() {
           .filter((transaction) => transaction.program_id && transaction.program_name)
           .map((transaction) => [
             transaction.program_id,
-            { id: transaction.program_id, name: transaction.program_name ?? 'Programme' },
+            { id: transaction.program_id, name: transaction.program_name ?? t('transactions.fallback.program') },
           ]),
       ).values(),
     ).sort((left, right) => left.name.localeCompare(right.name))
-  }, [programsQuery.data?.data, transactions])
+  }, [programsQuery.data?.data, transactions, t])
 
   const agentOptions = useMemo(() => {
     if (agentsQuery.data?.data) {
       return agentsQuery.data.data
-        .map((agent) => ({ id: agent.id, name: agent.display_name ?? 'Affilié' }))
+        .map((agent) => ({ id: agent.id, name: agent.display_name ?? t('transactions.fallback.agent') }))
         .sort((left, right) => left.name.localeCompare(right.name))
     }
 
@@ -352,11 +356,11 @@ export function TransactionsPage() {
           .filter((transaction) => transaction.agent_id && transaction.agent_name)
           .map((transaction) => [
             transaction.agent_id,
-            { id: transaction.agent_id, name: transaction.agent_name ?? 'Affilié' },
+            { id: transaction.agent_id, name: transaction.agent_name ?? t('transactions.fallback.agent') },
           ]),
       ).values(),
     ).sort((left, right) => left.name.localeCompare(right.name))
-  }, [agentsQuery.data?.data, transactions])
+  }, [agentsQuery.data?.data, transactions, t])
 
   const sortedTransactions = useMemo(
     () => [...transactions].sort((left, right) => compareTransactions(left, right, sortKey, sortDirection)),
@@ -416,7 +420,7 @@ export function TransactionsPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Transactions"
+        title={t('transactions.pageTitle')}
         right={
           <PageHeaderToolbar>
             {hasActiveFilters ? (
@@ -436,12 +440,12 @@ export function TransactionsPage() {
                         setDateFrom('')
                         setDateTo('')
                       }}
-                      aria-label="Effacer les filtres"
+                      aria-label={t('transactions.filters.clearFilters')}
                     >
                       <FilterX className="size-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Effacer les filtres</TooltipContent>
+                  <TooltipContent>{t('transactions.filters.clearFilters')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}
@@ -452,7 +456,7 @@ export function TransactionsPage() {
                 id="transactions-search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Référence, produit, prospect..."
+                placeholder={t('transactions.filters.searchPlaceholder')}
                 className="pl-9"
               />
             </div>
@@ -461,11 +465,11 @@ export function TransactionsPage() {
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value as 'all' | TransactionStatus)}
             >
-              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="Tous statuts" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder={t('transactions.filters.allStatuses')} /></SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Statut</SelectLabel>
-                  <SelectItem value="all">Tous statuts</SelectItem>
+                  <SelectLabel>{t('transactions.filters.statusLabel')}</SelectLabel>
+                  <SelectItem value="all">{t('transactions.filters.allStatuses')}</SelectItem>
                   {Object.entries(statusPresentation)
                     .filter(([key]) => key !== 'detected')
                     .map(([key, status]) => (
@@ -477,11 +481,11 @@ export function TransactionsPage() {
 
             {programOptions.length > 1 ? (
               <Select value={programFilter} onValueChange={setProgramFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tous programmes" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder={t('transactions.filters.allPrograms')} /></SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Programme</SelectLabel>
-                    <SelectItem value="all">Tous programmes</SelectItem>
+                    <SelectLabel>{t('transactions.filters.programLabel')}</SelectLabel>
+                    <SelectItem value="all">{t('transactions.filters.allPrograms')}</SelectItem>
                     {programOptions.map((program) => (
                       <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
                     ))}
@@ -492,11 +496,11 @@ export function TransactionsPage() {
 
             {canViewAgents && agentOptions.length > 1 ? (
               <Select value={agentFilter} onValueChange={setAgentFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Tous affiliés" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder={t('transactions.filters.allAgents')} /></SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Affilié</SelectLabel>
-                    <SelectItem value="all">Tous affiliés</SelectItem>
+                    <SelectLabel>{t('transactions.filters.agentLabel')}</SelectLabel>
+                    <SelectItem value="all">{t('transactions.filters.allAgents')}</SelectItem>
                     {agentOptions.map((agent) => (
                       <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
                     ))}
@@ -511,7 +515,7 @@ export function TransactionsPage() {
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               className="w-full sm:w-[148px]"
-              aria-label="Date de début"
+              aria-label={t('transactions.filters.startDate')}
             />
             <Input
               id="transactions-date-to"
@@ -519,7 +523,7 @@ export function TransactionsPage() {
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               className="w-full sm:w-[148px]"
-              aria-label="Date de fin"
+              aria-label={t('transactions.filters.endDate')}
             />
           </PageHeaderToolbar>
         }
@@ -529,41 +533,41 @@ export function TransactionsPage() {
         {isAgentView ? (
           <>
             <KpiCard
-              title="En attente"
+              title={t('transactions.kpi.agent.pending.title')}
               value={((statusBreakdown?.pending ?? 0) + (statusBreakdown?.detected ?? 0)).toLocaleString('fr-FR')}
-              description="Factures en cours"
+              description={t('transactions.kpi.agent.pending.description')}
               icon={Link2}
               tone="info"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Validées"
+              title={t('transactions.kpi.agent.validated.title')}
               value={(statusBreakdown?.validated ?? 0).toLocaleString('fr-FR')}
-              description="Factures validées"
+              description={t('transactions.kpi.agent.validated.description')}
               icon={BadgeCheck}
               tone="warning"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Réglées"
+              title={t('transactions.kpi.agent.paid.title')}
               value={(statusBreakdown?.paid ?? 0).toLocaleString('fr-FR')}
-              description="Factures payées"
+              description={t('transactions.kpi.agent.paid.description')}
               icon={Banknote}
               tone="success"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Rejetées"
+              title={t('transactions.kpi.agent.rejected.title')}
               value={(statusBreakdown?.rejected ?? 0).toLocaleString('fr-FR')}
-              description="Factures rejetées"
+              description={t('transactions.kpi.agent.rejected.description')}
               icon={CircleDollarSign}
               tone="danger"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Points totaux"
+              title={t('transactions.kpi.agent.points.title')}
               value={`${(summary?.points_awarded_total ?? 0).toLocaleString('fr-FR')} pts`}
-              description="Points gagnés sur vos transactions"
+              description={t('transactions.kpi.agent.points.description')}
               icon={Coins}
               tone="info"
               isLoading={isKpiLoading}
@@ -572,41 +576,41 @@ export function TransactionsPage() {
         ) : (
           <>
             <KpiCard
-              title="Volume total"
+              title={t('transactions.kpi.owner.volume.title')}
               value={formatCurrency(summary?.total_amount ?? 0, 'EUR')}
-              description={`${summary?.transaction_count ?? 0} transactions dans le scope courant`}
+              description={t('transactions.kpi.owner.volume.description', { count: summary?.transaction_count ?? 0 })}
               icon={CircleDollarSign}
               tone="primary"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Transactions"
+              title={t('transactions.kpi.owner.transactions.title')}
               value={(summary?.transaction_count ?? 0).toLocaleString('fr-FR')}
-              description={`${summary?.linked_prospect_count ?? 0} reliées à un prospect`}
+              description={t('transactions.kpi.owner.transactions.description', { count: summary?.linked_prospect_count ?? 0 })}
               icon={Link2}
               tone="info"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Validé"
+              title={t('transactions.kpi.owner.validated.title')}
               value={formatCurrency(summary?.validated_amount ?? 0, 'EUR')}
-              description="Montant reconnu après validation"
+              description={t('transactions.kpi.owner.validated.description')}
               icon={BadgeCheck}
               tone="warning"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Réglé"
+              title={t('transactions.kpi.owner.paid.title')}
               value={formatCurrency(summary?.paid_amount ?? 0, 'EUR')}
-              description="Montant déjà payé"
+              description={t('transactions.kpi.owner.paid.description')}
               icon={Banknote}
               tone="success"
               isLoading={isKpiLoading}
             />
             <KpiCard
-              title="Points"
+              title={t('transactions.kpi.owner.points.title')}
               value={`${(summary?.points_awarded_total ?? 0).toLocaleString('fr-FR')} pts`}
-              description="Points générés pour les affiliés"
+              description={t('transactions.kpi.owner.points.description')}
               icon={Coins}
               tone="info"
               isLoading={isKpiLoading}
@@ -617,15 +621,15 @@ export function TransactionsPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title={isAgentView ? 'Mes transactions' : 'Toutes les transactions'}
+          title={isAgentView ? t('transactions.section.agent') : t('transactions.section.owner')}
         />
 
         {totalItems === 0 ? (
           <article className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-            <p className="app-eyebrow">Ledger transactionnel</p>
-            <h2 className="mt-2 text-lg font-semibold text-foreground">Aucune transaction ne correspond aux filtres.</h2>
+            <p className="app-eyebrow">{t('transactions.empty.eyebrow')}</p>
+            <h2 className="mt-2 text-lg font-semibold text-foreground">{t('transactions.empty.title')}</h2>
             <p className="mt-2 max-w-2xl">
-              Ajustez la période, le statut ou le périmètre programme/affilié pour retrouver une transaction existante.
+              {t('transactions.empty.hint')}
             </p>
           </article>
         ) : (
@@ -642,7 +646,7 @@ export function TransactionsPage() {
                       onSort={handleSort}
                       className="min-w-[12rem]"
                     >
-                      Transaction
+                      {t('transactions.table.transaction')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="prospect"
@@ -651,7 +655,7 @@ export function TransactionsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[11rem] md:table-cell"
                     >
-                      Prospect
+                      {t('transactions.table.prospect')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="program"
@@ -660,7 +664,7 @@ export function TransactionsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[10rem] lg:table-cell"
                     >
-                      Programme
+                      {t('transactions.table.program')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="status"
@@ -668,7 +672,7 @@ export function TransactionsPage() {
                       direction={sortDirection}
                       onSort={handleSort}
                     >
-                      Statut
+                      {t('transactions.table.status')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="sync"
@@ -677,7 +681,7 @@ export function TransactionsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[9rem] xl:table-cell"
                     >
-                      Sync
+                      {t('transactions.table.sync')}
                     </SortableTableHead>
                     {!isAgentView ? (
                       <SortableTableHead
@@ -688,7 +692,7 @@ export function TransactionsPage() {
                         className="hidden text-right sm:table-cell"
                         align="right"
                       >
-                        Montant
+                        {t('transactions.table.amount')}
                       </SortableTableHead>
                     ) : null}
                     <SortableTableHead
@@ -699,7 +703,7 @@ export function TransactionsPage() {
                       className="hidden text-right xl:table-cell"
                       align="right"
                     >
-                      Points
+                      {t('transactions.table.points')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="occurred"
@@ -708,9 +712,9 @@ export function TransactionsPage() {
                       onSort={handleSort}
                       className="hidden min-w-[8rem] lg:table-cell"
                     >
-                      Survenue
+                      {t('transactions.table.occurred')}
                     </SortableTableHead>
-                    <TableHead className="w-[84px] pe-3 text-right">Actions</TableHead>
+                    <TableHead className="w-[84px] pe-3 text-right">{t('transactions.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -720,7 +724,6 @@ export function TransactionsPage() {
                     const prospectHref = transaction.prospect
                       ? buildProspectDetailPath({
                           prospectId: transaction.prospect.id,
-                          agentId: transaction.agent_id,
                         })
                       : null
 
@@ -752,16 +755,16 @@ export function TransactionsPage() {
                               className="group -m-1 block cursor-pointer rounded-md p-1 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
                               <p className="truncate font-medium text-primary underline underline-offset-4 decoration-border group-hover:decoration-primary">
-                                {transaction.prospect_name ?? 'Prospect lié'}
+                                {transaction.prospect_name ?? t('transactions.fallback.linkedProspect')}
                               </p>
                               <p className="truncate text-[11px] text-muted-foreground">
-                                {transaction.prospect_company_name ?? 'Sans société'}
+                                {transaction.prospect_company_name ?? t('transactions.fallback.noCompany')}
                               </p>
                             </Link>
                           ) : (
                             <div className="px-1 py-1">
-                              <p className="truncate text-sm text-foreground">Aucun prospect lié</p>
-                              <p className="truncate text-[11px] text-muted-foreground">Transaction non rattachée</p>
+                              <p className="truncate text-sm text-foreground">{t('transactions.fallback.noLinkedProspect')}</p>
+                              <p className="truncate text-[11px] text-muted-foreground">{t('transactions.fallback.unattached')}</p>
                             </div>
                           )}
                         </TableCell>
@@ -775,11 +778,11 @@ export function TransactionsPage() {
                                 {transaction.program_name}
                               </p>
                               <p className="truncate text-[11px] text-muted-foreground">
-                                {transaction.agent_name ?? 'Sans affilié'}
+                                {transaction.agent_name ?? t('transactions.fallback.noAgent')}
                               </p>
                             </Link>
                           ) : (
-                            <div className="px-1 py-1 text-sm text-muted-foreground">Aucun programme</div>
+                            <div className="px-1 py-1 text-sm text-muted-foreground">{t('transactions.fallback.noProgram')}</div>
                           )}
                         </TableCell>
                         <TableCell>
@@ -821,12 +824,12 @@ export function TransactionsPage() {
                                     size="icon-sm"
                                     className="hidden border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary md:inline-flex"
                                   >
-                                    <Link to={`/transactions/${transaction.id}`} aria-label="Voir la transaction">
+                                    <Link to={`/transactions/${transaction.id}`} aria-label={t('transactions.actions.view')}>
                                       <Eye className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Voir la transaction</TooltipContent>
+                                <TooltipContent>{t('transactions.actions.view')}</TooltipContent>
                               </Tooltip>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -835,7 +838,7 @@ export function TransactionsPage() {
                                     variant="ghost"
                                     size="icon-sm"
                                     className="md:hidden"
-                                    aria-label="Plus d'options"
+                                    aria-label={t('transactions.actions.moreOptions')}
                                   >
                                     <MoreHorizontal className="size-4" />
                                   </Button>
@@ -844,7 +847,7 @@ export function TransactionsPage() {
                                   <DropdownMenuItem asChild>
                                     <Link to={`/transactions/${transaction.id}`}>
                                       <Eye className="size-4 text-primary" />
-                                      <span>Voir la transaction</span>
+                                      <span>{t('transactions.actions.view')}</span>
                                     </Link>
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>

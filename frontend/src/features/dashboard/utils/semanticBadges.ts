@@ -1,3 +1,4 @@
+import { formatAppDate, formatAppDateTime } from '@/lib/locale'
 import type { ProgramStatus } from '@/types/programs'
 import type { TransactionStatus } from '@/types/transactions'
 
@@ -68,21 +69,9 @@ export function exchangePackStatusBadgeClass(status: string | null): string {
 }
 
 export function formatDashboardDateFr(value: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatAppDate(value)
 }
 
 export function formatDashboardDateTimeFr(value: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatAppDateTime(value)
 }

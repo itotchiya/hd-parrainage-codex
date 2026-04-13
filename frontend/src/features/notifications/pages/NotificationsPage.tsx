@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, Check, Info, Mail, AlertTriangle, XCircle, CheckCircle, Clock, ExternalLink, ArrowRight, ArrowDownRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../../lib/api'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '../api'
 import { KpiCard, kpiSnapshotBadge } from '../../dashboard/components/KpiCard'
@@ -11,17 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
 import { Badge } from '@/components/ui/badge'
 import type { AppNotificationRecord } from '../../../types/notifications'
+import { formatAppDateTime } from '@/lib/locale'
 
 function formatNotificationDate(value: string | null) {
-  if (!value) return ''
-  const date = new Date(value)
-  return date.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return value ? formatAppDateTime(value) : ''
 }
 
 // Map severity/type to colors/icons based on role analysis
@@ -61,18 +55,21 @@ function getNotificationSemanticInfo(severity: string, notificationType: string)
 }
 
 function EmptyState({ message }: { message: string }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex min-h-[250px] flex-col items-center justify-center rounded-xl border border-dashed bg-card px-6 py-12 text-center">
       <div className="flex size-14 items-center justify-center rounded-full bg-muted">
         <Mail className="size-7 text-muted-foreground/60" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-foreground">Tout est a jour</h3>
+      <h3 className="mt-4 text-base font-semibold text-foreground">{t('notifications.page.allCaughtUp')}</h3>
       <p className="mt-1 text-sm text-muted-foreground">{message}</p>
     </div>
   )
 }
 
 export function NotificationsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const listQuery = useQuery({
     queryKey: ['notifications', 'list'],
@@ -104,7 +101,7 @@ export function NotificationsPage() {
   )
 
   if (listQuery.isPending) {
-    return <article className="app-panel text-sm text-muted-foreground">Chargement des notifications...</article>
+    return <article className="app-panel text-sm text-muted-foreground">{t('notifications.page.loading')}</article>
   }
 
   if (listQuery.isError) {
@@ -134,7 +131,7 @@ export function NotificationsPage() {
               className="gap-2"
             >
               <Check className="size-4" />
-              Tout marquer comme lu
+              {t('notifications.markAllRead')}
             </Button>
           </PageHeaderToolbar>
         }
@@ -142,17 +139,17 @@ export function NotificationsPage() {
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 mb-2">
         <KpiCard
-          title="Boite de reception"
+          title={t('notifications.page.inbox')}
           value={unreadCount.toString()}
-          description="Notifications en attente"
+          description={t('notifications.page.pendingNotifications')}
           badge={kpiSnapshotBadge('Inbox')}
           icon={Mail}
           tone="info"
         />
         <KpiCard
-          title="Archives"
+          title={t('notifications.page.archive')}
           value={grouped.read.length.toString()}
-          description="Conservees pour l'historique"
+          description={t('notifications.page.archivedDescription')}
           badge={kpiSnapshotBadge('Stockees')}
           icon={Archive}
           tone="success"
@@ -165,7 +162,7 @@ export function NotificationsPage() {
             value="inbox" 
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-1 py-3 font-semibold text-muted-foreground data-[state=active]:text-foreground"
           >
-            A traiter
+            {t('notifications.page.toProcess')}
             {grouped.unread.length > 0 && (
               <span className="ml-2 text-xs font-normal opacity-60">({grouped.unread.length})</span>
             )}
@@ -174,7 +171,7 @@ export function NotificationsPage() {
             value="archive"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-1 py-3 font-semibold text-muted-foreground data-[state=active]:text-foreground"
           >
-            Archive
+            {t('notifications.page.archive')}
             <span className="ml-2 text-xs font-normal opacity-60">({grouped.read.length})</span>
           </TabsTrigger>
         </TabsList>
@@ -182,7 +179,7 @@ export function NotificationsPage() {
         <TabsContent value="inbox" className="m-0 focus-visible:outline-none">
           <div className="flex flex-col gap-3">
             {grouped.unread.length === 0 ? (
-              <EmptyState message="Vous n'avez aucune nouvelle notification." />
+              <EmptyState message={t('notifications.page.noNewNotifications')} />
             ) : (
               grouped.unread.map((item) => (
                 <NotificationItem 
@@ -199,7 +196,7 @@ export function NotificationsPage() {
         <TabsContent value="archive" className="m-0 focus-visible:outline-none">
           <div className="flex flex-col gap-3">
             {grouped.read.length === 0 ? (
-              <EmptyState message="Votre historique de notifications est vide." />
+              <EmptyState message={t('notifications.page.emptyHistory')} />
             ) : (
               grouped.read.map((item) => (
                 <NotificationItem 
@@ -217,6 +214,7 @@ export function NotificationsPage() {
 }
 
 function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unknown> | null, type: string }): ReactNode {
+  const { t } = useTranslation()
   if (!metadata || Object.keys(metadata).length === 0) return null;
 
   // Specific Layouts based on type
@@ -224,8 +222,8 @@ function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unkn
     return (
       <div className="mt-3 flex items-center gap-2 text-sm text-foreground/80 bg-muted/30 p-2.5 rounded-lg border w-fit">
         <ArrowDownRight className="size-4 text-muted-foreground" />
-        Transaction <span className="font-mono text-xs">{String(metadata.exchange_id).slice(0, 8)}...</span>
-        {metadata.amount != null && <span>pour <strong>{String(metadata.amount)} pts</strong></span>}
+        {t('notifications.page.transactionLabel')} <span className="font-mono text-xs">{String(metadata.exchange_id).slice(0, 8)}...</span>
+        {metadata.amount != null && <span>{t('notifications.page.forPoints')} <strong>{String(metadata.amount)} pts</strong></span>}
       </div>
     );
   }
@@ -234,7 +232,7 @@ function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unkn
     return (
       <div className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-800 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
         <ArrowRight className="size-4" />
-        <span className="font-semibold">+{String(metadata.amount)} pts obtenus</span>
+        <span className="font-semibold">+{String(metadata.amount)} {t('notifications.page.pointsEarned')}</span>
       </div>
     );
   }
@@ -242,7 +240,7 @@ function RoleSpecificDetails({ metadata, type }: { metadata: Record<string, unkn
   // Fallback for generic metadata
   return (
     <div className="mt-3 text-xs text-muted-foreground bg-muted p-2.5 rounded-lg border inline-block w-fit max-w-full truncate overflow-hidden">
-      <span className="font-semibold text-foreground">Details:</span> {JSON.stringify(metadata)}
+      <span className="font-semibold text-foreground">{t('notifications.page.details')}:</span> {JSON.stringify(metadata)}
     </div>
   );
 }
@@ -258,6 +256,7 @@ function RoleSpecificActions({
   isBusy?: boolean,
   isArchive?: boolean
 }) {
+  const { t } = useTranslation()
   const isExchangeAction = item.notification_type === 'exchange_requested' && item.metadata?.exchange_id != null;
 
   return (
@@ -276,7 +275,7 @@ function RoleSpecificActions({
             className="h-8 gap-1.5"
           >
             <Link to={`/exchanges/${item.metadata?.exchange_id}`}>
-              Visualiser
+              {t('notifications.page.view')}
               <ExternalLink className="size-3.5" />
             </Link>
           </Button>
@@ -291,7 +290,7 @@ function RoleSpecificActions({
             className="h-8 gap-2 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors"
           >
             <Check className="size-4" />
-            Lu
+            {t('notifications.page.read')}
           </Button>
         )}
       </div>

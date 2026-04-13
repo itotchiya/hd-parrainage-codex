@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,23 +16,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DashboardSectionHeader } from './DashboardSectionHeader'
 import { programStatusBadgeClass } from '../utils/semanticBadges'
 import type { ProgramRecord } from '@/types/programs'
+import { formatAppNumber } from '@/lib/locale'
 
-function commissionLabel(type: ProgramRecord['commission_type']) {
-  return type === 'per-transaction' ? 'Par transaction' : 'Par tranche de CA'
+function commissionLabel(type: ProgramRecord['commission_type'], t: (key: string) => string) {
+  return type === 'per-transaction'
+    ? t('dashboard.programsOverview.commission.perTransaction')
+    : t('dashboard.programsOverview.commission.revenueTier')
 }
 
-function exchangeModeLabel(mode: ProgramRecord['exchange_mode']) {
-  if (mode === 'cash') return 'Espèces'
-  if (mode === 'reward') return 'Récompenses'
-  return 'Espèces + récompenses'
-}
-
-const STATUS_LABEL_FR: Record<ProgramRecord['status'], string> = {
-  active: 'Actif',
-  paused: 'En pause',
-  suspended: 'Suspendu',
-  draft: 'Brouillon',
-  archived: 'Archivé',
+function exchangeModeLabel(mode: ProgramRecord['exchange_mode'], t: (key: string) => string) {
+  if (mode === 'cash') return t('programs.exchangeModes.cash')
+  if (mode === 'reward') return t('programs.exchangeModes.reward')
+  return t('programs.exchangeModes.both')
 }
 
 interface ProgramsOverviewTableProps {
@@ -40,10 +36,12 @@ interface ProgramsOverviewTableProps {
 }
 
 export function ProgramsOverviewTable({ programs, defaultBusinessName }: ProgramsOverviewTableProps) {
+  const { t } = useTranslation()
+
   const headerActions = (
     <Button asChild variant="ghost" size="sm" className="gap-1.5">
       <Link to="/programs">
-        Voir tous les programmes
+        {t('dashboard.programsOverview.viewAll')}
         <ArrowRight className="size-4" aria-hidden />
       </Link>
     </Button>
@@ -51,23 +49,23 @@ export function ProgramsOverviewTable({ programs, defaultBusinessName }: Program
 
   return (
     <>
-      <DashboardSectionHeader title="Programmes" actions={headerActions} />
+      <DashboardSectionHeader title={t('dashboard.sections.programsOverview')} actions={headerActions} />
 
       {programs.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/80 bg-muted/10 py-8 text-center text-sm text-muted-foreground">
-          Aucun programme pour ce compte.
+          {t('dashboard.programsOverview.empty')}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Programme</TableHead>
-                <TableHead className="hidden md:table-cell">Entreprise</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="hidden lg:table-cell">Rémunération</TableHead>
-                <TableHead className="hidden xl:table-cell">Échange</TableHead>
-                <TableHead className="text-right">Affiliés</TableHead>
+                <TableHead>{t('dashboard.programsOverview.columns.program')}</TableHead>
+                <TableHead className="hidden md:table-cell">{t('dashboard.programsOverview.columns.business')}</TableHead>
+                <TableHead>{t('dashboard.programsOverview.columns.status')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('dashboard.programsOverview.columns.commission')}</TableHead>
+                <TableHead className="hidden xl:table-cell">{t('dashboard.programsOverview.columns.exchange')}</TableHead>
+                <TableHead className="text-right">{t('dashboard.programsOverview.columns.affiliates')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -95,22 +93,19 @@ export function ProgramsOverviewTable({ programs, defaultBusinessName }: Program
                       {business}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={programStatusBadgeClass(p.status)}
-                      >
-                        {STATUS_LABEL_FR[p.status]}
+                      <Badge variant="outline" className={programStatusBadgeClass(p.status)}>
+                        {t(`programs.status.${p.status}`)}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground lg:table-cell">
-                      {commissionLabel(p.commission_type)}
+                      {commissionLabel(p.commission_type, t)}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground xl:table-cell">
-                      {exchangeModeLabel(p.exchange_mode)}
+                      {exchangeModeLabel(p.exchange_mode, t)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-foreground">
                       {typeof p.assigned_agents_count === 'number'
-                        ? p.assigned_agents_count.toLocaleString('fr-FR')
+                        ? formatAppNumber(p.assigned_agents_count)
                         : '—'}
                     </TableCell>
                   </TableRow>

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Percent, Plus, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
+import { Loader2, Percent, Plus, RotateCcw, TrendingUp, UserCheck, Users, Wallet } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { isCurrentBusinessAgent, isCurrentBusinessOwner, isSuperAdminUser } from '../../../lib/auth-scope'
 import { useAuthSession } from '../../auth/session'
@@ -21,8 +21,18 @@ import { KpiCard, KpiCardSkeleton } from '../components/KpiCard'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  formatLastUpdatedLabel,
+  invalidateOwnerRefreshQueries,
+  useOwnerRefreshPolicy,
+} from '@/features/dashboard/owner-refresh'
 import type { ProgramRecord } from '../../../types/programs'
-import type { DashboardMetricCardRecord, DashboardMetricKey } from '../../../types/dashboard'
+import type {
+  BusinessDashboardSummaryEnvelope,
+  DashboardMetricCardRecord,
+  DashboardMetricKey,
+} from '../../../types/dashboard'
+import type { AgentListEnvelope } from '@/types/agents'
 import { PerformanceProspectsClientsChartSkeleton } from '../components/PerformanceProspectsClientsChart'
 import { PointsBalancePieChartSkeleton } from '../components/PointsBalancePieChart'
 import { TopAffiliatesByProspectsTableSkeleton } from '../components/TopAffiliatesByProspectsTable'
@@ -76,20 +86,24 @@ function DashboardPageSkeleton() {
 
 export function DashboardPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { user } = useAuthSession()
   const isSuperAdmin = isSuperAdminUser(user)
   const isBusinessOwner = isCurrentBusinessOwner(user)
   const isAgent = isCurrentBusinessAgent(user)
+  const { isBurstActive, queryOptions, triggerBurst } = useOwnerRefreshPolicy(isBusinessOwner)
 
   const programsQuery = useQuery({
     queryKey: ['dashboard', 'programs'],
     queryFn: fetchPrograms,
     enabled: isBusinessOwner,
   })
-  const summaryQuery = useQuery({
+  const summaryQuery = useQuery<BusinessDashboardSummaryEnvelope>({
     queryKey: ['dashboard', 'business-summary'],
     queryFn: fetchBusinessDashboardSummary,
     enabled: isBusinessOwner,
+    refetchOnWindowFocus: queryOptions.refetchOnWindowFocus,
+    refetchInterval: queryOptions.refetchInterval,
   })
   const prospectsQuery = useQuery({
     queryKey: ['dashboard', 'prospects'],
@@ -106,10 +120,12 @@ export function DashboardPage() {
     queryFn: () => fetchPointsLedger(),
     enabled: isBusinessOwner,
   })
-  const agentsQuery = useQuery({
+  const agentsQuery = useQuery<AgentListEnvelope>({
     queryKey: ['dashboard', 'agents'],
     queryFn: fetchAgents,
     enabled: isBusinessOwner,
+    refetchOnWindowFocus: queryOptions.refetchOnWindowFocus,
+    refetchInterval: queryOptions.refetchInterval,
   })
 
   const programs = useMemo(() => programsQuery.data?.data ?? [], [programsQuery.data])
@@ -118,6 +134,17 @@ export function DashboardPage() {
   const pointsLedger = useMemo(() => pointsLedgerQuery.data?.data ?? [], [pointsLedgerQuery.data])
   const agents = useMemo(() => agentsQuery.data?.data ?? [], [agentsQuery.data])
   const summaryCards = summaryQuery.data?.data.cards ?? []
+  const pendingAgentInvites = useMemo(
+    () =>
+      agents.filter((agent) => {
+        const status = agent.status.toLowerCase().replace(/\s+/g, '_')
+        return status === 'invited' || status === 'pending' || status === 'pending_activation'
+      }).length,
+    [agents],
+  )
+  const dashboardLastUpdatedAt = Math.max(summaryQuery.dataUpdatedAt ?? 0, agentsQuery.dataUpdatedAt ?? 0) || null
+  const dashboardLastUpdatedLabel = formatLastUpdatedLabel(dashboardLastUpdatedAt, t)
+  const dashboardIsRefreshing = summaryQuery.isFetching || agentsQuery.isFetching
 
   const sortedPrograms = useMemo(() => {
     if (programs.length === 0) return []
@@ -259,6 +286,24 @@ export function DashboardPage() {
         title={`${t('dashboard.performanceTitle')} — ${monthLabel}`}
         right={
           <PageHeaderToolbar>
+            <span className="text-xs text-muted-foreground">
+              {dashboardIsRefreshing ? t('common.refreshing') : t('common.lastUpdated', { time: dashboardLastUpdatedLabel })}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                triggerBurst()
+                await invalidateOwnerRefreshQueries(queryClient)
+                await Promise.all([summaryQuery.refetch(), agentsQuery.refetch()])
+              }}
+              disabled={dashboardIsRefreshing}
+              className="gap-2"
+            >
+              {dashboardIsRefreshing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+              {isBurstActive ? t('common.refreshing') : t('common.refresh')}
+            </Button>
             <Button asChild variant="default" size="sm" className="w-auto self-start gap-2">
               <Link to="/agents">
                 <Plus className="size-4" aria-hidden />
@@ -281,6 +326,11 @@ export function DashboardPage() {
           />
         ))}
       </div>
+      {pendingAgentInvites > 0 ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+          {t('dashboard.pendingInvitesHint', { count: pendingAgentInvites })}
+        </p>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-2.5 md:gap-3 xl:grid-cols-5">
         <article className="rounded-lg bg-card p-3 sm:p-4 xl:col-span-3">

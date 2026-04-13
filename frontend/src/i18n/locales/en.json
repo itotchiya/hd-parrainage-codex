@@ -17,6 +17,8 @@
     "search": "Search",
     "filter": "Filter",
     "clearFilters": "Clear filters",
+    "refresh": "Refresh",
+    "refreshing": "Updating...",
     "loading": "Loading...",
     "noResults": "No results found",
     "confirm": "Confirm",
@@ -44,6 +46,7 @@
     "required": "Required",
     "optional": "Optional",
     "notSet": "Not set",
+    "notAvailable": "Unavailable",
     "unknown": "Unknown",
     "untitled": "Untitled",
     "details": "Details",
@@ -58,7 +61,12 @@
     "to": "To",
     "by": "By",
     "points": "points",
-    "pts": "pts"
+    "pts": "pts",
+    "updatedJustNow": "Just now",
+    "updatedSecondsAgo": "{{count}}s ago",
+    "updatedMinutesAgo": "{{count}}m ago",
+    "updatedHoursAgo": "{{count}}h ago",
+    "lastUpdated": "Last updated {{time}}"
   },
   "auth": {
     "signIn": "Sign in",
@@ -118,6 +126,7 @@
     "hello": "Hello",
     "performanceTitle": "Monthly Performance",
     "addAffiliate": "Add affiliate",
+    "pendingInvitesHint": "{{count}} invited affiliate is still waiting for activation, so contributor metrics may lag slightly.",
     "kpis": {
       "prospectsSynced": "Prospects Synced",
       "clientsConverted": "Clients Converted",
@@ -133,6 +142,22 @@
     },
     "errors": {
       "loadFailed": "Unable to load dashboard data."
+    },
+    "programsOverview": {
+      "viewAll": "View all programs",
+      "empty": "No program is available for this account.",
+      "columns": {
+        "program": "Program",
+        "business": "Business",
+        "status": "Status",
+        "commission": "Compensation",
+        "exchange": "Exchange",
+        "affiliates": "Affiliates"
+      },
+      "commission": {
+        "perTransaction": "Per transaction",
+        "revenueTier": "Revenue tier"
+      }
     }
   },
   "agents": {
@@ -170,9 +195,11 @@
     "status": {
       "active": "Active",
       "pending": "Pending",
+      "pendingActivation": "Pending activation",
       "suspended": "Suspended",
       "invited": "Invited"
     },
+    "pendingInvitesHint": "{{count}} invited affiliate is waiting for activation.",
     "filters": {
       "allStatuses": "All statuses",
       "status": "Status"
@@ -188,6 +215,9 @@
       "reactivateTitle": "Reactivate Affiliate",
       "reactivateDescription": "This action will restore the affiliate's access to the platform.",
       "reason": "Reason (optional)"
+    },
+    "detail": {
+      "breadcrumbFallback": "Affiliate"
     }
   },
   "prospects": {
@@ -236,7 +266,10 @@
         "viewHistory": "View history",
         "viewAgent": "View agent",
         "delete": "Delete referral"
-      }
+      },
+      "timeline": "Timeline",
+      "events": "events",
+      "unknownAgent": "Unknown agent"
     },
     "kpis": {
       "converted": "Converted",
@@ -257,7 +290,9 @@
       "addMethodDescription": "Choose how you want to add a new referral.",
       "addFormOption": "Fill out the form",
       "addShareOption": "Share registration link"
-    }
+    },
+    "listEyebrow": "Referral list",
+    "deleted": "Deleted"
   },
   "programs": {
     "title": "Programs",
@@ -275,7 +310,7 @@
       "allStatuses": "All statuses",
       "business": "Business",
       "allBusinesses": "All businesses",
-      "exchangeMode": "Exchange Mode",
+      "exchangeMode": "Exchange mode",
       "allModes": "All modes",
       "sort": "Sort programs",
       "sortBy": "Sort by"
@@ -303,23 +338,507 @@
     },
     "noResults": "No program matches the current filter.",
     "dialogs": {
-      "createTitle": "Create Program",
-      "editTitle": "Edit Program",
+      "createTitle": "Create program",
+      "editTitle": "Edit program",
       "save": "Save",
       "create": "Create",
-      "assignAgents": "Assign Agents",
+      "assignAgents": "Assign agents",
       "assignAgentsDescription": "Select business agents to attach to this program.",
-      "cashRules": "Cash Rules",
-      "rewardPack": "Reward Pack",
-      "confirmDelete": "Confirm Deletion",
+      "cashRules": "Cash rules",
+      "rewardPack": "Reward pack",
+      "confirmDelete": "Confirm deletion",
       "deleteWarning": "This action is irreversible. Please type the program name to confirm.",
-      "lockedAgentTooltip": "This agent has already added referrals to this program and cannot be removed."
+      "lockedAgentTooltip": "This agent already submitted prospects in this program and cannot be removed.",
+      "assignAgentsTitle": "Assign agents{{suffix}}",
+      "assignRewardPackTitle": "Assign a rewards pack{{suffix}}",
+      "assignRewardPackDescriptionLong": "Select an existing rewards pack from the business for this program.",
+      "cancel": "Cancel",
+      "saveAssignments": "Save assignments",
+      "saving": "Saving...",
+      "assignPack": "Assign pack",
+      "giftCount": "{{count}} gift",
+      "giftCount_plural": "{{count}} gifts",
+      "pauseTitle": "Pause this program?",
+      "reactivateTitle": "Reactivate this program?",
+      "suspendTitle": "Suspend this program?",
+      "archiveTitle": "Archive this program?",
+      "deleteTitle": "Delete this program permanently?",
+      "pauseDescription": "Agents will not be able to add new prospects while the program is paused.",
+      "reactivateDescription": "The program will become active again and agents will regain prospect submission.",
+      "suspendDescription": "Benefits linked to this program will be blocked while it enters controlled wind-down.",
+      "archiveDescription": "The program will move to archive and leave current operations.",
+      "deleteDescription": "This action is irreversible. Type the exact program name to confirm.",
+      "expectedName": "Expected name",
+      "deletePlaceholder": "Type the full program name",
+      "processing": "Processing...",
+      "confirmPause": "Confirm pause",
+      "confirmReactivate": "Confirm reactivation",
+      "confirmSuspend": "Confirm suspension",
+      "confirmArchive": "Confirm archive",
+      "confirmDeleteAction": "Delete permanently"
+    },
+    "card": {
+      "noDescription": "No description available.",
+      "actionsLabel": "Program actions",
+      "viewProgram": "View program",
+      "addProspect": "Add prospect",
+      "edit": "Edit",
+      "editCash": "Edit cash",
+      "manageRewards": "Manage rewards pack",
+      "activate": "Activate program",
+      "liftSuspension": "Lift suspension",
+      "reactivate": "Reactivate",
+      "pause": "Pause",
+      "suspend": "Suspend",
+      "archive": "Archive",
+      "assignAgents": "Assign agents",
+      "delete": "Delete",
+      "roleSummary": {
+        "perTransactionFallback": "Per transaction",
+        "perTransactionValue": "{{count}} pts / transaction",
+        "revenueTier": "Revenue tiers"
+      },
+      "exchangeMode": {
+        "both": "Rewards + Cash",
+        "cash": "Cash only",
+        "reward": "Rewards only"
+      },
+      "availability": {
+        "readOnly": "Read only",
+        "ready": "Ready for prospects",
+        "paused": "Temporarily paused",
+        "blocked": "Submission blocked",
+        "unavailable": "Unavailable",
+        "readOnlyHelp": "Prospect submission is not enabled for this workspace.",
+        "readyHelp": "Open the program or submit a new prospect immediately.",
+        "pausedHelp": "Open the program details. Prospect submission is paused.",
+        "blockedHelp": "The owner is winding down this program. New prospects are blocked.",
+        "unavailableHelp": "This program is not open to new submissions."
+      },
+      "timeline": {
+        "notStarted": "Not started",
+        "suspended": "Suspended {{date}}",
+        "paused": "Paused {{date}}",
+        "active": "Activated {{date}}",
+        "archived": "Archived {{date}}",
+        "created": "Created {{date}}"
+      },
+      "meta": {
+        "business": "Business",
+        "points": "Points",
+        "exchange": "Exchange",
+        "attribution": "Attribution",
+        "cash": "Cash",
+        "rewards": "Rewards - {{name}}",
+        "defaultPack": "Pack"
+      },
+      "points": {
+        "toConfigure": "To configure"
+      },
+      "cash": {
+        "configured": "{{count}} pts = 1 EUR",
+        "notConfigured": "Cash not configured",
+        "helper": "Rule used to convert program points into euros."
+      },
+      "rewards": {
+        "itemCost": "{{title}} - {{count}} pts",
+        "noItems": "No reward items configured.",
+        "noPack": "No pack linked"
+      },
+      "assignments": {
+        "none": "No assigned agent",
+        "summary": "Assignments - {{count}} agent",
+        "summary_plural": "Assignments - {{count}} agents",
+        "assignees": "Assignees - {{count}}",
+        "lastUsedProgram": "Assigned {{date}}"
+      },
+      "businessScope": {
+        "title": "Business scope",
+        "descriptionOwner": "Business context of this program.",
+        "descriptionAgent": "The business that owns this program and controls its rules, rewards, and assignments.",
+        "unknown": "Unknown business",
+        "availablePrograms": "{{count}} program available",
+        "availablePrograms_plural": "{{count}} programs available",
+        "viewAll": "View all programs",
+        "additionalPrograms": "+{{count}} additional program",
+        "additionalPrograms_plural": "+{{count}} additional programs",
+        "noOtherPrograms": "No other program found for this business."
+      },
+      "info": {
+        "programDetailFallbackTitle": "Program details",
+        "programDetailFallbackDescription": "Program information.",
+        "attributionTitle": "Attribution",
+        "attributionDescriptionOwner": "Defines how agents earn points from commercial outcomes.",
+        "attributionDescriptionAgent": "Shows how this program grants points for your activity.",
+        "pointsTitle": "Points",
+        "pointsDescriptionOwner": "Current point rate used by this program.",
+        "pointsDescriptionAgent": "Current point value for this program.",
+        "exchangeTitle": "Exchange mode",
+        "exchangeDescriptionOwner": "Exchange configuration for this program.",
+        "exchangeDescriptionAgent": "Shows whether this program offers cash, rewards, or both.",
+        "cashTitle": "Cash conversion",
+        "cashDescriptionOwner": "Defines the point-to-cash conversion ratio.",
+        "cashDescriptionAgent": "Conversion rate used when cash exchange is available.",
+        "rewardsTitle": "Rewards pack",
+        "rewardsDescriptionOwner": "Reward catalog linked to this program and associated point costs.",
+        "rewardsDescriptionAgent": "Reward items available through this program and the points required for each.",
+        "assignmentsTitle": "Assignments",
+        "assignmentsDescriptionOwner": "Agents currently linked to this program.",
+        "assignmentsDescriptionAgent": "Assignment context for this program."
+      },
+      "revenueTierNotice": "Revenue-tier programs remain paused until tier rules are configured.",
+      "suspensionNotice": "Suspended: controlled wind-down mode. New prospects are blocked. You can lift the suspension to return to active, or archive the program after the deadline.",
+      "tooltip": {
+        "editArchived": "Archived program. Use a non-archived program to edit general settings.",
+        "editAssigned": "Agents are already assigned. Remove active assignments before editing general settings.",
+        "editFallback": "Prospects already exist or the program.update permission is missing.",
+        "cashNoMode": "Cash mode is inactive. Switch this program to cash or both to edit this section.",
+        "cashArchived": "Archived program. Use a non-archived program to edit cash rules.",
+        "cashAssigned": "Agents are already assigned. Remove active assignments before editing cash rules.",
+        "cashFallback": "Missing program.update permission.",
+        "rewardsNoMode": "Rewards mode is inactive. Switch this program to reward or both to edit the pack.",
+        "rewardsArchived": "Archived program. Use a non-archived program to edit the rewards pack.",
+        "rewardsFallback": "Missing program.update permission.",
+        "activateNotDraft": "Only a draft program can be activated.",
+        "activateFallback": "Complete the draft configuration and ensure you have program.update.",
+        "liftNotSuspended": "Lift suspension is only available for a suspended program.",
+        "liftFallback": "Missing program.pause permission.",
+        "pausePending": "Another operation is already in progress.",
+        "pauseRevenueTier": "Revenue-tier programs cannot be reactivated until tier logic is finalized.",
+        "pauseReactivate": "Missing program.pause permission for reactivation.",
+        "pauseFallback": "Pausing requires an active program and the program.pause permission.",
+        "suspendInvalidStatus": "Suspension is allowed only for an active or paused program.",
+        "suspendOpenProspects": "There are still open prospects. Close them before suspending.",
+        "suspendFallback": "Missing program.pause permission.",
+        "archiveInvalidStatus": "Archiving is possible only after the program has been suspended.",
+        "archiveNoDeadline": "Suspension end date is missing. Re-suspend the program to recreate the waiting period.",
+        "archiveFallback": "The suspension waiting period is not over or program.pause is missing.",
+        "assignBlocked": "Assignment is blocked while the program is suspended or archived.",
+        "assignFallback": "Missing program.assign-agent permission.",
+        "deleteArchived": "Missing program.update permission to delete this archived program.",
+        "deleteAssigned": "Active assignments exist. Archive the program first or remove allowed assignments.",
+        "deleteFallback": "Deletion is allowed only for an archived program, or one without active assignments and prospects.",
+        "prospectPermission": "Missing prospect.submit permission.",
+        "prospectInactive": "The program is not active. Reactivate it before adding prospects.",
+        "prospectFallback": "Action temporarily unavailable. Refresh and try again."
+      }
+    },
+    "detail": {
+      "missingId": "Program identifier is missing from the current route.",
+      "backToPrograms": "Back to programs",
+      "moreActions": "More actions",
+      "addProspect": "Add prospect",
+      "edit": "Edit",
+      "manageRewards": "Manage rewards",
+      "reactivate": "Reactivate",
+      "pause": "Pause",
+      "assignAgents": "Assign agents",
+      "editCash": "Edit cash",
+      "activate": "Activate program",
+      "liftSuspension": "Lift suspension",
+      "suspend": "Suspend",
+      "archive": "Archive",
+      "delete": "Delete",
+      "coverage": "Coverage",
+      "pipeline": "Pipeline",
+      "result": "Outcome",
+      "kpi": {
+        "assignedAgents": "Assigned agents",
+        "assignedAgentsDescription": "Agents currently linked to this program",
+        "prospects": "Prospects",
+        "prospectsDescription": "Active prospects submitted through this program",
+        "converted": "Converted",
+        "convertedDescription": "Prospects marked as converted",
+        "pointsRule": "Points rule",
+        "pointsRuleTiers": "Tiers",
+        "pointsRuleDescriptionValue": "Points per transaction",
+        "pointsRuleDescriptionTiers": "Tier-based configuration"
+      },
+      "overviewTitle": "Program overview",
+      "overviewDescriptionFallback": "No description available for this program.",
+      "commission": "Commission",
+      "commissionHelper": "Earning model",
+      "points": "Points",
+      "pointsHelper": "Agent earning rule",
+      "eligibility": "Eligibility",
+      "eligibilityFallback": "No eligibility rule has been defined for this program yet.",
+      "activated": "Activated",
+      "updated": "Updated",
+      "exchangeConfig": "Exchange configuration",
+      "cash": "Cash",
+      "rewards": "Rewards",
+      "cashNotConfigured": "No cash conversion",
+      "noPackLinked": "No pack linked",
+      "noRewardItems": "No reward item is linked to this program.",
+      "assignedAgentsTitle": "Assigned agents",
+      "searchAssignedAgents": "Search assigned agents",
+      "searchAssignedAgentsPlaceholder": "Search by name, email, code, status...",
+      "assignedAt": "Assigned",
+      "agentColumn": "Agent",
+      "emailColumn": "Email",
+      "codeColumn": "Code",
+      "statusColumn": "Status",
+      "emailUnavailable": "Email unavailable",
+      "noEmail": "No email",
+      "noCode": "No code",
+      "unknownAgent": "Unknown agent",
+      "assignedAgentsEmptyFiltered": "No assigned agent matches the current filter.",
+      "assignedAgentsEmpty": "No agent is assigned to this program yet.",
+      "programProspectsTitle": "Program prospects",
+      "searchProspects": "Search prospects",
+      "searchProspectsPlaceholder": "Search by contact, company, agent, status...",
+      "prospectsRoleUnavailable": "Prospect details are not available for this role.",
+      "contactColumn": "Contact",
+      "pipelineColumn": "Pipeline",
+      "syncColumn": "Sync",
+      "submittedColumn": "Submitted",
+      "companyFallback": "No company",
+      "agentUnknownFallback": "Unknown agent",
+      "prospectsEmptyFiltered": "No prospect matches the current filter.",
+      "prospectsEmpty": "No prospect has been submitted through this program yet.",
+      "editTitle": "Edit program"
     }
   },
   "transactions": {
     "title": "Transactions",
     "eyebrow": "Revenue history",
-    "description": "Converted transactions, point attribution and commercial results from CRM."
+    "description": "Converted transactions, point attribution and commercial results from CRM.",
+    "pageTitle": "Transactions",
+    "section": {
+      "agent": "My transactions",
+      "owner": "All transactions"
+    },
+    "filters": {
+      "clearFilters": "Clear filters",
+      "searchPlaceholder": "Reference, product, prospect...",
+      "statusLabel": "Status",
+      "allStatuses": "All statuses",
+      "programLabel": "Program",
+      "allPrograms": "All programs",
+      "agentLabel": "Affiliate",
+      "allAgents": "All affiliates",
+      "startDate": "Start date",
+      "endDate": "End date"
+    },
+    "status": {
+      "detected": "Detected",
+      "pending": "Pending",
+      "validated": "Validated",
+      "rejected": "Rejected",
+      "paid": "Paid"
+    },
+    "invoiceStatus": {
+      "none": "No invoice",
+      "pending": "Pending",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "overdue": "Overdue",
+      "cancelled": "Cancelled"
+    },
+    "sync": {
+      "rejected": "Business rejected",
+      "rejectedAt": "Rejected on {{date}}",
+      "synced": "Synced",
+      "localTrace": "Local trace",
+      "pending": "Pending",
+      "noSync": "No sync"
+    },
+    "kpi": {
+      "agent": {
+        "pending": {
+          "title": "Pending",
+          "description": "Invoices in progress"
+        },
+        "validated": {
+          "title": "Validated",
+          "description": "Validated invoices"
+        },
+        "paid": {
+          "title": "Paid",
+          "description": "Paid invoices"
+        },
+        "rejected": {
+          "title": "Rejected",
+          "description": "Rejected invoices"
+        },
+        "points": {
+          "title": "Total points",
+          "description": "Points earned on your transactions"
+        }
+      },
+      "owner": {
+        "volume": {
+          "title": "Total volume",
+          "description": "{{count}} transactions in current scope"
+        },
+        "transactions": {
+          "title": "Transactions",
+          "description": "{{count}} linked to a prospect"
+        },
+        "validated": {
+          "title": "Validated",
+          "description": "Amount recognized after validation"
+        },
+        "paid": {
+          "title": "Paid",
+          "description": "Amount already paid"
+        },
+        "points": {
+          "title": "Points",
+          "description": "Points generated for affiliates"
+        }
+      }
+    },
+    "table": {
+      "transaction": "Transaction",
+      "prospect": "Prospect",
+      "program": "Program",
+      "status": "Status",
+      "sync": "Sync",
+      "amount": "Amount",
+      "points": "Points",
+      "occurred": "Occurred",
+      "actions": "Actions"
+    },
+    "actions": {
+      "view": "View transaction",
+      "moreOptions": "More options"
+    },
+    "fallback": {
+      "program": "Program",
+      "agent": "Affiliate",
+      "linkedProspect": "Linked prospect",
+      "noCompany": "No company",
+      "noLinkedProspect": "No linked prospect",
+      "unattached": "Unattached transaction",
+      "noAgent": "No affiliate",
+      "noProgram": "No program"
+    },
+    "empty": {
+      "eyebrow": "Transactional ledger",
+      "title": "No transaction matches the filters.",
+      "hint": "Adjust the period, status, or program/affiliate scope to find an existing transaction."
+    },
+    "detail": {
+      "breadcrumb": "Transactions",
+      "back": "Back to transaction list",
+      "viewProspect": "View prospect",
+      "viewProgram": "View program",
+      "error": {
+        "missingId": "Missing transaction identifier.",
+        "notFound": "Transaction not found."
+      },
+      "kpi": {
+        "amount": {
+          "title": "Amount",
+          "description": "Commercial value of the transaction"
+        },
+        "points": {
+          "title": "Points awarded",
+          "description": "Generated affiliate credit",
+          "pending": "Pending"
+        },
+        "occurred": {
+          "title": "Occurred",
+          "description": "Business date of the transaction"
+        },
+        "lastSync": {
+          "title": "Last sync",
+          "description": "IACRM sync trace",
+          "noReference": "No reference"
+        }
+      },
+      "overview": {
+        "title": "Transaction view",
+        "description": "Reference, product and financial data useful for business reading.",
+        "platformTransaction": "Transaction attached to the platform"
+      },
+      "meta": {
+        "reference": "Reference",
+        "amount": "Amount",
+        "points": "Points",
+        "pointsPending": "Pending",
+        "occurred": "Occurred",
+        "validated": "Validated",
+        "paid": "Paid"
+      },
+      "context": {
+        "title": "Commercial context",
+        "description": "Program, referring affiliate and prospect attached to the transaction.",
+        "program": "Program",
+        "programDescription": "Source program for this transaction",
+        "noProgram": "No program attachment",
+        "agent": "Affiliate",
+        "noEmail": "No email provided",
+        "prospect": "Prospect",
+        "noProspect": "This transaction is not linked to any local prospect.",
+        "active": "Active",
+        "affiliateBadge": "Affiliate"
+      },
+      "sync": {
+        "title": "Synchronization",
+        "description": "Quick read of synchronization and reconciliation markers.",
+        "markers": "{{count}} markers",
+        "status": "Transaction status",
+        "invoice": "Invoicing",
+        "iacrm": "IACRM synchronization",
+        "noReference": "No linked reference",
+        "recognition": "Recognition",
+        "recognized": "Transaction recognized",
+        "awaitingRecognition": "Awaiting recognition",
+        "recognizedBadge": "Recognized",
+        "awaitingBadge": "Pending",
+        "table": {
+          "element": "Element",
+          "value": "Value",
+          "status": "Status",
+          "lastUpdate": "Last updated"
+        }
+      },
+      "audit": {
+        "title": "Audit trail",
+        "description": "Recorded steps on the transaction, sorted from newest to oldest.",
+        "events": "{{count}} events",
+        "empty": "No timestamped event is available for this transaction yet.",
+        "table": {
+          "date": "Date",
+          "step": "Step",
+          "system": "System",
+          "detail": "Detail"
+        },
+        "occurred": {
+          "event": "Transaction detected",
+          "system": "Transaction engine",
+          "detail": "Reference {{reference}}"
+        },
+        "recognized": {
+          "event": "Transaction recognized",
+          "system": "IACRM / reconciliation",
+          "detail": "The transaction was recognized and reconciled to the commercial flow."
+        },
+        "validated": {
+          "event": "Transaction validated",
+          "system": "Financial pipeline",
+          "detail": "The amount was validated and can feed the points calculation."
+        },
+        "rejected": {
+          "event": "Transaction rejected",
+          "system": "Business control",
+          "detail": "The transaction was rejected before final validation."
+        },
+        "paid": {
+          "event": "Transaction paid",
+          "system": "Billing tracking",
+          "detail": "The commercial payment was recorded as paid."
+        },
+        "synced": {
+          "event": "Last synchronization",
+          "system": "IACRM",
+          "detailWithRef": "External reference {{ref}}",
+          "detailNoRef": "Sync recorded without external reference."
+        }
+      }
+    }
   },
   "points": {
     "title": "Points & Wallet",
@@ -327,7 +846,116 @@
     "description": "History of your points, accumulations, and eligibility for various rewards.",
     "available": "Available points",
     "usePoints": "Use my points",
-    "availablePoints": "{{count}} pts available"
+    "availablePoints": "{{count}} pts available",
+    "pageTitle": "Points",
+    "filters": {
+      "clearFilters": "Clear filters",
+      "searchPlaceholder": "Search...",
+      "statusLabel": "Status",
+      "allStatuses": "All statuses",
+      "programLabel": "Program",
+      "allPrograms": "All programs",
+      "agentLabel": "Affiliate",
+      "allAgents": "All affiliates",
+      "startDate": "Start date",
+      "endDate": "End date"
+    },
+    "status": {
+      "pending": "Pending",
+      "available": "Available",
+      "locked": "Reserved",
+      "consumed": "Consumed",
+      "reversed": "Reversed"
+    },
+    "kpi": {
+      "availableBalance": {
+        "title": "Available balance",
+        "description": "Ready to use",
+        "help": "Available balance formula: sum of ledger entries with status = available. Pending releases, exchange reservations, consumed and reversed items are excluded."
+      },
+      "pendingRelease": {
+        "title": "Pending release",
+        "description": "Awaiting validation",
+        "help": "Sum of pending points. Not usable at the moment."
+      },
+      "reservedExchange": {
+        "title": "Reserved for exchange",
+        "description": "Locked in requests",
+        "help": "Amount currently blocked from the available wallet (status = reserved)."
+      },
+      "consumed": {
+        "title": "Consumed",
+        "description": "Already spent",
+        "help": "Points already consumed (exchanged)."
+      },
+      "reversed": {
+        "title": "Reversed",
+        "description": "Withdrawn or taken back",
+        "help": "Withdrawn points."
+      },
+      "projected": {
+        "title": "Projected points",
+        "description": "From open prospects",
+        "help": "Projection formula: sum of estimated points for each open prospect, via the program rule."
+      }
+    },
+    "wallet": {
+      "sectionAgent": "My wallets",
+      "sectionOwner": "Program wallets",
+      "empty": "No wallet is available for the current selection.",
+      "program": "Program",
+      "exchangeMode": "Exchange mode",
+      "available": "Available",
+      "pending": "Pending",
+      "reserved": "Reserved",
+      "consumed": "Consumed",
+      "openProspects": "Open prospects",
+      "entries": "{{count}} entries",
+      "noActivePack": "No active pack"
+    },
+    "ledger": {
+      "sectionAgent": "My points history",
+      "sectionOwner": "Points history",
+      "empty": "No entry matches the filters.",
+      "entry": "Entry",
+      "status": "Status",
+      "amount": "Amount",
+      "program": "Program",
+      "prospect": "Prospect",
+      "transaction": "Transaction",
+      "date": "Date",
+      "viewExchange": "View exchange",
+      "noProgram": "No program",
+      "noProspect": "No prospect",
+      "noTransaction": "No transaction",
+      "notAvailable": "Unavailable"
+    },
+    "exchangeMode": {
+      "rewardOnly": "Reward only",
+      "cashOnly": "Cash only",
+      "both": "Reward + cash",
+      "notConfigured": "Not configured"
+    },
+    "ledgerEntry": {
+      "accrualPending": "Projected accrual",
+      "accrualAvailable": "Confirmed accrual",
+      "hold": "Pending release",
+      "release": "Available release",
+      "spend": "Consumption (exchange)",
+      "refund": "Refund",
+      "adjustment": "Manual adjustment",
+      "reversal": "Reversal",
+      "description": {
+        "accrualPending": "Projected points awaiting validation. Not spendable.",
+        "accrualAvailable": "Transaction validated and points converted (spendable)."
+      }
+    },
+    "fallback": {
+      "program": "Program",
+      "agent": "Affiliate",
+      "prospect": "Prospect",
+      "transaction": "Transaction"
+    }
   },
   "payouts": {
     "title": "Requests",
@@ -337,12 +965,239 @@
   "exchangePacks": {
     "title": "Point Packs",
     "eyebrow": "Catalog",
-    "description": "Management and consultation of available reward packs for exchange."
+    "description": "Management and consultation of available reward packs for exchange.",
+    "createPack": "Create pack",
+    "searchPlaceholder": "Search for a pack or gift...",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "sort": {
+      "recent": "Recent",
+      "oldest": "Oldest",
+      "nameAsc": "Name A-Z",
+      "nameDesc": "Name Z-A",
+      "gifts": "Gifts",
+      "usage": "Usage"
+    },
+    "empty": "No pack matches the current search.",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "card": {
+      "gifts": "Gifts",
+      "programs": "Programs",
+      "updated": "Updated",
+      "noDescription": "No description for this pack.",
+      "open": "Open",
+      "edit": "Edit",
+      "reactivate": "Reactivate",
+      "deactivate": "Deactivate",
+      "delete": "Delete",
+      "giftPreview": "Gift preview",
+      "notAssignable": "Not assignable",
+      "noActiveGifts": "No active gifts. Add at least one gift before using this pack in a program.",
+      "giftCount_one": "{{count}} gift",
+      "giftCount_other": "{{count}} gifts",
+      "programCount_one": "{{count}} linked",
+      "programCount_other": "{{count}} linked",
+      "additionalGifts_one": "+{{count}} gift",
+      "additionalGifts_other": "+{{count}} gifts",
+      "noGiftsConfigured": "No gifts configured.",
+      "dialog": {
+        "rewardsTitle": "Pack rewards",
+        "rewardsDescription": "Gifts configured in {{name}}.",
+        "programsTitle": "Programs using this pack",
+        "programsDescription": "Complete list of programs linked to {{name}}.",
+        "noProgramsUsingPack": "No program is using this pack yet.",
+        "updatedTitle": "Updated",
+        "updatedDescription": "Last update recorded on this pack.",
+        "close": "Close"
+      },
+      "tooltip": {
+        "disableBlockedByPrograms": "Cannot deactivate this pack while it is used by a program.",
+        "disableBlockedPermission": "You do not have permission to deactivate this pack.",
+        "deleteBlockedByPrograms": "Cannot delete this pack while it is used by a program.",
+        "deleteBlockedPermission": "You do not have permission to delete this pack."
+      }
+    },
+    "detail": {
+      "back": "Back",
+      "save": "Save",
+      "saveAndNotify": "Save and notify",
+      "saving": "Saving...",
+      "edit": "Edit",
+      "moreActions": "More actions",
+      "deletePack": "Delete pack",
+      "packRewards": "Pack rewards",
+      "usedIn": "Used in",
+      "usedInDescription": "Programs currently using this pack.",
+      "viewAllPrograms": "View all programs",
+      "otherPrograms_one": "+{{count}} other",
+      "otherPrograms_other": "+{{count}} others",
+      "noProgramsUsingPack": "No program is using this pack yet.",
+      "packGifts": "Pack gifts",
+      "sortGifts": "Sort gifts",
+      "sortManual": "Pack order",
+      "sortPointsAsc": "Cheapest",
+      "sortPointsDesc": "Most expensive",
+      "organize": "Organize",
+      "cancel": "Cancel",
+      "finish": "Finish",
+      "addGift": "Add gift",
+      "addFirstGift": "Add first gift",
+      "noGiftsConfigured": "No gift configured",
+      "noGiftsHint": "This pack can exist empty, but it cannot be assigned to a rewards program.",
+      "modify": "Modify",
+      "remove": "Remove",
+      "agentCount_one": "{{count}} agent",
+      "agentCount_other": "{{count}} agents",
+      "programsDialogTitle": "Programs using this pack",
+      "programsDialogDescription": "Complete list of programs linked to {{name}}.",
+      "leaveDialogTitle": "Leave without saving?",
+      "leaveDialogDescription": "Unsaved changes will be discarded if you leave.",
+      "draftAlertTitle": "Draft in progress",
+      "draftAlertDescription": "Save to keep your changes. Reordering alone does not notify affiliates.",
+      "discard": "Discard",
+      "saveDraft": "Save draft",
+      "saveDraftAndNotify": "Save and notify",
+      "notAssignableTitle": "Pack not assignable",
+      "notAssignableDescription": "Add at least one active gift before using this pack in a rewards program.",
+      "giftCount_one": "{{count}} gift",
+      "giftCount_other": "{{count}} gifts",
+      "programCount_one": "{{count}} program",
+      "programCount_other": "{{count}} programs",
+      "updatedLabel": "Updated {{date}}",
+      "unknownDate": "Unknown date"
+    },
+    "dialogs": {
+      "form": {
+        "createTitle": "Create pack",
+        "editTitle": "Edit pack",
+        "description": "Configure the name and description of the gift catalog.",
+        "infoTitle": "Pack rewards",
+        "editInfo": "Edit the pack information. Manage gifts from the pack page.",
+        "createInfo": "You will be able to add gifts after the pack is created.",
+        "nameLabel": "Pack name",
+        "namePlaceholder": "Example: Starter",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Describe when to use this pack and the benefits it contains.",
+        "saving": "Saving...",
+        "save": "Save",
+        "create": "Create"
+      },
+      "item": {
+        "createTitle": "Add gift",
+        "editTitle": "Edit gift",
+        "description": "Each gift defines a benefit and its cost in points.",
+        "infoTitle": "Reward gift",
+        "infoDescription": "This gift will be visible in programs that use this pack.",
+        "nameLabel": "Gift name",
+        "namePlaceholder": "Example: SEO express audit",
+        "pointsLabel": "Cost in points",
+        "pointsPlaceholder": "Example: 500",
+        "saving": "Saving...",
+        "save": "Save",
+        "add": "Add"
+      },
+      "deletePack": {
+        "title": "Delete pack",
+        "descriptionSelected": "Selected pack: {{name}}",
+        "descriptionConfirm": "Confirm pack deletion.",
+        "blockedTitle": "Pack used by programs",
+        "blockedDescription_one": "This pack is linked to {{count}} program. Remove it from programs before deleting.",
+        "blockedDescription_other": "This pack is linked to {{count}} programs. Remove it from programs before deleting.",
+        "irreversibleTitle": "Irreversible action",
+        "irreversibleDescription": "The pack and its gifts will be removed from active configuration.",
+        "deleting": "Deleting...",
+        "close": "Close"
+      },
+      "deleteItem": {
+        "title": "Delete gift",
+        "descriptionSelected": "Selected gift: {{name}}",
+        "descriptionConfirm": "Confirm gift deletion.",
+        "notifyTitle": "Agents will be notified",
+        "notifyDescription_one": "This pack is used by {{count}} program. Assigned agents will receive a notification after deletion.",
+        "notifyDescription_other": "This pack is used by {{count}} programs. Assigned agents will receive a notification after deletion.",
+        "removeTitle": "Remove this gift",
+        "removeDescription": "The gift will no longer be available in this pack.",
+        "deleting": "Deleting..."
+      }
+    }
   },
   "businesses": {
     "title": "Businesses",
     "eyebrow": "Platform governance",
-    "description": "Business governance by super-admin, tracking of territorial integrations."
+    "description": "Business governance by super-admin, tracking of territorial integrations.",
+    "invite": {
+      "title": "Invite a business",
+      "description": "Select a business from IACRM and send its owner an invitation email.",
+      "loading": "Loading businesses...",
+      "emptyTitle": "No business is currently available in IACRM, or every business has already been invited.",
+      "emptyDescription": "Create the business in IACRM first before inviting it here.",
+      "selectPlaceholder": "Select an IACRM business",
+      "clients": "clients",
+      "iacrmBusiness": "IACRM business",
+      "businessName": "Business name",
+      "businessNamePlaceholder": "Commercial business name",
+      "businessNameHint": "The name is prefilled from IACRM.",
+      "ownerName": "Owner name",
+      "ownerNamePlaceholder": "First Last",
+      "ownerEmail": "Invitation email",
+      "ownerEmailPlaceholder": "owner@business.com",
+      "ownerEmailHint": "An activation link will be sent to this address through Resend.",
+      "notes": "Internal note",
+      "notesPlaceholder": "Context or internal remark",
+      "sending": "Sending...",
+      "submit": "Send invitation"
+    },
+    "detail": {
+      "loading": "Loading business profile...",
+      "unavailable": "Business details are unavailable.",
+      "eyebrow": "Business",
+      "industryNotSpecified": "Industry not specified",
+      "countryPending": "Country pending",
+      "governance": "Governance",
+      "owners": "Owners",
+      "assignments": "assignments",
+      "primaryOwner": "Primary",
+      "owner": "Owner",
+      "invitationPending": "Invitation pending",
+      "noEmailAvailable": "No email available",
+      "noOwnerAssignments": "No owner assignments were found for this business.",
+      "linkedPrograms": "Linked programs",
+      "noProgramsAttached": "No program is attached to this business yet.",
+      "notApproved": "Not approved",
+      "notRejected": "Not rejected",
+      "notMapped": "Not mapped",
+      "invitedAt": "Invited {{value}}",
+      "activatedAt": "Activated {{value}}",
+      "programStatus": "Status {{value}}",
+      "pointsPerTransaction": "Pts / tx {{value}}",
+      "pointsPerEuro": "Pts / € {{value}}",
+      "kpis": {
+        "programs": "Programs",
+        "programsDescription": "Programs attached to this tenant",
+        "activeAgents": "Active affiliates",
+        "activeAgentsDescription": "Affiliates currently active",
+        "prospects": "Prospects",
+        "prospectsDescription": "Pipeline records in scope",
+        "transactions": "Transactions",
+        "transactionsDescription": "Commercial outcomes linked"
+      },
+      "fields": {
+        "created": "Created",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "lastSync": "Last sync",
+        "approvedBy": "Approved by",
+        "rejectedBy": "Rejected by",
+        "iacrmId": "IACRM ID"
+      }
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -350,7 +1205,24 @@
     "description": "History of your alerts, events and messages related to the account.",
     "markAllRead": "Mark all as read",
     "emptyState": "No notifications",
-    "unread": "unread"
+    "unread": "unread",
+    "page": {
+      "loading": "Loading notifications...",
+      "allCaughtUp": "Everything is up to date",
+      "inbox": "Inbox",
+      "archive": "Archive",
+      "pendingNotifications": "Notifications waiting for action",
+      "archivedDescription": "Stored for history",
+      "toProcess": "To process",
+      "noNewNotifications": "You have no new notifications.",
+      "emptyHistory": "Your notification history is empty.",
+      "view": "View",
+      "read": "Read",
+      "details": "Details",
+      "transactionLabel": "Transaction",
+      "forPoints": "for",
+      "pointsEarned": "pts earned"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -359,8 +1231,276 @@
     "personalProfile": "Personal Profile",
     "tabs": {
       "profile": "Profile",
+      "notifications": "Notifications",
       "security": "Security",
       "api": "API"
+    },
+    "common": {
+      "active": "Active",
+      "set": "Set",
+      "missing": "Missing",
+      "online": "Online",
+      "notSet": "Not set",
+      "verified": "Verified",
+      "pending": "Pending",
+      "enabled": "Enabled",
+      "muted": "Muted",
+      "mutedShort": "Muted",
+      "notAvailable": "Not available",
+      "unavailable": "Unavailable"
+    },
+    "profile": {
+      "personalIdentity": "Personal identity",
+      "profileImage": "Profile image",
+      "avatarActive": "Avatar active",
+      "noAvatar": "No avatar",
+      "avatarHint": "512×512 WebP ready",
+      "changeAvatar": "Change profile photo",
+      "displayName": "Display name",
+      "displayNameDescription": "Identity displayed in the application",
+      "changeDisplayName": "Change display name",
+      "email": "Email",
+      "emailDescription": "Address used for login and verification",
+      "changeEmail": "Change email address"
+    },
+    "business": {
+      "title": "Business identity",
+      "editIdentity": "Edit business identity",
+      "logo": "Logo",
+      "logoSet": "Logo set",
+      "noLogo": "No logo",
+      "logoDescription": "Logo or avatar displayed in programs and tables",
+      "changeLogo": "Change logo",
+      "displayName": "Display name",
+      "contactEmail": "Contact email",
+      "contactEmailDescription": "Public contact email for this business",
+      "contactPhone": "Contact phone",
+      "contactPhoneDescription": "Public contact phone for this business",
+      "publicWebsite": "Public website",
+      "publicWebsiteDescription": "Official website URL displayed publicly",
+      "noBusinessProfile": "No business profile is linked to this account.",
+      "businessDescription": "{{legalName}} · slug: {{slug}} · {{currency}} · {{timezone}}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "editInbox": "Edit inbox",
+      "editSecurity": "Edit security",
+      "editCrmSync": "Edit CRM sync",
+      "options": {
+        "inbox": {
+          "title": "Inbox",
+          "label": "Inbox notifications",
+          "description": "Receive notifications for messages and updates"
+        },
+        "security": {
+          "title": "Security",
+          "label": "Security alerts",
+          "description": "Receive alerts for security-related events"
+        },
+        "crm": {
+          "title": "CRM Sync",
+          "label": "CRM sync alerts",
+          "description": "Receive alerts for CRM synchronization issues"
+        }
+      },
+      "dialogTitle": "Edit notifications",
+      "dialogDescription": "These preferences are currently saved locally in this browser for the main frontend.",
+      "saved": "Notification preferences saved locally in this browser.",
+      "savePreferences": "Save preferences"
+    },
+    "security": {
+      "title": "Security",
+      "password": "Password",
+      "protected": "Protected",
+      "passwordDescription": "Your account password protects access to the platform",
+      "changePassword": "Change password",
+      "recoveryEmail": "Recovery email",
+      "recoveryEmailDescription": "Email address used for account recovery",
+      "latestSessions": "Latest sessions",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries",
+      "table": {
+        "event": "Event",
+        "status": "Status",
+        "detail": "Detail",
+        "timestamp": "Timestamp"
+      },
+      "events": {
+        "login": "Login",
+        "activity": "Activity"
+      },
+      "status": {
+        "success": "Success",
+        "active": "Active"
+      },
+      "details": {
+        "lastLogin": "Last recorded session opening.",
+        "lastActivity": "Last activity detected on the secure shell."
+      },
+      "noSessionSignals": "No session signals recorded."
+    },
+    "sync": {
+      "noVisibility": "You don't have permission to view sync status.",
+      "loading": "Loading sync status...",
+      "unavailable": "Sync overview unavailable",
+      "activeIssues": "{{count}} active issues",
+      "incidents": "Incidents",
+      "healthy": "Healthy",
+      "viewIncidents": "View incidents"
+    },
+    "dialogs": {
+      "name": {
+        "title": "Change display name",
+        "description": "Update the name displayed across the application.",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "avatar": {
+        "title": "Change profile photo",
+        "description": "Upload a source image. The browser compresses it before the backend writes it to Cloudflare R2.",
+        "currentPreview": "Current preview",
+        "acceptedFormats": "JPG, PNG, and WebP are accepted. Final storage format is 512×512 WebP.",
+        "selectImage": "Select image",
+        "saveAvatar": "Save avatar",
+        "uploading": "Uploading...",
+        "selectError": "Unable to select the image."
+      },
+      "logo": {
+        "title": "Change business logo",
+        "description": "Upload a source image. The browser compresses it before the backend writes it to Cloudflare R2.",
+        "currentPreview": "Current preview",
+        "acceptedFormats": "JPG, PNG, and WebP are accepted. Final storage format is 512×512 WebP.",
+        "selectImage": "Select image",
+        "saveLogo": "Save logo",
+        "uploading": "Uploading...",
+        "selectError": "Unable to select the image."
+      },
+      "email": {
+        "title": "Change account email",
+        "description": "The system sends both a signed verification link and a 6-digit code so the user can choose the faster path.",
+        "currentEmail": "Current email",
+        "verified": "Verified",
+        "verificationPending": "Verification pending",
+        "newEmail": "New email",
+        "newEmailHint": "Submitting this form does not replace the active account email immediately. It creates a pending email until verification succeeds.",
+        "sending": "Sending...",
+        "sendVerification": "Send verification email",
+        "resending": "Resending...",
+        "resendLinkAndCode": "Resend link and code",
+        "pendingVerification": "Pending verification",
+        "pendingMessage": "<strong>{{email}}</strong> is waiting for verification. Use the signed inbox link or enter the 6-digit code before {{expiry}}.",
+        "codeLabel": "6-digit code",
+        "verifying": "Verifying...",
+        "verifyWithCode": "Verify with code",
+        "clearCode": "Clear code",
+        "close": "Close"
+      },
+      "business": {
+        "title": "Edit business identity",
+        "description": "Group contact and public-facing fields into one focused edit flow.",
+        "displayName": "Display name",
+        "contactEmail": "Contact email",
+        "contactPhone": "Contact phone",
+        "website": "Website",
+        "timezone": "Timezone",
+        "invalidEmailError": "Please enter a valid email address for the business contact.",
+        "saving": "Saving...",
+        "saveBusiness": "Save business settings"
+      },
+      "syncIssues": {
+        "title": "CRM sync incidents",
+        "description": "Quick overview of the current failure state and the latest incident reported by the backend.",
+        "activeIssues": "Active issues",
+        "toFix": "To fix",
+        "stable": "Stable",
+        "latestFailure": "Latest failure",
+        "error": "Error",
+        "noFailure": "No failure",
+        "noFailureRecorded": "No failure recorded",
+        "noFailureDetails": "No failure details are currently available.",
+        "queue": "Queue",
+        "queueLabel": "Queue",
+        "failedAt": "Failed at {{time}}",
+        "noFailedTimestamp": "No failed timestamp available.",
+        "close": "Close"
+      },
+      "password": {
+        "title": "Change password",
+        "description": "Confirm the current password before replacing it with a new one.",
+        "currentPassword": "Current password",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm password",
+        "cancel": "Cancel",
+        "updating": "Updating...",
+        "savePassword": "Save password"
+      }
+    },
+    "toasts": {
+      "nameUpdated": "Display name updated.",
+      "avatarUpdated": "Profile photo updated.",
+      "logoUpdated": "Business logo updated.",
+      "emailVerificationSent": "Verification email sent. A link and a 6-digit code have been sent.",
+      "emailVerified": "The new email has been verified and activated.",
+      "emailVerificationResent": "Verification email resent.",
+      "businessUpdated": "Business identity updated.",
+      "passwordUpdated": "Password updated.",
+      "emailVerifiedSuccess": "Email address verified successfully.",
+      "avatarUpdateFailed": "Unable to update profile photo.",
+      "logoUpdateFailed": "Unable to update logo."
+    },
+    "api": {
+      "title": "Integration control · CRM",
+      "serverLabel": "IACRM server:",
+      "sourceBackend": "backend business config",
+      "sourceLocal": "local browser config",
+      "apiKey": "API key",
+      "show": "Show",
+      "hide": "Hide",
+      "enableAutoSync": "Enable auto-sync",
+      "saveConfig": "Save config",
+      "saving": "Saving...",
+      "testConnection": "Test connection",
+      "testing": "Testing...",
+      "clearKey": "Clear key",
+      "resetLocal": "Reset local",
+      "loadingBusinessConfig": "Loading business configuration...",
+      "noChangesWithKey": "The current key is already saved. Change the key or sync mode to save.",
+      "noChanges": "No changes to save.",
+      "connection": "Connection",
+      "status": {
+        "connected": "Connected",
+        "failed": "Failed",
+        "untested": "Not tested"
+      },
+      "manualTestBadge": "manual test badge",
+      "lastTested": "Last tested",
+      "never": "Never",
+      "syncMode": "Sync mode",
+      "autoSyncEnabled": "Auto-sync enabled",
+      "manualMode": "Manual mode",
+      "backendPressure": "Backend pressure",
+      "activeIssues_one": "{{count}} active issue",
+      "activeIssues_other": "{{count}} active issues",
+      "noActiveIssue": "No active issue",
+      "attention": "Attention",
+      "stable": "Stable",
+      "noKeyWarning": "This configuration must contain a valid API key. Without a key, business forms may open but direct calls to the IACRM simulator will remain blocked.",
+      "toasts": {
+        "configSaved": "CRM configuration saved.",
+        "configSaveFailed": "Unable to save CRM configuration.",
+        "connectionValid": "CRM connection validated.",
+        "connectionFailed": "Connection failed: {{message}}",
+        "connectionTestFailed": "Unable to test CRM connection.",
+        "keyRemovedBusiness": "API key removed from form. Save to apply the deletion to the backend.",
+        "keyRemovedLocal": "API key removed locally from the form.",
+        "draftResetBackend": "Local draft reset from backend configuration.",
+        "configResetLocal": "Local CRM configuration reset."
+      }
+    },
+    "errors": {
+      "loadFailed": "Unable to load settings."
     }
   },
   "iacrm": {
@@ -378,6 +1518,91 @@
       "services": "Services",
       "docs": "Docs",
       "settings": "Settings"
+    },
+    "panels": {
+      "clients": {
+        "loading": "Loading IACRM clients...",
+        "error": "Failed to load clients from IACRM. Check the API configuration in Settings.",
+        "eyebrow": "Client records",
+        "title_one": "{{count}} client in IACRM",
+        "title_other": "{{count}} clients in IACRM",
+        "empty": "No clients were found in IACRM.",
+        "columns": {
+          "company": "Company",
+          "contact": "Contact",
+          "email": "Email",
+          "phone": "Phone",
+          "status": "Status",
+          "since": "Since"
+        }
+      },
+      "services": {
+        "loading": "Loading IACRM services...",
+        "error": "Failed to load services from IACRM. Check the API configuration in Settings.",
+        "eyebrow": "Service catalogue",
+        "title_one": "{{count}} service in IACRM",
+        "title_other": "{{count}} services in IACRM",
+        "empty": "No services were found in IACRM.",
+        "columns": {
+          "name": "Name",
+          "category": "Category",
+          "unitPrice": "Unit price",
+          "status": "Status"
+        }
+      },
+      "invoices": {
+        "eyebrow": "Invoices",
+        "title_one": "{{count}} invoice in IACRM",
+        "title_other": "{{count}} invoices in IACRM",
+        "loading": "Loading invoices...",
+        "error": "Failed to load invoices from IACRM.",
+        "empty": "No invoices were found in IACRM.",
+        "status": {
+          "pending": "Pending",
+          "paid": "Paid",
+          "unpaid": "Unpaid",
+          "overdue": "Overdue",
+          "cancelled": "Cancelled"
+        },
+        "summary": {
+          "totalInvoiced": "Total invoiced",
+          "paid": "Paid",
+          "overdue": "Overdue",
+          "invoiceCount_one": "{{count}} invoice",
+          "invoiceCount_other": "{{count}} invoices"
+        },
+        "columns": {
+          "reference": "Reference",
+          "client": "Client",
+          "amount": "Amount",
+          "status": "Status",
+          "issued": "Issued",
+          "due": "Due",
+          "paid": "Paid"
+        }
+      },
+      "pipeline": {
+        "eyebrow": "Pipeline funnel",
+        "funnelTitle": "Prospect distribution by stage",
+        "loadingStages": "Loading pipeline stages...",
+        "errorStages": "Failed to load pipeline stages.",
+        "prospectsEyebrow": "Pipeline prospects",
+        "prospectsTitle_one": "{{count}} prospect tracked",
+        "prospectsTitle_other": "{{count}} prospects tracked",
+        "prospectsHint": "Use the stage dropdown on each row to move a prospect through the funnel.",
+        "loadingProspects": "Loading prospects...",
+        "errorProspects": "Failed to load pipeline prospects.",
+        "empty": "No prospects are currently in the pipeline.",
+        "columns": {
+          "contact": "Contact",
+          "company": "Company",
+          "stage": "Stage",
+          "status": "Status",
+          "agent": "Agent",
+          "source": "Source",
+          "updatedAt": "Updated"
+        }
+      }
     }
   },
   "theme": {
@@ -408,5 +1633,349 @@
     "saveFailed": "Failed to save changes",
     "deleteFailed": "Failed to delete",
     "tryAgain": "Please try again later"
+  },
+  "system": {
+    "passwordForgot": {
+      "eyebrow": "Password recovery",
+      "title": "Request a password reset token.",
+      "description": "Enter your account email. If the user exists, a reset token will be generated for the password replacement step.",
+      "emailPlaceholder": "Account email",
+      "debugToken": "Local debug reset token",
+      "requesting": "Requesting...",
+      "submit": "Request reset token",
+      "backToLogin": "Return to login"
+    },
+    "forbidden": {
+      "eyebrow": "Access control",
+      "title": "This route is outside the current permission scope.",
+      "description": "The frontend hid what it could, but the final route decision still respects the backend permission contract.",
+      "backToDashboard": "Return to dashboard",
+      "switchSession": "Switch session"
+    },
+    "notFound": {
+      "eyebrow": "Route inventory",
+      "title": "The requested page is not part of the current app surface.",
+      "description": "Use the authenticated navigation or return to the login screen to restart the flow cleanly.",
+      "openDashboard": "Open dashboard",
+      "openLogin": "Open login"
+    },
+    "sessionExpired": {
+      "eyebrow": "Session recovery",
+      "title": "The workspace session is no longer valid.",
+      "description": "Re-authenticate to rebuild the current user, permission payload, and active business context.",
+      "action": "Re-enter the workspace"
+    },
+    "modulePlaceholder": {
+      "currentOperator": "Current operator",
+      "unknownUser": "Unknown user",
+      "activeBusinessScope": "Active business scope",
+      "globalPlatformScope": "Global platform scope",
+      "scopeDescription": "This screen is already protected by the live permission payload from the backend.",
+      "integrationReadyBoundary": "Integration-ready boundary",
+      "integrationDescription": "This module is intentionally present before its business API lands, so later integrations can attach to a stable route, shell, and permission contract.",
+      "nextImplementationFocus": "Next implementation focus",
+      "focus": {
+        "connectEndpoints": "Connect the route to its backend list and detail endpoints.",
+        "states": "Apply loading, empty, and error states from the canonical screen spec.",
+        "permissions": "Keep action-level controls disabled or hidden from the resolved permission payload."
+      }
+    }
+  },
+  "exchanges": {
+    "pageTitle": {
+      "agent": "My exchanges",
+      "owner": "Exchange operations"
+    },
+    "kpi": {
+      "availableWallet": {
+        "title": "Available wallet",
+        "descriptionAgent": "Spendable points across all programs",
+        "descriptionOwner": "Spendable across affiliates"
+      },
+      "requestedPoints": {
+        "title": "Requested points",
+        "descriptionAgent": "Total points submitted for exchange",
+        "descriptionOwner": "Total points requested"
+      },
+      "queueTotal": {
+        "title": "Queue total",
+        "descriptionAgent": "Your submitted exchange requests",
+        "descriptionOwner": "Open and historical requests"
+      },
+      "pendingApproval": {
+        "title": "Pending approval",
+        "descriptionAgent": "Waiting owner review",
+        "descriptionOwner": "Needs review now"
+      },
+      "inFulfillment": {
+        "title": "In fulfillment",
+        "description": "Approved or processing"
+      }
+    },
+    "filters": {
+      "clearFilters": "Clear filters",
+      "searchAgentPlaceholder": "Search my requests...",
+      "searchOwnerPlaceholder": "Search for a request...",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "program": "Program",
+      "allPrograms": "All programs",
+      "affiliate": "Affiliate",
+      "allAffiliates": "All affiliates",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "newRequest": "New request"
+    },
+    "table": {
+      "request": "Request",
+      "status": "Status",
+      "affiliate": "Affiliate",
+      "program": "Program",
+      "points": "Points",
+      "reviewerFulfillment": "Reviewer / fulfillment",
+      "cashReward": "Cash / reward",
+      "requested": "Requested",
+      "actions": "Actions"
+    },
+    "empty": {
+      "agentCanCreate": "No requests match the current filters. Start a new exchange when you are ready.",
+      "agentCannotCreate": "No requests match the current filters.",
+      "owner": "No exchange requests match the current queue filters."
+    },
+    "status": {
+      "requested": "Requested",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "processing": "Processing",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "reviewer": {
+      "requested": "Action required",
+      "approved": "Validated, awaiting processing",
+      "processing": "Fulfilment in progress",
+      "completed": "Processed",
+      "rejected": "Declined",
+      "cancelled": "Cancelled"
+    },
+    "request": {
+      "rewardDefault": "Reward request",
+      "cashDefault": "Cash request"
+    },
+    "requestType": {
+      "reward": "Reward",
+      "cash": "Cash"
+    },
+    "value": {
+      "catalogDefault": "Program catalog",
+      "amountPending": "Amount pending"
+    },
+    "fallback": {
+      "noAffiliate": "No affiliate",
+      "noProgram": "No program",
+      "requestedReward": "Requested reward",
+      "cashPending": "Cash conversion pending",
+      "noReviewer": "No reviewer assigned"
+    },
+    "actions": {
+      "viewRequest": "View request",
+      "approve": "Approve request",
+      "reject": "Reject request",
+      "startFulfilment": "Start fulfilment",
+      "complete": "Complete request",
+      "cancel": "Cancel request"
+    },
+    "dropdown": {
+      "viewRequest": "View request",
+      "approve": "Approve",
+      "reject": "Reject",
+      "startFulfilment": "Start fulfilment",
+      "complete": "Complete request",
+      "cancel": "Cancel request"
+    },
+    "dialog": {
+      "title": "New exchange request",
+      "description": "Build your request step by step from the program balance you want to use.",
+      "stepProgram": "Program",
+      "stepRequest": "Request",
+      "stepPreview": "Preview",
+      "selectProgram": "Select a program",
+      "selectProgramHint": "Start from the program balance you want to use for this request.",
+      "noPrograms": "No program currently has points ready for an exchange request.",
+      "programSelected": "Selected",
+      "clickToUse": "Click to use this balance",
+      "requestMethod": "Request method",
+      "rewardTitle": "Reward",
+      "rewardDescription": "Exchange points for a catalog reward.",
+      "cashTitle": "Cash",
+      "cashDescription": "Convert points into a cash request.",
+      "noExchangeOptions": "This program has no active exchange option available right now.",
+      "rewardLabel": "Reward",
+      "selectReward": "Select a reward",
+      "noRewards": "No rewards available",
+      "pointsLabel": "Points to convert",
+      "pointsPlaceholder": "100",
+      "exceedsBalance": "This request exceeds the selected program balance. You can use up to {{max}} pts.",
+      "preview": {
+        "program": "Program",
+        "balance": "Balance",
+        "type": "Type",
+        "selection": "Selection",
+        "noReward": "No reward"
+      },
+      "notesLabel": "Notes",
+      "notesPlaceholder": "Optional context for the owner...",
+      "cancel": "Cancel",
+      "back": "Back",
+      "continue": "Continue",
+      "submit": "Submit request"
+    },
+    "errors": {
+      "selectProgram": "Select a program.",
+      "selectReward": "Select a reward.",
+      "pointsPositive": "The points amount must be greater than zero.",
+      "pointsExceed": "You can only request up to {{max}} pts on this program."
+    },
+    "feedback": {
+      "requestSent": "Request sent."
+    },
+    "section": {
+      "agent": "My exchange requests",
+      "owner": "Exchange operations"
+    },
+    "detail": {
+      "error": {
+        "missingId": "Missing request identifier.",
+        "notFound": "Request not found."
+      },
+      "breadcrumb": "Exchanges",
+      "back": "Back to exchange list",
+      "viewProgram": "View program",
+      "viewPoints": "View points",
+      "viewAffiliate": "View affiliate",
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "processing": "Processing",
+        "complete": "Complete",
+        "cancel": "Cancel"
+      },
+      "kpi": {
+        "pointsRequested": "Points requested",
+        "value": "Value",
+        "requestedAt": "Requested on",
+        "ledgerEntries": "Ledger entries",
+        "ledgerDescription": "Ledger impact entries"
+      },
+      "overview": {
+        "title": "Exchange overview",
+        "description": "Request value, lifecycle dates, and submission context."
+      },
+      "commercial": {
+        "title": "Commercial context",
+        "description": "Program, affiliate, and validation context around this exchange."
+      },
+      "timeline": {
+        "title": "Fulfillment timeline",
+        "description": "Lifecycle milestones recorded for this exchange request.",
+        "events": "{{count}} events",
+        "step": "Step",
+        "actor": "Actor",
+        "detail": "Detail",
+        "date": "Date",
+        "empty": "No lifecycle event has been recorded yet."
+      },
+      "ledger": {
+        "title": "Ledger impact",
+        "description": "Immutable points entries generated by this exchange request.",
+        "entries": "{{count}} entries",
+        "source": "Source",
+        "entry": "Entry",
+        "status": "Status",
+        "delta": "Delta",
+        "effective": "Effective",
+        "empty": "No ledger impact has been recorded for this request yet.",
+        "noDetail": "No extra detail"
+      },
+      "catalog": {
+        "title": "Reward catalog snapshot",
+        "description": "Pack items visible in the linked program at the time of review.",
+        "reward": "Reward",
+        "type": "Type",
+        "points": "Points",
+        "selected": "Selected"
+      },
+      "meta": {
+        "requestType": "Request type",
+        "points": "Points",
+        "cashValue": "Cash value",
+        "requestedBy": "Requested by",
+        "requestedAt": "Requested at",
+        "completedAt": "Completed at",
+        "na": "Not applicable"
+      },
+      "relation": {
+        "program": "Program",
+        "noProgram": "No program",
+        "programDescription": "Program scope for this request",
+        "affiliate": "Affiliate",
+        "noAffiliate": "No affiliate",
+        "affiliateDescription": "Business scope",
+        "reviewer": "Reviewer",
+        "pendingReview": "Pending review",
+        "reward": "Reward",
+        "rewardDescription": "Program catalog",
+        "catalogBadge": "Catalog",
+        "activeBadge": "Active",
+        "affiliateBadge": "Affiliate"
+      },
+      "reviewerDescription": {
+        "requested": "Awaiting business review",
+        "approved": "Validated, not yet in fulfillment",
+        "processing": "Currently being fulfilled",
+        "completed": "Fulfillment completed",
+        "rejected": "Request declined by the business",
+        "cancelled": "Request cancelled before completion"
+      },
+      "unknownUser": "Unknown user",
+      "unknownActor": {
+        "user": "User",
+        "businessOwner": "Business owner",
+        "operations": "Operations",
+        "requester": "Requester"
+      },
+      "timelineEvents": {
+        "requested": {
+          "step": "Requested",
+          "actor": "User",
+          "detail": "The exchange request was submitted and entered the queue."
+        },
+        "approved": {
+          "step": "Approved",
+          "actor": "Business owner",
+          "detail": "The request was approved and points were locked for fulfillment."
+        },
+        "processing": {
+          "step": "Processing",
+          "actor": "Operations",
+          "detail": "Fulfillment started for this exchange request."
+        },
+        "completed": {
+          "step": "Completed",
+          "actor": "Operations",
+          "detail": "The request was completed and the points were consumed."
+        },
+        "rejected": {
+          "step": "Rejected",
+          "actor": "Business owner",
+          "detail": "The request was rejected before fulfillment."
+        },
+        "cancelled": {
+          "step": "Cancelled",
+          "actor": "Requester",
+          "detail": "The request was cancelled and any held points were released."
+        }
+      }
+    }
   }
 }

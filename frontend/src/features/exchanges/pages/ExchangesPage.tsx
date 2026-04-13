@@ -62,6 +62,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthSession } from '@/features/auth/session'
+import { useTranslation } from 'react-i18next'
 import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
 import { formatDashboardDateTimeFr } from '@/features/dashboard/utils/semanticBadges'
@@ -89,36 +90,38 @@ type ExchangeSortKey =
   | 'requested'
   | 'reviewer'
 
-const statusPresentation: Record<ExchangeRequestStatus, { label: string; className: string }> = {
-  requested: {
-    label: 'Demandée',
-    className:
-      'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-  },
-  approved: {
-    label: 'Approuvée',
-    className:
-      'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
-  },
-  rejected: {
-    label: 'Refusée',
-    className:
-      'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-  },
-  processing: {
-    label: 'En traitement',
-    className:
-      'border-transparent bg-indigo-500/15 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
-  },
-  completed: {
-    label: 'Terminée',
-    className:
-      'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-  },
-  cancelled: {
-    label: 'Annulée',
-    className: 'border-transparent bg-muted text-muted-foreground',
-  },
+function getStatusPresentation(t: (key: string) => string): Record<ExchangeRequestStatus, { label: string; className: string }> {
+  return {
+    requested: {
+      label: t('exchanges.status.requested'),
+      className:
+        'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
+    },
+    approved: {
+      label: t('exchanges.status.approved'),
+      className:
+        'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+    },
+    rejected: {
+      label: t('exchanges.status.rejected'),
+      className:
+        'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+    },
+    processing: {
+      label: t('exchanges.status.processing'),
+      className:
+        'border-transparent bg-indigo-500/15 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
+    },
+    completed: {
+      label: t('exchanges.status.completed'),
+      className:
+        'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+    },
+    cancelled: {
+      label: t('exchanges.status.cancelled'),
+      className: 'border-transparent bg-muted text-muted-foreground',
+    },
+  }
 }
 
 const statusSortOrder: Record<ExchangeRequestStatus, number> = {
@@ -144,33 +147,33 @@ function requestTime(value: string | null) {
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
-function exchangeRequestTitle(record: ExchangeRequestRecord) {
+function exchangeRequestTitle(record: ExchangeRequestRecord, t: (key: string) => string) {
   return record.request_type === 'reward'
-    ? record.requested_reward_title ?? record.exchange_pack_item_title ?? 'Demande de récompense'
-    : 'Demande cash'
+    ? record.requested_reward_title ?? record.exchange_pack_item_title ?? t('exchanges.request.rewardDefault')
+    : t('exchanges.request.cashDefault')
 }
 
-function requestTypeLabel(record: ExchangeRequestRecord) {
-  return record.request_type === 'reward' ? 'Récompense' : 'Cash'
+function requestTypeLabel(type: 'reward' | 'cash', t: (key: string) => string) {
+  return type === 'reward' ? t('exchanges.requestType.reward') : t('exchanges.requestType.cash')
 }
 
-function requestValueLabel(record: ExchangeRequestRecord) {
+function requestValueLabel(record: ExchangeRequestRecord, t: (key: string) => string) {
   if (record.request_type === 'reward') {
-    return record.requested_reward_title ?? record.exchange_pack_item_title ?? 'Catalogue programme'
+    return record.requested_reward_title ?? record.exchange_pack_item_title ?? t('exchanges.value.catalogDefault')
   }
 
   return record.cash_amount === null
-    ? 'Montant en attente'
+    ? t('exchanges.value.amountPending')
     : formatCurrency(record.cash_amount, record.currency_code)
 }
 
-function reviewerLabel(record: ExchangeRequestRecord) {
-  if (record.status === 'requested') return 'Action requise'
-  if (record.status === 'approved') return 'Validée, en attente de traitement'
-  if (record.status === 'processing') return 'Fulfillment en cours'
-  if (record.status === 'completed') return 'Traitée'
-  if (record.status === 'rejected') return 'Refusée'
-  return 'Annulée'
+function reviewerLabel(status: ExchangeRequestStatus, t: (key: string) => string) {
+  if (status === 'requested') return t('exchanges.reviewer.requested')
+  if (status === 'approved') return t('exchanges.reviewer.approved')
+  if (status === 'processing') return t('exchanges.reviewer.processing')
+  if (status === 'completed') return t('exchanges.reviewer.completed')
+  if (status === 'rejected') return t('exchanges.reviewer.rejected')
+  return t('exchanges.reviewer.cancelled')
 }
 
 function compareExchangeRequests(
@@ -178,6 +181,7 @@ function compareExchangeRequests(
   right: ExchangeRequestRecord,
   key: ExchangeSortKey,
   direction: SortDirection,
+  t: (key: string) => string,
 ) {
   const modifier = direction === 'asc' ? 1 : -1
   const result =
@@ -192,11 +196,11 @@ function compareExchangeRequests(
             : key === 'program'
               ? (left.program_name ?? '').localeCompare(right.program_name ?? '')
               : key === 'reviewer'
-                ? `${left.approved_by_name ?? ''} ${reviewerLabel(left)}`.localeCompare(
-                    `${right.approved_by_name ?? ''} ${reviewerLabel(right)}`,
+                ? `${left.approved_by_name ?? ''} ${reviewerLabel(left.status, t)}`.localeCompare(
+                    `${right.approved_by_name ?? ''} ${reviewerLabel(right.status, t)}`,
                   )
-                : `${exchangeRequestTitle(left)} ${left.id}`.localeCompare(
-                    `${exchangeRequestTitle(right)} ${right.id}`,
+                : `${exchangeRequestTitle(left, t)} ${left.id}`.localeCompare(
+                    `${exchangeRequestTitle(right, t)} ${right.id}`,
                   )
 
   return result * modifier
@@ -255,6 +259,7 @@ function ExchangesPageSkeleton({ isAgentView }: { isAgentView: boolean }) {
 }
 
 export function ExchangesPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user, hasPermission } = useAuthSession()
   const isAgentView = Boolean(user?.agent_profile)
@@ -315,12 +320,12 @@ export function ExchangesPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!selectedProgramId) {
-        throw new ApiError(422, { message: 'Sélectionnez un programme.' })
+        throw new ApiError(422, { message: t('exchanges.errors.selectProgram') })
       }
 
       if (requestType === 'reward') {
         if (!rewardItemId) {
-          throw new ApiError(422, { message: 'Sélectionnez une récompense.' })
+          throw new ApiError(422, { message: t('exchanges.errors.selectReward') })
         }
 
         return createRewardExchangeRequest({
@@ -332,12 +337,12 @@ export function ExchangesPage() {
 
       const parsedPoints = Number(pointsAmount)
       if (!Number.isFinite(parsedPoints) || parsedPoints <= 0) {
-        throw new ApiError(422, { message: 'Le nombre de points doit être supérieur à zéro.' })
+        throw new ApiError(422, { message: t('exchanges.errors.pointsPositive') })
       }
 
       if (selectedProgram && parsedPoints > selectedProgram.available_points) {
         throw new ApiError(422, {
-          message: `Vous ne pouvez demander que ${selectedProgram.available_points.toLocaleString('fr-FR')} pts sur ce programme.`,
+          message: t('exchanges.errors.pointsExceed', { max: selectedProgram.available_points.toLocaleString('fr-FR') }),
         })
       }
 
@@ -348,7 +353,7 @@ export function ExchangesPage() {
       })
     },
     onSuccess: async () => {
-      setFeedback('Demande envoyée.')
+      setFeedback(t('exchanges.feedback.requestSent'))
       setSelectedProgramId('')
       setRewardItemId('')
       setNotes('')
@@ -456,7 +461,7 @@ export function ExchangesPage() {
 
       const matchesSearch =
         q.length === 0 ||
-        exchangeRequestTitle(record).toLowerCase().includes(q) ||
+        exchangeRequestTitle(record, t).toLowerCase().includes(q) ||
         (record.program_name ?? '').toLowerCase().includes(q) ||
         (record.agent_name ?? '').toLowerCase().includes(q) ||
         (record.business_name ?? '').toLowerCase().includes(q) ||
@@ -469,7 +474,7 @@ export function ExchangesPage() {
   const sortedRequests = useMemo(
     () =>
       [...filteredRequests].sort((left, right) =>
-        compareExchangeRequests(left, right, sortKey, sortDirection),
+        compareExchangeRequests(left, right, sortKey, sortDirection, t),
       ),
     [filteredRequests, sortDirection, sortKey],
   )
@@ -554,7 +559,7 @@ export function ExchangesPage() {
         new Map(
           requests
             .filter((record) => record.program_id && record.program_name)
-            .map((record) => [record.program_id, { id: record.program_id!, name: record.program_name ?? 'Programme' }]),
+            .map((record) => [record.program_id, { id: record.program_id!, name: record.program_name ?? t('exchanges.table.program') }]),
         ).values(),
       ).sort((left, right) => left.name.localeCompare(right.name)),
     [requests],
@@ -566,7 +571,7 @@ export function ExchangesPage() {
         new Map(
           requests
             .filter((record) => record.agent_id && record.agent_name)
-            .map((record) => [record.agent_id, { id: record.agent_id, name: record.agent_name ?? 'Affilié' }]),
+            .map((record) => [record.agent_id, { id: record.agent_id, name: record.agent_name ?? t('exchanges.table.affiliate') }]),
         ).values(),
       ).sort((left, right) => left.name.localeCompare(right.name)),
     [requests],
@@ -623,7 +628,7 @@ export function ExchangesPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title={isAgentView ? 'My exchanges' : 'Exchange operations'}
+        title={isAgentView ? t('exchanges.pageTitle.agent') : t('exchanges.pageTitle.owner')}
         right={
           <PageHeaderToolbar>
             {hasActiveFilters ? (
@@ -643,12 +648,12 @@ export function ExchangesPage() {
                         setDateFrom('')
                         setDateTo('')
                       }}
-                      aria-label="Effacer les filtres"
+                      aria-label={t('exchanges.filters.clearFilters')}
                     >
                       <FilterX className="size-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Effacer les filtres</TooltipContent>
+                  <TooltipContent>{t('exchanges.filters.clearFilters')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}
@@ -658,7 +663,7 @@ export function ExchangesPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder={isAgentView ? 'Rechercher mes demandes...' : 'Rechercher une demande...'}
+                placeholder={isAgentView ? t('exchanges.filters.searchAgentPlaceholder') : t('exchanges.filters.searchOwnerPlaceholder')}
                 className="pl-9"
               />
             </div>
@@ -668,13 +673,13 @@ export function ExchangesPage() {
               onValueChange={(value) => setStatusFilter(value as 'all' | ExchangeRequestStatus)}
             >
               <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Tous statuts" />
+                <SelectValue placeholder={t('exchanges.filters.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Statut</SelectLabel>
-                  <SelectItem value="all">Tous statuts</SelectItem>
-                  {Object.entries(statusPresentation).map(([value, presentation]) => (
+                  <SelectLabel>{t('exchanges.filters.status')}</SelectLabel>
+                  <SelectItem value="all">{t('exchanges.filters.allStatuses')}</SelectItem>
+                  {Object.entries(getStatusPresentation(t)).map(([value, presentation]) => (
                     <SelectItem key={value} value={value}>
                       {presentation.label}
                     </SelectItem>
@@ -685,12 +690,12 @@ export function ExchangesPage() {
 
             <Select value={programFilter} onValueChange={setProgramFilter}>
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Tous programmes" />
+                <SelectValue placeholder={t('exchanges.filters.allPrograms')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Programme</SelectLabel>
-                  <SelectItem value="all">Tous programmes</SelectItem>
+                  <SelectLabel>{t('exchanges.filters.program')}</SelectLabel>
+                  <SelectItem value="all">{t('exchanges.filters.allPrograms')}</SelectItem>
                   {programOptions.map((program) => (
                     <SelectItem key={program.id} value={program.id}>
                       {program.name}
@@ -703,12 +708,12 @@ export function ExchangesPage() {
             {!isAgentView ? (
               <Select value={agentFilter} onValueChange={setAgentFilter}>
                 <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Tous affiliés" />
+                  <SelectValue placeholder={t('exchanges.filters.allAffiliates')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Affilié</SelectLabel>
-                    <SelectItem value="all">Tous affiliés</SelectItem>
+                    <SelectLabel>{t('exchanges.filters.affiliate')}</SelectLabel>
+                    <SelectItem value="all">{t('exchanges.filters.allAffiliates')}</SelectItem>
                     {agentOptions.map((agent) => (
                       <SelectItem key={agent.id} value={agent.id}>
                         {agent.name}
@@ -724,14 +729,14 @@ export function ExchangesPage() {
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               className="w-full sm:w-[148px]"
-              aria-label="Date de début"
+              aria-label={t('exchanges.filters.startDate')}
             />
             <Input
               type="date"
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               className="w-full sm:w-[148px]"
-              aria-label="Date de fin"
+              aria-label={t('exchanges.filters.endDate')}
             />
 
             {isAgentView && canCreate ? (
@@ -743,7 +748,7 @@ export function ExchangesPage() {
                 }}
               >
                 <Plus className="mr-2 size-4" />
-                Nouvelle demande
+                {t('exchanges.filters.newRequest')}
               </Button>
             ) : null}
           </PageHeaderToolbar>
@@ -754,9 +759,9 @@ export function ExchangesPage() {
         {isAgentView ? (
           <>
             <KpiCard
-              title="Available wallet"
+              title={t('exchanges.kpi.availableWallet.title')}
               value={`${totalWalletPoints.toLocaleString('fr-FR')} pts`}
-              description="Spendable points across all programs"
+              description={t('exchanges.kpi.availableWallet.descriptionAgent')}
               icon={WalletCards}
               tone="success"
               variant="solid"
@@ -764,9 +769,9 @@ export function ExchangesPage() {
               isLoading={pointsSummaryQuery.isFetching && !totalWalletPoints}
             />
             <KpiCard
-              title="Requested points"
+              title={t('exchanges.kpi.requestedPoints.title')}
               value={`${totalPointsRequested.toLocaleString('fr-FR')} pts`}
-              description="Total points submitted for exchange"
+              description={t('exchanges.kpi.requestedPoints.descriptionAgent')}
               icon={Coins}
               tone="warning"
               variant="solid"
@@ -774,27 +779,27 @@ export function ExchangesPage() {
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="Queue total"
+              title={t('exchanges.kpi.queueTotal.title')}
               value={kpiFilteredRequests.length.toLocaleString('fr-FR')}
-              description="Your submitted exchange requests"
+              description={t('exchanges.kpi.queueTotal.descriptionAgent')}
               icon={WalletCards}
               tone="primary"
               className="xl:col-span-2"
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="Pending approval"
+              title={t('exchanges.kpi.pendingApproval.title')}
               value={requestedCount.toLocaleString('fr-FR')}
-              description="Waiting owner review"
+              description={t('exchanges.kpi.pendingApproval.descriptionAgent')}
               icon={Clock3}
               tone="warning"
               className="xl:col-span-2"
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="In fulfillment"
+              title={t('exchanges.kpi.inFulfillment.title')}
               value={inFulfillmentCount.toLocaleString('fr-FR')}
-              description="Approved or processing"
+              description={t('exchanges.kpi.inFulfillment.description')}
               icon={Loader2}
               tone="info"
               className="xl:col-span-2"
@@ -804,9 +809,9 @@ export function ExchangesPage() {
         ) : (
           <>
             <KpiCard
-              title="Available wallet"
+              title={t('exchanges.kpi.availableWallet.title')}
               value={`${totalAvailablePoints.toLocaleString('fr-FR')} pts`}
-              description="Spendable across affiliates"
+              description={t('exchanges.kpi.availableWallet.descriptionOwner')}
               icon={Coins}
               tone="success"
               variant="solid"
@@ -814,9 +819,9 @@ export function ExchangesPage() {
               isLoading={pointsSummaryQuery.isFetching && !totalAvailablePoints}
             />
             <KpiCard
-              title="Requested points"
+              title={t('exchanges.kpi.requestedPoints.title')}
               value={`${totalPointsRequested.toLocaleString('fr-FR')} pts`}
-              description="Total points requested"
+              description={t('exchanges.kpi.requestedPoints.descriptionOwner')}
               icon={Coins}
               tone="warning"
               variant="solid"
@@ -824,27 +829,27 @@ export function ExchangesPage() {
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="Queue total"
+              title={t('exchanges.kpi.queueTotal.title')}
               value={kpiFilteredRequests.length.toLocaleString('fr-FR')}
-              description="Open and historical requests"
+              description={t('exchanges.kpi.queueTotal.descriptionOwner')}
               icon={WalletCards}
               tone="primary"
               className="xl:col-span-2"
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="Pending approval"
+              title={t('exchanges.kpi.pendingApproval.title')}
               value={requestedCount.toLocaleString('fr-FR')}
-              description="Needs review now"
+              description={t('exchanges.kpi.pendingApproval.descriptionOwner')}
               icon={Clock3}
               tone="warning"
               className="xl:col-span-2"
               isLoading={exchangesQuery.isFetching && exchangesQuery.isPlaceholderData}
             />
             <KpiCard
-              title="In fulfillment"
+              title={t('exchanges.kpi.inFulfillment.title')}
               value={inFulfillmentCount.toLocaleString('fr-FR')}
-              description="Approved or processing"
+              description={t('exchanges.kpi.inFulfillment.description')}
               icon={Loader2}
               tone="info"
               className="xl:col-span-2"
@@ -856,7 +861,7 @@ export function ExchangesPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title={isAgentView ? 'Mes demandes de virement' : 'Opérations de virement'}
+          title={isAgentView ? t('exchanges.section.agent') : t('exchanges.section.owner')}
         />
 
         <div className="overflow-hidden rounded-lg border border-border">
@@ -869,7 +874,7 @@ export function ExchangesPage() {
                   direction={sortDirection}
                   onSort={handleSort}
                 >
-                  Request
+                  {t('exchanges.table.request')}
                 </SortableTableHead>
                 <SortableTableHead
                   sortKey="status"
@@ -877,7 +882,7 @@ export function ExchangesPage() {
                   direction={sortDirection}
                   onSort={handleSort}
                 >
-                  Status
+                  {t('exchanges.table.status')}
                 </SortableTableHead>
                 {!isAgentView ? (
                   <SortableTableHead
@@ -886,7 +891,7 @@ export function ExchangesPage() {
                     direction={sortDirection}
                     onSort={handleSort}
                   >
-                    Affiliate
+                    {t('exchanges.table.affiliate')}
                   </SortableTableHead>
                 ) : null}
                 <SortableTableHead
@@ -895,7 +900,7 @@ export function ExchangesPage() {
                   direction={sortDirection}
                   onSort={handleSort}
                 >
-                  Program
+                  {t('exchanges.table.program')}
                 </SortableTableHead>
                 <SortableTableHead
                   sortKey="points"
@@ -905,9 +910,9 @@ export function ExchangesPage() {
                   className="text-right"
                   align="right"
                 >
-                  Points
+                  {t('exchanges.table.points')}
                 </SortableTableHead>
-                <TableHead>{isAgentView ? 'Cash / reward' : 'Reviewer / fulfillment'}</TableHead>
+                <TableHead>{isAgentView ? t('exchanges.table.cashReward') : t('exchanges.table.reviewerFulfillment')}</TableHead>
                 <SortableTableHead
                   sortKey="requested"
                   activeKey={sortKey}
@@ -916,9 +921,9 @@ export function ExchangesPage() {
                   className="text-right"
                   align="right"
                 >
-                  Requested
+                  {t('exchanges.table.requested')}
                 </SortableTableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">{t('exchanges.table.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -930,14 +935,14 @@ export function ExchangesPage() {
                   >
                     {isAgentView
                       ? canCreate
-                        ? 'No requests match the current filters. Start a new exchange when you are ready.'
-                        : 'No requests match the current filters.'
-                      : 'No exchange requests match the current queue filters.'}
+                        ? t('exchanges.empty.agentCanCreate')
+                        : t('exchanges.empty.agentCannotCreate')
+                      : t('exchanges.empty.owner')}
                   </TableCell>
                 </TableRow>
               ) : (
                 pageSlice.map((record) => {
-                  const status = statusPresentation[record.status]
+                  const status = getStatusPresentation(t)[record.status]
                   const canCancel =
                     (record.requested_by_user_id === user?.id ||
                       record.agent_id === user?.agent_profile?.id) &&
@@ -952,10 +957,10 @@ export function ExchangesPage() {
                             to={`/payouts/${record.id}`}
                             className="text-sm font-semibold text-foreground underline underline-offset-4 decoration-border transition hover:text-primary hover:decoration-primary"
                           >
-                            {exchangeRequestTitle(record)}
+                            {exchangeRequestTitle(record, t)}
                           </Link>
                           <div className="text-xs text-muted-foreground">
-                            {requestTypeLabel(record)} • {record.id.slice(0, 8).toUpperCase()}
+                            {requestTypeLabel(record.request_type, t)} • {record.id.slice(0, 8).toUpperCase()}
                           </div>
                         </div>
                       </TableCell>
@@ -969,10 +974,10 @@ export function ExchangesPage() {
                               to={`/agents/${record.agent_id}`}
                               className="text-sm font-medium text-foreground underline underline-offset-4 decoration-border transition hover:text-primary hover:decoration-primary"
                             >
-                              {record.agent_name ?? 'Affiliate'}
+                              {record.agent_name ?? t('exchanges.table.affiliate')}
                             </Link>
                           ) : (
-                            <span className="text-sm text-muted-foreground">No affiliate</span>
+                            <span className="text-sm text-muted-foreground">{t('exchanges.fallback.noAffiliate')}</span>
                           )}
                         </TableCell>
                       ) : null}
@@ -982,10 +987,10 @@ export function ExchangesPage() {
                             to={`/programs/${record.program_id}`}
                             className="text-sm font-medium text-foreground underline underline-offset-4 decoration-border transition hover:text-primary hover:decoration-primary"
                           >
-                            {record.program_name ?? 'Program'}
+                            {record.program_name ?? t('exchanges.table.program')}
                           </Link>
                         ) : (
-                          <span className="text-sm text-muted-foreground">No program</span>
+                          <span className="text-sm text-muted-foreground">{t('exchanges.fallback.noProgram')}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right text-sm font-semibold text-foreground">
@@ -994,16 +999,16 @@ export function ExchangesPage() {
                       <TableCell className="min-w-[200px]">
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-foreground">
-                            {isAgentView ? requestValueLabel(record) : reviewerLabel(record)}
+                            {isAgentView ? requestValueLabel(record, t) : reviewerLabel(record.status, t)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {isAgentView
                               ? record.request_type === 'reward'
-                                ? 'Requested reward'
+                                ? t('exchanges.fallback.requestedReward')
                                 : record.cash_amount === null
-                                  ? 'Cash conversion pending'
+                                  ? t('exchanges.fallback.cashPending')
                                   : formatCurrency(record.cash_amount, record.currency_code)
-                              : record.approved_by_name ?? 'No reviewer assigned'}
+                              : record.approved_by_name ?? t('exchanges.fallback.noReviewer')}
                           </p>
                         </div>
                       </TableCell>
@@ -1022,12 +1027,12 @@ export function ExchangesPage() {
                                     size="icon-sm"
                                     className="border border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                                   >
-                                    <Link to={`/payouts/${record.id}`} aria-label="View request">
+                                    <Link to={`/payouts/${record.id}`} aria-label={t('exchanges.actions.viewRequest')}>
                                       <Eye className="size-4" />
                                     </Link>
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>View request</TooltipContent>
+                                <TooltipContent>{t('exchanges.actions.viewRequest')}</TooltipContent>
                               </Tooltip>
                               {!isAgentView && record.status === 'requested' && canApprove ? (
                                 <Tooltip>
@@ -1039,12 +1044,12 @@ export function ExchangesPage() {
                                       disabled={isBusy}
                                       className="border border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-500 dark:text-emerald-400"
                                       onClick={() => approveMutation.mutate(record.id)}
-                                      aria-label="Approve request"
+                                      aria-label={t('exchanges.actions.approve')}
                                     >
                                       <CheckCircle2 className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Approve request</TooltipContent>
+                                  <TooltipContent>{t('exchanges.actions.approve')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {!isAgentView && record.status === 'requested' && canReject ? (
@@ -1057,12 +1062,12 @@ export function ExchangesPage() {
                                       disabled={isBusy}
                                       className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
                                       onClick={() => rejectMutation.mutate(record.id)}
-                                      aria-label="Reject request"
+                                      aria-label={t('exchanges.actions.reject')}
                                     >
                                       <X className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Reject request</TooltipContent>
+                                  <TooltipContent>{t('exchanges.actions.reject')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {!isAgentView && record.status === 'approved' && canApprove ? (
@@ -1075,12 +1080,12 @@ export function ExchangesPage() {
                                       disabled={isBusy}
                                       className="border border-amber-500/30 text-amber-600 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-500 dark:text-amber-400"
                                       onClick={() => processingMutation.mutate(record.id)}
-                                      aria-label="Start fulfilment"
+                                      aria-label={t('exchanges.actions.startFulfilment')}
                                     >
                                       <Play className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Start fulfilment</TooltipContent>
+                                  <TooltipContent>{t('exchanges.actions.startFulfilment')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {!isAgentView && record.status === 'processing' && canApprove ? (
@@ -1093,12 +1098,12 @@ export function ExchangesPage() {
                                       disabled={isBusy}
                                       className="border border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-500 dark:text-emerald-400"
                                       onClick={() => completeMutation.mutate(record.id)}
-                                      aria-label="Complete request"
+                                      aria-label={t('exchanges.actions.complete')}
                                     >
                                       <CheckCircle2 className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Complete request</TooltipContent>
+                                  <TooltipContent>{t('exchanges.actions.complete')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                               {isAgentView && canCancel ? (
@@ -1111,12 +1116,12 @@ export function ExchangesPage() {
                                       disabled={isBusy}
                                       className="border border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 dark:text-red-400"
                                       onClick={() => cancelMutation.mutate(record.id)}
-                                      aria-label="Cancel request"
+                                      aria-label={t('exchanges.actions.cancel')}
                                     >
                                       <X className="size-4" />
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Annuler la demande</TooltipContent>
+                                  <TooltipContent>{t('exchanges.actions.cancel')}</TooltipContent>
                                 </Tooltip>
                               ) : null}
                             </div>
@@ -1136,7 +1141,7 @@ export function ExchangesPage() {
                                 <DropdownMenuItem asChild>
                                   <Link to={`/payouts/${record.id}`}>
                                     <Eye className="size-4 text-primary" />
-                                    <span>View request</span>
+                                    <span>{t('exchanges.dropdown.viewRequest')}</span>
                                   </Link>
                                 </DropdownMenuItem>
                                 {!isAgentView && record.status === 'requested' && canApprove ? (
@@ -1145,7 +1150,7 @@ export function ExchangesPage() {
                                     onClick={() => approveMutation.mutate(record.id)}
                                   >
                                     <CheckCircle2 className="size-4 text-emerald-500" />
-                                    <span>Approve</span>
+                                    <span>{t('exchanges.dropdown.approve')}</span>
                                   </DropdownMenuItem>
                                 ) : null}
                                 {!isAgentView && record.status === 'requested' && canReject ? (
@@ -1154,7 +1159,7 @@ export function ExchangesPage() {
                                     onClick={() => rejectMutation.mutate(record.id)}
                                   >
                                     <X className="size-4 text-destructive" />
-                                    <span>Reject</span>
+                                    <span>{t('exchanges.dropdown.reject')}</span>
                                   </DropdownMenuItem>
                                 ) : null}
                                 {!isAgentView && record.status === 'approved' && canApprove ? (
@@ -1163,7 +1168,7 @@ export function ExchangesPage() {
                                     onClick={() => processingMutation.mutate(record.id)}
                                   >
                                     <Play className="size-4 text-amber-500" />
-                                    <span>Start fulfilment</span>
+                                    <span>{t('exchanges.dropdown.startFulfilment')}</span>
                                   </DropdownMenuItem>
                                 ) : null}
                                 {!isAgentView &&
@@ -1174,7 +1179,7 @@ export function ExchangesPage() {
                                     onClick={() => completeMutation.mutate(record.id)}
                                   >
                                     <CheckCircle2 className="size-4 text-emerald-500" />
-                                    <span>Complete request</span>
+                                    <span>{t('exchanges.dropdown.complete')}</span>
                                   </DropdownMenuItem>
                                 ) : null}
                                 {isAgentView && canCancel ? (
@@ -1185,7 +1190,7 @@ export function ExchangesPage() {
                                       onClick={() => cancelMutation.mutate(record.id)}
                                     >
                                       <X className="size-4 text-destructive" />
-                                      <span>Annuler la demande</span>
+                                      <span>{t('exchanges.dropdown.cancel')}</span>
                                     </DropdownMenuItem>
                                   </>
                                 ) : null}
@@ -1221,17 +1226,17 @@ export function ExchangesPage() {
       >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>New exchange request</DialogTitle>
+            <DialogTitle>{t('exchanges.dialog.title')}</DialogTitle>
             <DialogDescription>
-              Build your request step by step from the program balance you want to use.
+              {t('exchanges.dialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex items-center justify-center gap-0">
             {[
-              { step: 1, title: 'Programme' },
-              { step: 2, title: 'Demande' },
-              { step: 3, title: 'Aperçu' },
+              { step: 1, title: t('exchanges.dialog.stepProgram') },
+              { step: 2, title: t('exchanges.dialog.stepRequest') },
+              { step: 3, title: t('exchanges.dialog.stepPreview') },
             ].map((item, index, array) => {
               const isActive = createStep === item.step
               const isDone = createStep > item.step
@@ -1272,16 +1277,16 @@ export function ExchangesPage() {
           {createStep === 1 ? (
             <div className="space-y-3">
               <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-foreground">Select a program</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t('exchanges.dialog.selectProgram')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Start from the program balance you want to use for this request.
+                  {t('exchanges.dialog.selectProgramHint')}
                 </p>
               </div>
 
               <div className="space-y-2">
                 {selectablePrograms.length === 0 ? (
                   <div className="rounded-lg bg-muted/30 px-4 py-4 text-sm text-muted-foreground">
-                    No program currently has points ready for an exchange request.
+                    {t('exchanges.dialog.noPrograms')}
                   </div>
                 ) : (
                   selectablePrograms.map((program) => {
@@ -1304,21 +1309,21 @@ export function ExchangesPage() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <div className="text-sm font-semibold text-foreground">
-                              {program.program_name ?? 'Program'}
+                              {program.program_name ?? t('exchanges.dialog.preview.program')}
                             </div>
                             {isSelected ? (
                               <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
-                                Selected
+                                {t('exchanges.dialog.programSelected')}
                               </span>
                             ) : null}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {program.exchange_pack_name ?? 'Exchange catalog'} •{' '}
+                            {program.exchange_pack_name ?? t('exchanges.value.catalogDefault')} •{' '}
                             {program.exchange_mode === 'both'
-                              ? 'Reward + cash'
+                              ? `${t('exchanges.requestType.reward')} + ${t('exchanges.requestType.cash')}`
                               : program.exchange_mode === 'cash'
-                                ? 'Cash'
-                                : 'Reward'}
+                                ? t('exchanges.requestType.cash')
+                                : t('exchanges.requestType.reward')}
                           </div>
                         </div>
                         <div className="text-right">
@@ -1326,7 +1331,7 @@ export function ExchangesPage() {
                             {program.available_points.toLocaleString('fr-FR')} pts
                           </div>
                           <div className="text-xs text-muted-foreground transition group-hover:text-foreground/80">
-                            Click to use this balance
+                            {t('exchanges.dialog.clickToUse')}
                           </div>
                         </div>
                       </button>
@@ -1341,23 +1346,23 @@ export function ExchangesPage() {
             <div className="space-y-4">
               <div className="rounded-lg bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">
-                  {selectedProgram?.program_name ?? 'Program'}
+                  {selectedProgram?.program_name ?? t('exchanges.dialog.preview.program')}
                 </span>{' '}
                 •{' '}
                 <span className="font-medium text-foreground">
                   {selectedProgram?.available_points.toLocaleString('fr-FR') ?? '0'} pts
                 </span>{' '}
-                available
+                {t('exchanges.value.catalogDefault')}
               </div>
 
               {supportedRequestTypes.length === 0 ? (
                 <div className="rounded-lg bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  This program has no active exchange option available right now.
+                  {t('exchanges.dialog.noExchangeOptions')}
                 </div>
               ) : null}
 
               <div className="space-y-2">
-                <FieldLabel>Request method</FieldLabel>
+                <FieldLabel>{t('exchanges.dialog.requestMethod')}</FieldLabel>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {supportedRequestTypes.includes('reward') && canCreateReward ? (
                     <button
@@ -1376,9 +1381,9 @@ export function ExchangesPage() {
                         <Gift className="size-4" />
                       </div>
                       <div className="space-y-1">
-                        <div className="text-sm font-semibold text-foreground">Reward</div>
+                        <div className="text-sm font-semibold text-foreground">{t('exchanges.dialog.rewardTitle')}</div>
                         <div className="text-xs text-muted-foreground">
-                          Exchange points for a catalog reward.
+                          {t('exchanges.dialog.rewardDescription')}
                         </div>
                       </div>
                     </button>
@@ -1402,9 +1407,9 @@ export function ExchangesPage() {
                         <Banknote className="size-4" />
                       </div>
                       <div className="space-y-1">
-                        <div className="text-sm font-semibold text-foreground">Cash</div>
+                        <div className="text-sm font-semibold text-foreground">{t('exchanges.dialog.cashTitle')}</div>
                         <div className="text-xs text-muted-foreground">
-                          Convert points into a cash request.
+                          {t('exchanges.dialog.cashDescription')}
                         </div>
                       </div>
                     </button>
@@ -1414,17 +1419,17 @@ export function ExchangesPage() {
 
               {requestType === 'reward' ? (
                 <Field>
-                  <FieldLabel>Reward</FieldLabel>
+                  <FieldLabel>{t('exchanges.dialog.rewardLabel')}</FieldLabel>
                   <Select value={rewardItemId} onValueChange={setRewardItemId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez une récompense" />
+                      <SelectValue placeholder={t('exchanges.dialog.selectReward')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Récompenses disponibles</SelectLabel>
+                        <SelectLabel>{t('exchanges.dialog.selectReward')}</SelectLabel>
                         {selectedPackItems.length === 0 ? (
                           <SelectItem value="__none" disabled>
-                            Aucune récompense disponible
+                            {t('exchanges.dialog.noRewards')}
                           </SelectItem>
                         ) : null}
                         {selectedPackItems.map((item) => (
@@ -1438,7 +1443,7 @@ export function ExchangesPage() {
                 </Field>
               ) : (
                 <Field>
-                  <FieldLabel>Points to convert</FieldLabel>
+                  <FieldLabel>{t('exchanges.dialog.pointsLabel')}</FieldLabel>
                   <Input
                     value={pointsAmount}
                     onChange={(event) => setPointsAmount(event.target.value)}
@@ -1450,11 +1455,7 @@ export function ExchangesPage() {
 
               {selectedProgram && exceedsProgramBalance ? (
                 <div className="rounded-lg bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                  This request exceeds the selected program balance. You can use up to{' '}
-                  <span className="font-semibold">
-                    {selectedProgramAvailablePoints.toLocaleString('fr-FR')} pts
-                  </span>
-                  .
+                  {t('exchanges.dialog.exceedsBalance', { max: selectedProgramAvailablePoints.toLocaleString('fr-FR') })}
                 </div>
               ) : null}
             </div>
@@ -1466,15 +1467,15 @@ export function ExchangesPage() {
                 <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Programme
+                      {t('exchanges.dialog.preview.program')}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-foreground">
-                      {selectedProgram?.program_name ?? 'Program'}
+                      {selectedProgram?.program_name ?? t('exchanges.dialog.preview.program')}
                     </div>
                   </div>
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Solde
+                      {t('exchanges.dialog.preview.balance')}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-foreground">
                       {selectedProgram?.available_points.toLocaleString('fr-FR') ?? '0'} pts
@@ -1482,19 +1483,19 @@ export function ExchangesPage() {
                   </div>
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Type
+                      {t('exchanges.dialog.preview.type')}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-foreground">
-                      {requestType === 'reward' ? 'Récompense' : 'Cash'}
+                      {requestType === 'reward' ? t('exchanges.requestType.reward') : t('exchanges.requestType.cash')}
                     </div>
                   </div>
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Sélection
+                      {t('exchanges.dialog.preview.selection')}
                     </div>
                     <div className="mt-1 text-sm font-semibold text-foreground">
                       {requestType === 'reward'
-                        ? selectedReward?.title ?? 'Aucune récompense'
+                        ? selectedReward?.title ?? t('exchanges.dialog.preview.noReward')
                         : `${Number(pointsAmount || 0).toLocaleString('fr-FR')} pts`}
                     </div>
                   </div>
@@ -1502,11 +1503,11 @@ export function ExchangesPage() {
               </div>
 
               <Field>
-                <FieldLabel>Notes</FieldLabel>
+                <FieldLabel>{t('exchanges.dialog.notesLabel')}</FieldLabel>
                 <Textarea
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Contexte optionnel pour le propriétaire..."
+                  placeholder={t('exchanges.dialog.notesPlaceholder')}
                   rows={3}
                   className="resize-none"
                 />
@@ -1519,11 +1520,11 @@ export function ExchangesPage() {
           <DialogFooter className="gap-2 sm:justify-between">
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                Cancel
+                {t('exchanges.dialog.cancel')}
               </Button>
               {createStep > 1 ? (
                 <Button type="button" variant="outline" onClick={() => setCreateStep((step) => step - 1)}>
-                  Back
+                  {t('exchanges.dialog.back')}
                 </Button>
               ) : null}
             </div>
@@ -1534,7 +1535,7 @@ export function ExchangesPage() {
                 onClick={() => setCreateStep((step) => step + 1)}
                 disabled={createStep === 1 ? !canContinueFromProgram : !canContinueFromDetails}
               >
-                Continue
+                {t('exchanges.dialog.continue')}
               </Button>
             ) : (
               <Button
@@ -1543,7 +1544,7 @@ export function ExchangesPage() {
                 disabled={createMutation.isPending || !selectedProgramId || !canContinueFromDetails}
               >
                 {createMutation.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Submit request
+                {t('exchanges.dialog.submit')}
               </Button>
             )}
           </DialogFooter>

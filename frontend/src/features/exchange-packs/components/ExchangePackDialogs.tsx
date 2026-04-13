@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangleIcon, Gift, PackagePlus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import type { ApiError } from '@/lib/api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -34,6 +35,7 @@ export function ExchangePackFormDialog({
   onClose: () => void
   onSubmit: (payload: { name: string; description: string | null }) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
 
@@ -47,9 +49,9 @@ export function ExchangePackFormDialog({
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{pack ? 'Modifier le pack' : 'Créer un pack'}</DialogTitle>
+          <DialogTitle>{pack ? t('exchangePacks.dialogs.form.editTitle') : t('exchangePacks.dialogs.form.createTitle')}</DialogTitle>
           <DialogDescription>
-            Configurez le nom et la description du catalogue de cadeaux.
+            {t('exchangePacks.dialogs.form.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -58,33 +60,33 @@ export function ExchangePackFormDialog({
             <div className="flex items-center gap-3">
               <IconTile icon={PackagePlus} className="bg-primary text-primary-foreground" size="sm" />
               <div>
-                <p className="app-eyebrow text-primary">Pack rewards</p>
+                <p className="app-eyebrow text-primary">{t('exchangePacks.dialogs.form.infoTitle')}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {pack
-                    ? 'Modifiez les informations du pack. Gérez les cadeaux depuis la page du pack.'
-                    : 'Vous pourrez ajouter les cadeaux après la création du pack.'}
+                    ? t('exchangePacks.dialogs.form.editInfo')
+                    : t('exchangePacks.dialogs.form.createInfo')}
                 </p>
               </div>
             </div>
           </div>
 
           <Field>
-            <FieldLabel htmlFor="exchange-pack-name">Nom du pack</FieldLabel>
+            <FieldLabel htmlFor="exchange-pack-name">{t('exchangePacks.dialogs.form.nameLabel')}</FieldLabel>
             <Input
               id="exchange-pack-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Exemple : Starter"
+              placeholder={t('exchangePacks.dialogs.form.namePlaceholder')}
             />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="exchange-pack-description">Description</FieldLabel>
+            <FieldLabel htmlFor="exchange-pack-description">{t('exchangePacks.dialogs.form.descriptionLabel')}</FieldLabel>
             <Textarea
               id="exchange-pack-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Décrivez quand utiliser ce pack et les avantages qu'il contient."
+              placeholder={t('exchangePacks.dialogs.form.descriptionPlaceholder')}
               rows={3}
             />
           </Field>
@@ -95,7 +97,7 @@ export function ExchangePackFormDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isSubmitting} className="cursor-pointer">
-              Annuler
+              {t('common.cancel')}
             </Button>
           </DialogClose>
           <Button
@@ -107,7 +109,7 @@ export function ExchangePackFormDialog({
               description: description.trim() || null,
             })}
           >
-            {isSubmitting ? 'Enregistrement...' : pack ? 'Enregistrer' : 'Créer'}
+            {isSubmitting ? t('exchangePacks.dialogs.form.saving') : pack ? t('exchangePacks.dialogs.form.save') : t('exchangePacks.dialogs.form.create')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -130,6 +132,7 @@ export function ExchangePackItemDialog({
   onClose: () => void
   onSubmit: (payload: { title: string; points_cost: number }) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [pointsCost, setPointsCost] = useState('')
 
@@ -146,9 +149,9 @@ export function ExchangePackItemDialog({
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{item ? 'Modifier le cadeau' : 'Ajouter un cadeau'}</DialogTitle>
+          <DialogTitle>{item ? t('exchangePacks.dialogs.item.editTitle') : t('exchangePacks.dialogs.item.createTitle')}</DialogTitle>
           <DialogDescription>
-            Chaque cadeau définit un avantage et son coût en points.
+            {t('exchangePacks.dialogs.item.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -157,26 +160,26 @@ export function ExchangePackItemDialog({
             <div className="flex items-center gap-3">
               <IconTile icon={Gift} className="bg-amber-500 text-white" size="sm" />
               <div>
-                <p className="app-eyebrow text-amber-900 dark:text-amber-300">Cadeau rewards</p>
+                <p className="app-eyebrow text-amber-900 dark:text-amber-300">{t('exchangePacks.dialogs.item.infoTitle')}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Ce cadeau sera visible dans les programmes qui utilisent ce pack.
+                  {t('exchangePacks.dialogs.item.infoDescription')}
                 </p>
               </div>
             </div>
           </div>
 
           <Field>
-            <FieldLabel htmlFor="exchange-pack-item-title">Nom du cadeau</FieldLabel>
+            <FieldLabel htmlFor="exchange-pack-item-title">{t('exchangePacks.dialogs.item.nameLabel')}</FieldLabel>
             <Input
               id="exchange-pack-item-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Exemple : Audit SEO express"
+              placeholder={t('exchangePacks.dialogs.item.namePlaceholder')}
             />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="exchange-pack-item-points">Coût en points</FieldLabel>
+            <FieldLabel htmlFor="exchange-pack-item-points">{t('exchangePacks.dialogs.item.pointsLabel')}</FieldLabel>
             <Input
               id="exchange-pack-item-points"
               type="number"
@@ -184,7 +187,7 @@ export function ExchangePackItemDialog({
               max="9999999"
               value={pointsCost}
               onChange={(event) => setPointsCost(event.target.value)}
-              placeholder="Exemple : 500"
+              placeholder={t('exchangePacks.dialogs.item.pointsPlaceholder')}
             />
           </Field>
 
@@ -194,7 +197,7 @@ export function ExchangePackItemDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isSubmitting} className="cursor-pointer">
-              Annuler
+              {t('common.cancel')}
             </Button>
           </DialogClose>
           <Button
@@ -206,7 +209,7 @@ export function ExchangePackItemDialog({
               points_cost: numericPoints,
             })}
           >
-            {isSubmitting ? 'Enregistrement...' : item ? 'Enregistrer' : 'Ajouter'}
+            {isSubmitting ? t('exchangePacks.dialogs.item.saving') : item ? t('exchangePacks.dialogs.item.save') : t('exchangePacks.dialogs.item.add')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -229,6 +232,7 @@ export function ExchangePackDeleteDialog({
   onClose: () => void
   onConfirm: () => Promise<void>
 }) {
+  const { t } = useTranslation()
   const linkedProgramsCount = pack?.linked_programs_count ?? 0
   const isBlocked = linkedProgramsCount > 0
 
@@ -236,9 +240,9 @@ export function ExchangePackDeleteDialog({
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Supprimer le pack</DialogTitle>
+          <DialogTitle>{t('exchangePacks.dialogs.deletePack.title')}</DialogTitle>
           <DialogDescription>
-            {pack ? `Pack sélectionné : ${pack.name}` : 'Confirmez la suppression du pack.'}
+            {pack ? t('exchangePacks.dialogs.deletePack.descriptionSelected', { name: pack.name }) : t('exchangePacks.dialogs.deletePack.descriptionConfirm')}
           </DialogDescription>
         </DialogHeader>
 
@@ -246,18 +250,17 @@ export function ExchangePackDeleteDialog({
           {isBlocked ? (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
               <AlertTriangleIcon />
-              <AlertTitle>Pack utilisé par des programmes</AlertTitle>
+              <AlertTitle>{t('exchangePacks.dialogs.deletePack.blockedTitle')}</AlertTitle>
               <AlertDescription>
-                Ce pack est lié à {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's'}.
-                Retirez-le des programmes avant de le supprimer.
+                {t('exchangePacks.dialogs.deletePack.blockedDescription', { count: linkedProgramsCount })}
               </AlertDescription>
             </Alert>
           ) : (
             <Alert variant="destructive">
               <Trash2 />
-              <AlertTitle>Action irréversible</AlertTitle>
+              <AlertTitle>{t('exchangePacks.dialogs.deletePack.irreversibleTitle')}</AlertTitle>
               <AlertDescription>
-                Le pack et ses cadeaux seront supprimés de la configuration active.
+                {t('exchangePacks.dialogs.deletePack.irreversibleDescription')}
               </AlertDescription>
             </Alert>
           )}
@@ -268,7 +271,7 @@ export function ExchangePackDeleteDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isSubmitting} className="cursor-pointer">
-              Fermer
+              {t('exchangePacks.dialogs.deletePack.close')}
             </Button>
           </DialogClose>
           <Button
@@ -278,7 +281,7 @@ export function ExchangePackDeleteDialog({
             className="cursor-pointer"
             onClick={() => void onConfirm()}
           >
-            {isSubmitting ? 'Suppression...' : 'Supprimer'}
+            {isSubmitting ? t('exchangePacks.dialogs.deletePack.deleting') : t('common.delete')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -303,15 +306,16 @@ export function ExchangePackItemDeleteDialog({
   onClose: () => void
   onConfirm: () => Promise<void>
 }) {
+  const { t } = useTranslation()
   const linkedProgramsCount = pack?.linked_programs_count ?? 0
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Supprimer le cadeau</DialogTitle>
+          <DialogTitle>{t('exchangePacks.dialogs.deleteItem.title')}</DialogTitle>
           <DialogDescription>
-            {item ? `Cadeau sélectionné : ${item.title}` : 'Confirmez la suppression du cadeau.'}
+            {item ? t('exchangePacks.dialogs.deleteItem.descriptionSelected', { name: item.title }) : t('exchangePacks.dialogs.deleteItem.descriptionConfirm')}
           </DialogDescription>
         </DialogHeader>
 
@@ -319,18 +323,17 @@ export function ExchangePackItemDeleteDialog({
           {linkedProgramsCount > 0 ? (
             <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
               <AlertTriangleIcon />
-              <AlertTitle>Les agents seront notifiés</AlertTitle>
+              <AlertTitle>{t('exchangePacks.dialogs.deleteItem.notifyTitle')}</AlertTitle>
               <AlertDescription>
-                Ce pack est utilisé par {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's'}.
-                Les agents assignés recevront une notification après la suppression.
+                {t('exchangePacks.dialogs.deleteItem.notifyDescription', { count: linkedProgramsCount })}
               </AlertDescription>
             </Alert>
           ) : (
             <Alert variant="destructive">
               <Trash2 />
-              <AlertTitle>Supprimer ce cadeau</AlertTitle>
+              <AlertTitle>{t('exchangePacks.dialogs.deleteItem.removeTitle')}</AlertTitle>
               <AlertDescription>
-                Le cadeau ne sera plus disponible dans ce pack.
+                {t('exchangePacks.dialogs.deleteItem.removeDescription')}
               </AlertDescription>
             </Alert>
           )}
@@ -341,7 +344,7 @@ export function ExchangePackItemDeleteDialog({
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isSubmitting} className="cursor-pointer">
-              Annuler
+              {t('common.cancel')}
             </Button>
           </DialogClose>
           <Button
@@ -351,7 +354,7 @@ export function ExchangePackItemDeleteDialog({
             className="cursor-pointer"
             onClick={() => void onConfirm()}
           >
-            {isSubmitting ? 'Suppression...' : 'Supprimer'}
+            {isSubmitting ? t('exchangePacks.dialogs.deleteItem.deleting') : t('common.delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

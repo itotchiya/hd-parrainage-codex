@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../../lib/api'
 import { compressAvatarFile, validateAvatarFile } from '../../../lib/avatar-upload'
 import { useAuthSession } from '../../auth/session'
@@ -35,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { formatAppDateTime, formatAppTime } from '@/lib/locale'
 import { toast } from 'sonner'
 import { IacrmApiSettingsTab } from '../components/IacrmApiSettingsTab'
 import { SettingsPreviewItem } from '../components/SettingsPreviewItem'
@@ -61,38 +63,42 @@ type NotificationPreferenceKey = keyof NotificationPreferences
 const settingsQueryKey = ['settings', 'profile']
 const notificationStorageKey = 'frontend-settings-notification-preferences'
 
-const settingsTabs: Array<{ id: SettingsTabId; label: string; icon?: ReactNode }> = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'security', label: 'Security' },
-  { id: 'api', label: 'IACRM API', icon: <KeyRound className="size-3.5" /> },
-]
+function getSettingsTabs(t: (key: string) => string): Array<{ id: SettingsTabId; label: string; icon?: ReactNode }> {
+  return [
+    { id: 'profile', label: t('settings.tabs.profile') },
+    { id: 'notifications', label: t('settings.tabs.notifications') },
+    { id: 'security', label: t('settings.tabs.security') },
+    { id: 'api', label: t('settings.tabs.api'), icon: <KeyRound className="size-3.5" /> },
+  ]
+}
 
-const notificationOptions: Array<{
+function getNotificationOptions(t: (key: string) => string): Array<{
   key: NotificationPreferenceKey
   title: string
   label: string
   description: string
-}> = [
-  {
-    key: 'inbox',
-    title: 'Inbox',
-    label: 'In-app operational inbox',
-    description: 'Queue changes, exchange events, and owner alerts.',
-  },
-  {
-    key: 'security',
-    title: 'Security',
-    label: 'Security alerts',
-    description: 'Verification and account-level trust alerts.',
-  },
-  {
-    key: 'crm',
-    title: 'CRM sync',
-    label: 'CRM sync alerts',
-    description: 'Live sync warnings and delivery failures from the CRM bridge.',
-  },
-]
+}> {
+  return [
+    {
+      key: 'inbox',
+      title: t('settings.notifications.options.inbox.title'),
+      label: t('settings.notifications.options.inbox.label'),
+      description: t('settings.notifications.options.inbox.description'),
+    },
+    {
+      key: 'security',
+      title: t('settings.notifications.options.security.title'),
+      label: t('settings.notifications.options.security.label'),
+      description: t('settings.notifications.options.security.description'),
+    },
+    {
+      key: 'crm',
+      title: t('settings.notifications.options.crm.title'),
+      label: t('settings.notifications.options.crm.label'),
+      description: t('settings.notifications.options.crm.description'),
+    },
+  ]
+}
 
 interface NotificationPreferences {
   inbox: boolean
@@ -130,29 +136,20 @@ function splitDisplayName(displayName: string) {
   }
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTime(value: string | null, fallback: string) {
   if (!value) {
-    return 'Not available'
+    return fallback
   }
 
-  return new Date(value).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatAppDateTime(value)
 }
 
-function formatVerificationExpiry(value: string | null) {
+function formatVerificationExpiry(value: string | null, fallback: string) {
   if (!value) {
-    return 'No code requested'
+    return fallback
   }
 
-  return new Date(value).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatAppTime(value)
 }
 
 function readNotificationPreferences(): NotificationPreferences {
@@ -301,6 +298,7 @@ function ResponsiveActionButton({
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -333,6 +331,8 @@ export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const settingsTabs = useMemo(() => getSettingsTabs(t), [t])
+  const notificationOptions = useMemo(() => getNotificationOptions(t), [t])
 
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
@@ -407,7 +407,7 @@ export function SettingsPage() {
     void (async () => {
       await queryClient.invalidateQueries({ queryKey: settingsQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
-      toast.success('Adresse e-mail vérifiée avec succès.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.emailVerifiedSuccess'), { id: 'settings-toast' })
       url.searchParams.delete('emailVerified')
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
     })()
@@ -428,12 +428,12 @@ export function SettingsPage() {
   const emailVerified = Boolean(settingsData?.user.email_verified_at)
   const syncOverview = syncOverviewQuery.data?.data
   const syncAlertsValue = !canViewSync
-    ? 'No sync visibility in this role'
+    ? t('settings.sync.noVisibility')
     : syncOverviewQuery.isPending
-      ? 'Loading live sync overview...'
+      ? t('settings.sync.loading')
       : syncOverviewQuery.isError
-        ? 'Live sync overview unavailable'
-        : `${syncOverview?.failed_jobs_total ?? 0} active issue(s)`
+        ? t('settings.sync.unavailable')
+        : t('settings.sync.activeIssues', { count: syncOverview?.failed_jobs_total ?? 0 })
   const activeNotificationOption = notificationDialogKey
     ? notificationOptions.find((option) => option.key === notificationDialogKey) ?? null
     : null
@@ -442,17 +442,17 @@ export function SettingsPage() {
       [
         {
           id: 'last-login',
-          event: 'Connexion',
-          status: 'Réussie',
+          event: t('settings.security.events.login'),
+          status: t('settings.security.status.success'),
           timestamp: user?.last_login_at ?? null,
-          detail: 'Dernière ouverture de session enregistrée.',
+          detail: t('settings.security.details.lastLogin'),
         },
         {
           id: 'last-activity',
-          event: 'Activité',
-          status: 'Active',
+          event: t('settings.security.events.activity'),
+          status: t('settings.security.status.active'),
           timestamp: user?.last_activity_at ?? null,
-          detail: 'Dernière activité détectée sur le shell sécurisé.',
+          detail: t('settings.security.details.lastActivity'),
         },
       ].filter((row) => row.timestamp !== null),
     [user?.last_activity_at, user?.last_login_at],
@@ -469,7 +469,7 @@ export function SettingsPage() {
       queryClient.setQueryData(settingsQueryKey, response)
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
       setActiveDialog(null)
-      toast.success('Nom affiché mis à jour.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.nameUpdated'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -499,9 +499,9 @@ export function SettingsPage() {
         URL.revokeObjectURL(avatarPreviewUrl)
       }
       setAvatarPreviewUrl(null)
-      toast.success('Photo de profil mise à jour.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.avatarUpdated'), { id: 'settings-toast' })
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Impossible de mettre à jour la photo de profil.', { id: 'settings-toast' }),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t('settings.toasts.avatarUpdateFailed'), { id: 'settings-toast' }),
   })
 
   const logoMutation = useMutation({
@@ -516,9 +516,9 @@ export function SettingsPage() {
       setLogoFile(null)
       if (logoPreviewUrl !== null) URL.revokeObjectURL(logoPreviewUrl)
       setLogoPreviewUrl(null)
-      toast.success('Logo business mis à jour.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.logoUpdated'), { id: 'settings-toast' })
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Impossible de mettre à jour le logo.', { id: 'settings-toast' }),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t('settings.toasts.logoUpdateFailed'), { id: 'settings-toast' }),
   })
 
   const emailChangeMutation = useMutation({
@@ -527,7 +527,7 @@ export function SettingsPage() {
       queryClient.setQueryData(settingsQueryKey, response)
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
       setEmailCode('')
-      toast.success('E-mail de vérification envoyé. Un lien et un code à 6 chiffres ont été envoyés.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.emailVerificationSent'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -539,7 +539,7 @@ export function SettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
       setEmailCode('')
       setActiveDialog(null)
-      toast.success('Le nouvel e-mail a été vérifié et activé.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.emailVerified'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -547,7 +547,7 @@ export function SettingsPage() {
   const emailResendMutation = useMutation({
     mutationFn: resendOwnEmailVerification,
     onSuccess: () => {
-      toast.success('E-mail de vérification renvoyé.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.emailVerificationResent'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -558,7 +558,7 @@ export function SettingsPage() {
       queryClient.setQueryData(settingsQueryKey, response)
       await queryClient.invalidateQueries({ queryKey: ['auth', 'session'] })
       setActiveDialog(null)
-      toast.success('Identité business mise à jour.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.businessUpdated'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -570,7 +570,7 @@ export function SettingsPage() {
       setNewPassword('')
       setConfirmPassword('')
       setActiveDialog(null)
-      toast.success('Mot de passe mis à jour.', { id: 'settings-toast' })
+      toast.success(t('settings.toasts.passwordUpdated'), { id: 'settings-toast' })
     },
     onError: (error) => toast.error((error as ApiError).message, { id: 'settings-toast' }),
   })
@@ -582,7 +582,7 @@ export function SettingsPage() {
   if (settingsQuery.isError || settingsData === null) {
     return (
       <article className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        {((settingsQuery.error as ApiError | undefined)?.message) ?? 'Settings could not be loaded.'}
+        {((settingsQuery.error as ApiError | undefined)?.message) ?? t('settings.errors.loadFailed')}
       </article>
     )
   }
@@ -595,7 +595,7 @@ export function SettingsPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Settings"
+        title={t('settings.title')}
         right={
           <PageHeaderToolbar>
             <Tabs value={activeTab} onValueChange={(value) => handleTabChange(value as SettingsTabId)}>
@@ -619,7 +619,7 @@ export function SettingsPage() {
       {activeTab === 'profile' ? (
         <div className="space-y-5">
           <SectionCard>
-            <SettingsSectionHeader title="Personal identity" />
+            <SettingsSectionHeader title={t('settings.profile.personalIdentity')} />
 
             <div className="space-y-3">
               <SettingsPreviewItem
@@ -636,43 +636,43 @@ export function SettingsPage() {
                     </span>
                   </>
                 }
-                title="Profile image"
-                value={resolvedAvatarPreview ? 'Avatar active' : 'No avatar'}
-                description="512×512 WebP ready"
+                title={t('settings.profile.profileImage')}
+                value={resolvedAvatarPreview ? t('settings.profile.avatarActive') : t('settings.profile.noAvatar')}
+                description={t('settings.profile.avatarHint')}
                 badges={
                   <Badge
                     variant="outline"
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(resolvedAvatarPreview ? 'success' : 'warning'))}
                   >
-                    {resolvedAvatarPreview ? 'Actif' : 'À ajouter'}
+                    {resolvedAvatarPreview ? t('settings.common.active') : t('settings.common.pending')}
                   </Badge>
                 }
-                action={<ResponsiveActionButton label="Changer la photo de profil" onClick={() => setActiveDialog('avatar')} />}
+                action={<ResponsiveActionButton label={t('settings.profile.changeAvatar')} onClick={() => setActiveDialog('avatar')} />}
                 mediaVariant="custom"
               />
               <SettingsPreviewItem
                 media={<UserRound className="size-4" />}
-                title="Display name"
+                title={t('settings.profile.displayName')}
                 value={settingsData.user.display_name}
-                description="Identité affichée dans l'application"
-                action={<ResponsiveActionButton label="Changer le nom affiché" onClick={() => setActiveDialog('name')} />}
+                description={t('settings.profile.displayNameDescription')}
+                action={<ResponsiveActionButton label={t('settings.profile.changeDisplayName')} onClick={() => setActiveDialog('name')} />}
               />
               <SettingsPreviewItem
                 media={<Mail className="size-4" />}
-                title="Email"
+                title={t('settings.profile.email')}
                 value={settingsData.user.email}
-                description="Adresse utilisée pour la connexion et la vérification"
+                description={t('settings.profile.emailDescription')}
                 badges={
                   <Badge
                     variant="outline"
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(emailVerified ? 'success' : 'warning'))}
                   >
-                    {emailVerified ? 'Vérifié' : 'En attente'}
+                    {emailVerified ? t('settings.common.verified') : t('settings.common.pending')}
                   </Badge>
                 }
-                action={<ResponsiveActionButton label="Changer l'adresse e-mail" onClick={() => setActiveDialog('email')} />}
+                action={<ResponsiveActionButton label={t('settings.profile.changeEmail')} onClick={() => setActiveDialog('email')} />}
               />
             </div>
           </SectionCard>
@@ -718,15 +718,15 @@ export function SettingsPage() {
                   value={settingsData.business.display_name}
                   badges={
                     <Badge variant="outline" size="sm" className={cn('rounded-full', settingsToneBadgeClass('active'))}>
-                      Actif
+                      {t('settings.common.active')}
                     </Badge>
                   }
                   description={`${settingsData.business.legal_name} · slug: ${settingsData.business.slug} · ${settingsData.business.currency_code} · ${settingsData.business.timezone}`}
                 />
                 <SettingsPreviewItem
                   media={<Mail className="size-4" />}
-                  title="Contact email"
-                  value={settingsData.business.contact_email ?? 'Not set'}
+                  title={t('settings.business.contactEmail')}
+                  value={settingsData.business.contact_email ?? t('settings.common.notSet')}
                   badges={
                     <Badge
                       variant="outline"
@@ -736,15 +736,15 @@ export function SettingsPage() {
                         settingsToneBadgeClass(settingsData.business.contact_email ? 'success' : 'warning'),
                       )}
                     >
-                      {settingsData.business.contact_email ? 'Renseigné' : 'Manquant'}
+                      {settingsData.business.contact_email ? t('settings.common.set') : t('settings.common.missing')}
                     </Badge>
                   }
-                  description="Adresse e-mail publique du business"
+                  description={t('settings.business.contactEmailDescription')}
                 />
                 <SettingsPreviewItem
                   media={<Phone className="size-4" />}
-                  title="Contact phone"
-                  value={settingsData.business.contact_phone ?? 'Not set'}
+                  title={t('settings.business.contactPhone')}
+                  value={settingsData.business.contact_phone ?? t('settings.common.notSet')}
                   badges={
                     <Badge
                       variant="outline"
@@ -754,15 +754,15 @@ export function SettingsPage() {
                         settingsToneBadgeClass(settingsData.business.contact_phone ? 'success' : 'warning'),
                       )}
                     >
-                      {settingsData.business.contact_phone ? 'Renseigné' : 'Manquant'}
+                      {settingsData.business.contact_phone ? t('settings.common.set') : t('settings.common.missing')}
                     </Badge>
                   }
-                  description="Numéro de contact public du business"
+                  description={t('settings.business.contactPhoneDescription')}
                 />
                 <SettingsPreviewItem
                   media={<Globe className="size-4" />}
-                  title="Public website"
-                  value={settingsData.business.website_url ?? 'Not set'}
+                  title={t('settings.business.publicWebsite')}
+                  value={settingsData.business.website_url ?? t('settings.common.notSet')}
                   badges={
                     <Badge
                       variant="outline"
@@ -772,15 +772,15 @@ export function SettingsPage() {
                         settingsToneBadgeClass(settingsData.business.website_url ? 'active' : 'warning'),
                       )}
                     >
-                      {settingsData.business.website_url ? 'En ligne' : 'Manquant'}
+                      {settingsData.business.website_url ? t('settings.common.online') : t('settings.common.missing')}
                     </Badge>
                   }
-                  description="Site public lié au business"
+                  description={t('settings.business.publicWebsiteDescription')}
                 />
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm leading-6 text-muted-foreground">
-                This account does not currently resolve to a tenant-scoped business profile.
+                {t('settings.business.noBusinessProfile')}
               </div>
             )}
           </SectionCard>
@@ -789,25 +789,25 @@ export function SettingsPage() {
 
       {activeTab === 'notifications' ? (
         <SectionCard>
-          <SettingsSectionHeader title="Notifications" />
+          <SettingsSectionHeader title={t('settings.notifications.title')} />
           <div className="space-y-3">
               <SettingsPreviewItem
                 media={<Inbox className="size-4" />}
-                title="Inbox"
-                value={notificationPreferences.inbox ? 'Enabled' : 'Muted'}
+                title={t('settings.notifications.options.inbox.title')}
+                value={notificationPreferences.inbox ? t('settings.common.enabled') : t('settings.common.muted')}
                 badges={
                   <Badge
                     variant="outline"
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(notificationPreferences.inbox ? 'success' : 'neutral'))}
                   >
-                    {notificationPreferences.inbox ? 'Actif' : 'Muet'}
+                    {notificationPreferences.inbox ? t('settings.common.active') : t('settings.common.mutedShort')}
                   </Badge>
                 }
-              description="Queue changes, exchange events, and owner alerts."
+              description={t('settings.notifications.options.inbox.description')}
               action={
                 <ResponsiveActionButton
-                  label="Modifier l'inbox"
+                  label={t('settings.notifications.editInbox')}
                   onClick={() => {
                     setNotificationDialogKey('inbox')
                     setActiveDialog('notifications')
@@ -817,21 +817,21 @@ export function SettingsPage() {
             />
               <SettingsPreviewItem
                 media={<ShieldCheck className="size-4" />}
-                title="Security"
-                value={notificationPreferences.security ? 'Enabled' : 'Muted'}
+                title={t('settings.notifications.options.security.title')}
+                value={notificationPreferences.security ? t('settings.common.enabled') : t('settings.common.muted')}
                 badges={
                   <Badge
                     variant="outline"
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(notificationPreferences.security ? 'success' : 'neutral'))}
                   >
-                    {notificationPreferences.security ? 'Actif' : 'Muet'}
+                    {notificationPreferences.security ? t('settings.common.active') : t('settings.common.mutedShort')}
                   </Badge>
                 }
-              description="Verification and account-level trust alerts."
+              description={t('settings.notifications.options.security.description')}
               action={
                 <ResponsiveActionButton
-                  label="Modifier la sécurité"
+                  label={t('settings.notifications.editSecurity')}
                   onClick={() => {
                     setNotificationDialogKey('security')
                     setActiveDialog('notifications')
@@ -841,8 +841,8 @@ export function SettingsPage() {
             />
             <SettingsPreviewItem
               media={<RefreshCw className="size-4" />}
-              title="CRM sync"
-              value={notificationPreferences.crm ? 'Enabled' : 'Muted'}
+              title={t('settings.notifications.options.crm.title')}
+              value={notificationPreferences.crm ? t('settings.common.enabled') : t('settings.common.muted')}
               badges={
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
@@ -850,7 +850,7 @@ export function SettingsPage() {
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(notificationPreferences.crm ? 'active' : 'neutral'))}
                   >
-                    {notificationPreferences.crm ? 'Actif' : 'Muet'}
+                    {notificationPreferences.crm ? t('settings.common.active') : t('settings.common.mutedShort')}
                   </Badge>
                   {canViewSync ? (
                     <Badge
@@ -861,7 +861,7 @@ export function SettingsPage() {
                         settingsToneBadgeClass((syncOverview?.failed_jobs_total ?? 0) > 0 ? 'warning' : 'success'),
                       )}
                     >
-                      {(syncOverview?.failed_jobs_total ?? 0) > 0 ? 'Incidents' : 'Sain'}
+                      {(syncOverview?.failed_jobs_total ?? 0) > 0 ? t('settings.sync.incidents') : t('settings.sync.healthy')}
                     </Badge>
                   ) : null}
                 </div>
@@ -870,12 +870,12 @@ export function SettingsPage() {
               action={
                 <div className="flex items-center gap-2">
                   <ResponsiveActionButton
-                    label="Voir les incidents"
+                    label={t('settings.sync.viewIncidents')}
                     onClick={() => setActiveDialog('sync-issues')}
                     icon={<History className="size-3.5" />}
                   />
                   <ResponsiveActionButton
-                    label="Modifier CRM sync"
+                    label={t('settings.notifications.editCrmSync')}
                     onClick={() => {
                       setNotificationDialogKey('crm')
                       setActiveDialog('notifications')
@@ -891,23 +891,23 @@ export function SettingsPage() {
       {activeTab === 'security' ? (
         <div className="space-y-5">
           <SectionCard>
-            <SettingsSectionHeader title="Security" />
+            <SettingsSectionHeader title={t('settings.security.title')} />
             <div className="space-y-4">
               <SettingsPreviewItem
                 media={<KeyRound className="size-4" />}
-                title="Password"
+                title={t('settings.security.password')}
                 value="•••••••••••••••"
                 badges={
                   <Badge variant="outline" size="sm" className={cn('rounded-full', settingsToneBadgeClass('active'))}>
-                    Protégé
+                    {t('settings.security.protected')}
                   </Badge>
                 }
-                description="Modifier le mot de passe dans un dialogue dédié avec contrôle de l'ancien et du nouveau secret."
-                action={<Button type="button" variant="outline" size="sm" onClick={() => setActiveDialog('password')}>Changer le mot de passe</Button>}
+                description={t('settings.security.passwordDescription')}
+                action={<Button type="button" variant="outline" size="sm" onClick={() => setActiveDialog('password')}>{t('settings.security.changePassword')}</Button>}
               />
               <SettingsPreviewItem
                 media={<BadgeCheck className="size-4 text-emerald-600" />}
-                title="Recovery email"
+                title={t('settings.security.recoveryEmail')}
                 value={settingsData.user.email}
                 badges={
                   <Badge
@@ -915,27 +915,27 @@ export function SettingsPage() {
                     size="sm"
                     className={cn('rounded-full', settingsToneBadgeClass(emailVerified ? 'success' : 'warning'))}
                   >
-                    {emailVerified ? 'Vérifié' : 'En attente'}
+                    {emailVerified ? t('settings.common.verified') : t('settings.common.pending')}
                   </Badge>
                 }
-                description="Adresse utilisée pour la récupération et la confiance du compte."
+                description={t('settings.security.recoveryEmailDescription')}
               />
             </div>
           </SectionCard>
 
           <SectionCard>
             <SettingsSectionHeader
-              title="Latest sessions"
-              action={<Badge variant="outline" size="sm">{securitySessionRows.length} entrées</Badge>}
+              title={t('settings.security.latestSessions')}
+              action={<Badge variant="outline" size="sm">{t('settings.security.entries', { count: securitySessionRows.length })}</Badge>}
             />
             <div className="overflow-hidden rounded-xl border border-border/70">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Événement</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Détail</TableHead>
-                    <TableHead className="text-right">Horodatage</TableHead>
+                    <TableHead>{t('settings.security.table.event')}</TableHead>
+                    <TableHead>{t('settings.security.table.status')}</TableHead>
+                    <TableHead>{t('settings.security.table.detail')}</TableHead>
+                    <TableHead className="text-right">{t('settings.security.table.timestamp')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -949,7 +949,7 @@ export function SettingsPage() {
                             size="sm"
                             className={cn(
                               'rounded-full',
-                              settingsToneBadgeClass(row.status === 'Réussie' ? 'success' : row.status === 'Active' ? 'active' : 'neutral'),
+                              settingsToneBadgeClass(row.status === t('settings.security.status.success') ? 'success' : row.status === t('settings.security.status.active') ? 'active' : 'neutral'),
                             )}
                           >
                             {row.status}
@@ -957,14 +957,14 @@ export function SettingsPage() {
                         </TableCell>
                         <TableCell className="max-w-[24rem] text-sm text-muted-foreground">{row.detail}</TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
-                          {row.timestamp ? formatDateTime(row.timestamp) : 'Indisponible'}
+                          {row.timestamp ? formatDateTime(row.timestamp, t('settings.common.notAvailable')) : t('settings.common.unavailable')}
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                        Aucun signal de session disponible.
+                        {t('settings.security.noSessionSignals')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -986,28 +986,28 @@ export function SettingsPage() {
       {activeTab === 'api' ? (
         <IacrmApiSettingsTab
           syncAlertsValue={syncAlertsValue}
-          failedJobsValue={`${syncOverview?.failed_jobs_total ?? 0} active issue(s)`}
+          failedJobsValue={t('settings.sync.activeIssues', { count: syncOverview?.failed_jobs_total ?? 0 })}
         />
       ) : null}
 
       <Dialog open={activeDialog === 'name'} onOpenChange={(open) => setActiveDialog(open ? 'name' : null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Modifier le nom d'affichage</DialogTitle>
-            <DialogDescription>Mettre à jour le prénom et le nom affichés sur la plateforme.</DialogDescription>
+            <DialogTitle>{t('settings.dialogs.name.title')}</DialogTitle>
+            <DialogDescription>{t('settings.dialogs.name.description')}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="settings-first-name">First name</label>
+              <label className="text-sm font-medium text-foreground" htmlFor="settings-first-name">{t('settings.dialogs.name.firstName')}</label>
               <Input id="settings-first-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="settings-last-name">Last name</label>
+              <label className="text-sm font-medium text-foreground" htmlFor="settings-last-name">{t('settings.dialogs.name.lastName')}</label>
               <Input id="settings-last-name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>{t('common.cancel')}</Button>
             <Button
               type="button"
               disabled={saveNameMutation.isPending || fullName.length === 0}
@@ -1020,7 +1020,7 @@ export function SettingsPage() {
                 })
               }
             >
-              {saveNameMutation.isPending ? 'Saving...' : 'Save name'}
+              {saveNameMutation.isPending ? t('settings.dialogs.name.saving') : t('settings.dialogs.name.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

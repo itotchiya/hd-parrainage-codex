@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useIacrmServices } from '../hooks'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -8,18 +9,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatAppCurrency } from '@/lib/locale'
 
 export function IacrmServicesPanel() {
+  const { t } = useTranslation()
   const { data, isPending, isError } = useIacrmServices()
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">Chargement des services IACRM...</p>
+    return <p className="text-sm text-muted-foreground">{t('iacrm.panels.services.loading')}</p>
   }
 
   if (isError) {
     return (
       <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Failed to load services from IACRM. Check your API configuration in Settings.
+        {t('iacrm.panels.services.error')}
       </p>
     )
   }
@@ -29,20 +32,20 @@ export function IacrmServicesPanel() {
   return (
     <article className="rounded-lg border border-border bg-card app-card-padding">
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        Service catalogue
+        {t('iacrm.panels.services.eyebrow')}
       </p>
       <h2 className="app-section-title mt-2">
-        {services.length} service{services.length !== 1 ? 's' : ''} in IACRM
+        {t('iacrm.panels.services.title', { count: services.length })}
       </h2>
 
       <div className="mt-5 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Unit price</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t('iacrm.panels.services.columns.name')}</TableHead>
+              <TableHead>{t('iacrm.panels.services.columns.category')}</TableHead>
+              <TableHead className="text-right">{t('iacrm.panels.services.columns.unitPrice')}</TableHead>
+              <TableHead>{t('iacrm.panels.services.columns.status')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -51,7 +54,7 @@ export function IacrmServicesPanel() {
                 <TableCell>
                   <p className="font-medium">{service.name}</p>
                   {service.description ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                       {service.description}
                     </p>
                   ) : null}
@@ -60,10 +63,7 @@ export function IacrmServicesPanel() {
                   <Badge variant="outline">{service.category}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">
-                  {service.unit_price.toLocaleString('fr-FR', {
-                    style: 'currency',
-                    currency: service.currency,
-                  })}
+                  {formatAppCurrency(service.unit_price, service.currency)}
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -74,15 +74,15 @@ export function IacrmServicesPanel() {
                         : 'border-border bg-muted/40 text-muted-foreground'
                     }
                   >
-                    {service.is_active ? 'Active' : 'Inactive'}
+                    {service.is_active ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </TableCell>
               </TableRow>
             ))}
             {services.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
-                  No services found in IACRM.
+                <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                  {t('iacrm.panels.services.empty')}
                 </TableCell>
               </TableRow>
             ) : null}

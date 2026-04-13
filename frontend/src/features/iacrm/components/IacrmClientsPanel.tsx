@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useIacrmClients } from '../hooks'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -10,16 +11,17 @@ import {
 } from '@/components/ui/table'
 
 export function IacrmClientsPanel() {
+  const { t } = useTranslation()
   const { data, isPending, isError } = useIacrmClients()
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">Chargement des clients IACRM...</p>
+    return <p className="text-sm text-muted-foreground">{t('iacrm.panels.clients.loading')}</p>
   }
 
   if (isError) {
     return (
       <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Failed to load clients from IACRM. Check your API configuration in Settings.
+        {t('iacrm.panels.clients.error')}
       </p>
     )
   }
@@ -29,22 +31,22 @@ export function IacrmClientsPanel() {
   return (
     <article className="rounded-lg border border-border bg-card app-card-padding">
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        Client records
+        {t('iacrm.panels.clients.eyebrow')}
       </p>
       <h2 className="app-section-title mt-2">
-        {clients.length} client{clients.length !== 1 ? 's' : ''} in IACRM
+        {t('iacrm.panels.clients.title', { count: clients.length })}
       </h2>
 
       <div className="mt-5 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Since</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.company')}</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.contact')}</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.email')}</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.phone')}</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.status')}</TableHead>
+              <TableHead>{t('iacrm.panels.clients.columns.since')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -53,10 +55,10 @@ export function IacrmClientsPanel() {
                 <TableCell className="font-medium">{client.company_name}</TableCell>
                 <TableCell>{client.contact_name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {client.contact_email ?? '-'}
+                  {client.contact_email ?? '—'}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {client.contact_phone ?? '-'}
+                  {client.contact_phone ?? '—'}
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -67,7 +69,7 @@ export function IacrmClientsPanel() {
                         : 'border-border bg-muted/40 text-muted-foreground'
                     }
                   >
-                    {client.status}
+                    {client.status === 'active' ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{client.since}</TableCell>
@@ -75,8 +77,8 @@ export function IacrmClientsPanel() {
             ))}
             {clients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
-                  No clients found in IACRM.
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  {t('iacrm.panels.clients.empty')}
                 </TableCell>
               </TableRow>
             ) : null}

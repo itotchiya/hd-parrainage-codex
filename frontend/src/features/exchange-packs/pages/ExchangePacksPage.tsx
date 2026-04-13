@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ function exchangePackListQueryKey(status: ExchangePackStatusFilter, sort: Exchan
 }
 
 export function ExchangePacksPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -121,7 +123,7 @@ export function ExchangePacksPage() {
     return (
       <section className="app-section">
         <PageHeader
-          title="Packs d'échange"
+          title={t('exchangePacks.title')}
           right={
             <PageHeaderToolbar>
               <div className="h-8 w-full rounded-md bg-muted sm:w-[320px]" />
@@ -156,12 +158,12 @@ export function ExchangePacksPage() {
   return (
     <section className="app-section">
       <PageHeader
-        title="Exchange packs"
+        title={t('exchangePacks.title')}
         right={
           <PageHeaderToolbar>
             <Field className="w-full sm:min-w-[240px] sm:max-w-[420px] sm:flex-1">
               <FieldLabel htmlFor="exchange-packs-search" className="sr-only">
-                Rechercher un pack
+                {t('exchangePacks.searchPlaceholder')}
               </FieldLabel>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -169,7 +171,7 @@ export function ExchangePacksPage() {
                   id="exchange-packs-search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Rechercher un pack ou un cadeau..."
+                  placeholder={t('exchangePacks.searchPlaceholder')}
                   className="pl-9"
                 />
               </div>
@@ -187,12 +189,12 @@ export function ExchangePacksPage() {
               }}
             >
               <SelectTrigger size="sm" className="w-full cursor-pointer sm:w-auto sm:min-w-[108px] sm:shrink-0">
-                <SelectValue placeholder="Actifs" />
+                <SelectValue placeholder={t('exchangePacks.filters.active')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Actifs</SelectItem>
-                <SelectItem value="inactive">Désactivés</SelectItem>
-                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="active">{t('exchangePacks.filters.active')}</SelectItem>
+                <SelectItem value="inactive">{t('exchangePacks.filters.inactive')}</SelectItem>
+                <SelectItem value="all">{t('exchangePacks.filters.all')}</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -208,15 +210,15 @@ export function ExchangePacksPage() {
               }}
             >
               <SelectTrigger size="sm" className="w-full cursor-pointer sm:w-auto sm:min-w-[104px] sm:shrink-0">
-                <SelectValue placeholder="Récents" />
+                <SelectValue placeholder={t('exchangePacks.sort.recent')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="updated-desc">Récents</SelectItem>
-                <SelectItem value="updated-asc">Anciens</SelectItem>
-                <SelectItem value="name-asc">Nom A-Z</SelectItem>
-                <SelectItem value="name-desc">Nom Z-A</SelectItem>
-                <SelectItem value="items-desc">Cadeaux</SelectItem>
-                <SelectItem value="programs-desc">Usage</SelectItem>
+                <SelectItem value="updated-desc">{t('exchangePacks.sort.recent')}</SelectItem>
+                <SelectItem value="updated-asc">{t('exchangePacks.sort.oldest')}</SelectItem>
+                <SelectItem value="name-asc">{t('exchangePacks.sort.nameAsc')}</SelectItem>
+                <SelectItem value="name-desc">{t('exchangePacks.sort.nameDesc')}</SelectItem>
+                <SelectItem value="items-desc">{t('exchangePacks.sort.gifts')}</SelectItem>
+                <SelectItem value="programs-desc">{t('exchangePacks.sort.usage')}</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -228,7 +230,7 @@ export function ExchangePacksPage() {
               }}
             >
               <Plus className="size-4" />
-              Créer un pack
+              {t('exchangePacks.createPack')}
             </Button>
           </PageHeaderToolbar>
         }
@@ -236,7 +238,7 @@ export function ExchangePacksPage() {
 
       {filtered.length === 0 ? (
         <article className="rounded-lg border border-dashed border-border bg-muted/15 px-5 py-8 text-sm text-muted-foreground">
-          Aucun pack ne correspond à la recherche actuelle.
+          {t('exchangePacks.empty')}
         </article>
       ) : (
         <div className="grid gap-3 xl:grid-cols-3">

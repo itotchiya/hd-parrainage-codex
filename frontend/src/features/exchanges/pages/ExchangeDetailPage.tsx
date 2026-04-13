@@ -37,6 +37,7 @@ import {
 import { useAuthSession } from '@/features/auth/session'
 import { KpiCard, kpiSnapshotBadge } from '@/features/dashboard/components/KpiCard'
 import { useAppBreadcrumbTrail } from '@/layouts/AppShell'
+import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -53,43 +54,45 @@ import type { ExchangeRequestStatus } from '@/types/exchanges'
 type TimelineSortKey = 'date'
 type LedgerSortKey = 'effective'
 
-const statusPresentation: Record<
+function getStatusPresentation(t: (key: string) => string): Record<
   ExchangeRequestStatus,
   { label: string; className: string }
-> = {
-  requested: {
-    label: 'Demandée',
-    className:
-      'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
-  },
-  approved: {
-    label: 'Approuvée',
-    className:
-      'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
-  },
-  rejected: {
-    label: 'Refusée',
-    className:
-      'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-  },
-  processing: {
-    label: 'En traitement',
-    className:
-      'border-transparent bg-indigo-500/15 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
-  },
-  completed: {
-    label: 'Terminée',
-    className:
-      'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-  },
-  cancelled: {
-    label: 'Annulée',
-    className: 'border-transparent bg-muted text-muted-foreground',
-  },
+> {
+  return {
+    requested: {
+      label: t('exchanges.status.requested'),
+      className:
+        'border-transparent bg-blue-500/15 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
+    },
+    approved: {
+      label: t('exchanges.status.approved'),
+      className:
+        'border-transparent bg-amber-500/15 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300',
+    },
+    rejected: {
+      label: t('exchanges.status.rejected'),
+      className:
+        'border-transparent bg-rose-500/15 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
+    },
+    processing: {
+      label: t('exchanges.status.processing'),
+      className:
+        'border-transparent bg-indigo-500/15 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
+    },
+    completed: {
+      label: t('exchanges.status.completed'),
+      className:
+        'border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+    },
+    cancelled: {
+      label: t('exchanges.status.cancelled'),
+      className: 'border-transparent bg-muted text-muted-foreground',
+    },
+  }
 }
 
-function formatDate(value: string | null, withTime = false) {
-  if (!value) return 'Indisponible'
+function formatDate(value: string | null, withTime = false, t: (key: string) => string) {
+  if (!value) return t('common.notAvailable')
 
   return new Date(value).toLocaleString('fr-FR', {
     day: '2-digit',
@@ -118,18 +121,18 @@ function toTimestamp(value: string | null) {
   return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
 }
 
-function requestTypeLabel(type: 'reward' | 'cash') {
-  return type === 'reward' ? 'Récompense' : 'Cash'
+function requestTypeLabel(type: 'reward' | 'cash', t: (key: string) => string) {
+  return type === 'reward' ? t('exchanges.requestType.reward') : t('exchanges.requestType.cash')
 }
 
 function requestTitle(exchange: {
   request_type: 'reward' | 'cash'
   requested_reward_title: string | null
   exchange_pack_item_title: string | null
-}) {
+}, t: (key: string) => string) {
   return exchange.request_type === 'reward'
-    ? exchange.requested_reward_title ?? exchange.exchange_pack_item_title ?? 'Demande de récompense'
-    : 'Demande cash'
+    ? exchange.requested_reward_title ?? exchange.exchange_pack_item_title ?? t('exchanges.request.rewardDefault')
+    : t('exchanges.request.cashDefault')
 }
 
 function RelationRow({
@@ -253,6 +256,7 @@ function ExchangeDetailSkeleton() {
 }
 
 export function ExchangeDetailPage() {
+  const { t } = useTranslation()
   const { exchangeRequestId } = useParams<{ exchangeRequestId: string }>()
   const queryClient = useQueryClient()
   const { user, hasPermission } = useAuthSession()
@@ -310,13 +314,13 @@ export function ExchangeDetailPage() {
   useAppBreadcrumbTrail(
     exchange
       ? [
-          { label: 'Exchanges', to: '/payouts' },
-          { label: requestTitle(exchange) },
+          { label: t('exchanges.detail.breadcrumb'), to: '/payouts' },
+          { label: requestTitle(exchange, t) },
         ]
       : null,
   )
 
-  const status = exchange ? statusPresentation[exchange.status] : statusPresentation.requested
+  const status = exchange ? getStatusPresentation(t)[exchange.status] : getStatusPresentation(t).requested
   const hasPendingMutation =
     approveMutation.isPending ||
     rejectMutation.isPending ||
@@ -335,53 +339,53 @@ export function ExchangeDetailPage() {
     return [
       {
         key: 'requested',
-        step: 'Requested',
-        actor: exchange.requested_by_name ?? 'User',
-        detail: 'The exchange request was submitted and entered the queue.',
+        step: t('exchanges.detail.timelineEvents.requested.step'),
+        actor: exchange.requested_by_name ?? t('exchanges.detail.timelineEvents.requested.actor'),
+        detail: t('exchanges.detail.timelineEvents.requested.detail'),
         date: exchange.requested_at,
       },
       exchange.approved_at
         ? {
             key: 'approved',
-            step: 'Approved',
-            actor: exchange.approved_by_name ?? 'Business owner',
-            detail: 'The request was approved and points were locked for fulfillment.',
+            step: t('exchanges.detail.timelineEvents.approved.step'),
+            actor: exchange.approved_by_name ?? t('exchanges.detail.timelineEvents.approved.actor'),
+            detail: t('exchanges.detail.timelineEvents.approved.detail'),
             date: exchange.approved_at,
           }
         : null,
       exchange.processed_at
         ? {
             key: 'processing',
-            step: 'Processing',
-            actor: exchange.approved_by_name ?? 'Operations',
-            detail: 'Fulfillment started for this exchange request.',
+            step: t('exchanges.detail.timelineEvents.processing.step'),
+            actor: exchange.approved_by_name ?? t('exchanges.detail.timelineEvents.processing.actor'),
+            detail: t('exchanges.detail.timelineEvents.processing.detail'),
             date: exchange.processed_at,
           }
         : null,
       exchange.completed_at
         ? {
             key: 'completed',
-            step: 'Completed',
-            actor: exchange.approved_by_name ?? 'Operations',
-            detail: 'The request was completed and the points were consumed.',
+            step: t('exchanges.detail.timelineEvents.completed.step'),
+            actor: exchange.approved_by_name ?? t('exchanges.detail.timelineEvents.completed.actor'),
+            detail: t('exchanges.detail.timelineEvents.completed.detail'),
             date: exchange.completed_at,
           }
         : null,
       exchange.rejected_at
         ? {
             key: 'rejected',
-            step: 'Rejected',
-            actor: exchange.approved_by_name ?? 'Business owner',
-            detail: 'The request was rejected before fulfillment.',
+            step: t('exchanges.detail.timelineEvents.rejected.step'),
+            actor: exchange.approved_by_name ?? t('exchanges.detail.timelineEvents.rejected.actor'),
+            detail: t('exchanges.detail.timelineEvents.rejected.detail'),
             date: exchange.rejected_at,
           }
         : null,
       exchange.cancelled_at
         ? {
             key: 'cancelled',
-            step: 'Cancelled',
-            actor: exchange.requested_by_name ?? 'Requester',
-            detail: 'The request was cancelled and any held points were released.',
+            step: t('exchanges.detail.timelineEvents.cancelled.step'),
+            actor: exchange.requested_by_name ?? t('exchanges.detail.timelineEvents.cancelled.actor'),
+            detail: t('exchanges.detail.timelineEvents.cancelled.detail'),
             date: exchange.cancelled_at,
           }
         : null,
@@ -435,7 +439,7 @@ export function ExchangeDetailPage() {
   if (!exchangeRequestId) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Identifiant de demande manquant.
+        {t('exchanges.detail.error.missingId')}
       </article>
     )
   }
@@ -455,7 +459,7 @@ export function ExchangeDetailPage() {
   if (!exchange) {
     return (
       <article className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        Demande introuvable.
+        {t('exchanges.detail.error.notFound')}
       </article>
     )
   }
@@ -465,47 +469,47 @@ export function ExchangeDetailPage() {
       <PageHeader
         beforeTitle={
           <Button asChild variant="ghost" size="icon-sm" className="shrink-0">
-            <Link to="/payouts" aria-label="Retour à la liste des échanges">
+            <Link to="/payouts" aria-label={t('exchanges.detail.back')}>
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
         }
-        title={requestTitle(exchange)}
+        title={requestTitle(exchange, t)}
         titleAddon={
           <>
             <Badge className={status.className}>{status.label}</Badge>
-            <Badge variant="secondary">{requestTypeLabel(exchange.request_type)}</Badge>
+            <Badge variant="secondary">{requestTypeLabel(exchange.request_type, t)}</Badge>
           </>
         }
         right={
           <PageHeaderToolbar>
             {exchange.program_id ? (
               <Button asChild variant="outline">
-                <Link to={`/programs/${exchange.program_id}`}>Voir le programme</Link>
+                <Link to={`/programs/${exchange.program_id}`}>{t('exchanges.detail.viewProgram')}</Link>
               </Button>
             ) : null}
             <Button asChild variant="outline">
-              <Link to="/commissions">Voir les points</Link>
+              <Link to="/commissions">{t('exchanges.detail.viewPoints')}</Link>
             </Button>
             {!isAgentView && exchange.agent_id ? (
               <Button asChild variant="outline">
-                <Link to={`/agents/${exchange.agent_id}`}>Voir l'affilié</Link>
+                <Link to={`/agents/${exchange.agent_id}`}>{t('exchanges.detail.viewAffiliate')}</Link>
               </Button>
             ) : null}
             {exchange.status === 'requested' && canApprove ? (
-              <ActionButton label="Approuver" busy={hasPendingMutation} onClick={() => approveMutation.mutate()} primary />
+              <ActionButton label={t('exchanges.detail.actions.approve')} busy={hasPendingMutation} onClick={() => approveMutation.mutate()} primary />
             ) : null}
             {exchange.status === 'requested' && canReject ? (
-              <ActionButton label="Refuser" busy={hasPendingMutation} onClick={() => rejectMutation.mutate()} destructive />
+              <ActionButton label={t('exchanges.detail.actions.reject')} busy={hasPendingMutation} onClick={() => rejectMutation.mutate()} destructive />
             ) : null}
             {exchange.status === 'approved' && canApprove ? (
-              <ActionButton label="En traitement" busy={hasPendingMutation} onClick={() => processingMutation.mutate()} />
+              <ActionButton label={t('exchanges.detail.actions.processing')} busy={hasPendingMutation} onClick={() => processingMutation.mutate()} />
             ) : null}
             {['approved', 'processing'].includes(exchange.status) && canApprove ? (
-              <ActionButton label="Terminer" busy={hasPendingMutation} onClick={() => completeMutation.mutate()} primary />
+              <ActionButton label={t('exchanges.detail.actions.complete')} busy={hasPendingMutation} onClick={() => completeMutation.mutate()} primary />
             ) : null}
             {canCancel ? (
-              <ActionButton label="Annuler" busy={hasPendingMutation} onClick={() => cancelMutation.mutate()} destructive />
+              <ActionButton label={t('exchanges.detail.actions.cancel')} busy={hasPendingMutation} onClick={() => cancelMutation.mutate()} destructive />
             ) : null}
           </PageHeaderToolbar>
         }
@@ -513,37 +517,37 @@ export function ExchangeDetailPage() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Points demandés"
+          title={t('exchanges.detail.kpi.pointsRequested')}
           value={`${exchange.points_amount.toLocaleString('fr-FR')} pts`}
-          description="Locked for this request"
-          badge={kpiSnapshotBadge(requestTypeLabel(exchange.request_type))}
+          description={exchange.request_type === 'reward' ? t('exchanges.detail.overview.description') : t('exchanges.detail.kpi.value')}
+          badge={kpiSnapshotBadge(requestTypeLabel(exchange.request_type, t))}
           icon={CircleDollarSign}
           tone="warning"
         />
         <KpiCard
-          title="Valeur"
+          title={t('exchanges.detail.kpi.value')}
           value={
             exchange.cash_amount === null
-              ? requestTypeLabel(exchange.request_type)
+              ? requestTypeLabel(exchange.request_type, t)
               : formatCurrency(exchange.cash_amount, exchange.currency_code)
           }
-          description={exchange.request_type === 'reward' ? 'Requested reward value' : 'Cash conversion value'}
-          badge={kpiSnapshotBadge(exchange.program_name ?? 'Sans programme')}
+          description={exchange.request_type === 'reward' ? t('exchanges.detail.kpi.value') : t('exchanges.detail.kpi.value')}
+          badge={kpiSnapshotBadge(exchange.program_name ?? t('exchanges.detail.relation.noProgram'))}
           icon={exchange.request_type === 'reward' ? Gift : Banknote}
           tone={exchange.request_type === 'reward' ? 'primary' : 'success'}
         />
         <KpiCard
-          title="Demandée le"
-          value={formatDate(exchange.requested_at)}
-          description="Request creation date"
-          badge={kpiSnapshotBadge(exchange.requested_by_name ?? 'Utilisateur')}
+          title={t('exchanges.detail.kpi.requestedAt')}
+          value={formatDate(exchange.requested_at, false, t)}
+          description={t('exchanges.detail.meta.requestedAt')}
+          badge={kpiSnapshotBadge(exchange.requested_by_name ?? t('exchanges.detail.unknownActor.user'))}
           icon={History}
           tone="info"
         />
         <KpiCard
-          title="Écritures liées"
+          title={t('exchanges.detail.kpi.ledgerEntries')}
           value={exchange.ledger_entries.length.toLocaleString('fr-FR')}
-          description="Ledger impact entries"
+          description={t('exchanges.detail.kpi.ledgerDescription')}
           badge={kpiSnapshotBadge(status.label)}
           icon={WalletCards}
           tone="primary"
@@ -552,8 +556,8 @@ export function ExchangeDetailPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <DetailSectionCard
-          title="Exchange overview"
-          description="Request value, lifecycle dates, and submission context."
+          title={t('exchanges.detail.overview.title')}
+          description={t('exchanges.detail.overview.description')}
           className="border-0 bg-card shadow-none"
         >
           <EntityCardIdentity
@@ -563,59 +567,59 @@ export function ExchangeDetailPage() {
               </div>
             }
             title={requestTitle(exchange)}
-            description={exchange.notes ? exchange.notes : `${requestTypeLabel(exchange.request_type)} request`}
+            description={exchange.notes ? exchange.notes : `${requestTypeLabel(exchange.request_type, t)} request`}
             badge={<Badge variant="secondary">{exchange.id.slice(0, 8).toUpperCase()}</Badge>}
           />
 
           <DetailMetaGrid className="mt-5 xl:grid-cols-3">
-            <DetailMetaItem label="Request type" value={requestTypeLabel(exchange.request_type)} />
-            <DetailMetaItem label="Points" value={`${exchange.points_amount.toLocaleString('fr-FR')} pts`} />
+            <DetailMetaItem label={t('exchanges.detail.meta.requestType')} value={requestTypeLabel(exchange.request_type, t)} />
+            <DetailMetaItem label={t('exchanges.detail.meta.points')} value={`${exchange.points_amount.toLocaleString('fr-FR')} pts`} />
             <DetailMetaItem
-              label="Cash value"
+              label={t('exchanges.detail.meta.cashValue')}
               value={
                 exchange.cash_amount === null
-                  ? 'Non applicable'
+                  ? t('exchanges.detail.meta.na')
                   : formatCurrency(exchange.cash_amount, exchange.currency_code)
               }
             />
-            <DetailMetaItem label="Requested by" value={exchange.requested_by_name ?? 'Utilisateur inconnu'} />
-            <DetailMetaItem label="Requested at" value={formatDate(exchange.requested_at, true)} />
-            <DetailMetaItem label="Completed at" value={formatDate(exchange.completed_at, true)} />
+            <DetailMetaItem label={t('exchanges.detail.meta.requestedBy')} value={exchange.requested_by_name ?? t('exchanges.detail.unknownUser')} />
+            <DetailMetaItem label={t('exchanges.detail.meta.requestedAt')} value={formatDate(exchange.requested_at, true, t)} />
+            <DetailMetaItem label={t('exchanges.detail.meta.completedAt')} value={formatDate(exchange.completed_at, true, t)} />
           </DetailMetaGrid>
         </DetailSectionCard>
 
         <DetailSectionCard
-          title="Commercial context"
-          description="Program, affiliate, and validation context around this exchange."
+          title={t('exchanges.detail.commercial.title')}
+          description={t('exchanges.detail.commercial.description')}
           className="border-0 bg-card shadow-none"
         >
           <div className="space-y-3">
             <RelationRow
-              eyebrow="Program"
-              title={exchange.program_name ?? 'No program'}
-              description="Program scope for this request"
+              eyebrow={t('exchanges.detail.relation.program')}
+              title={exchange.program_name ?? t('exchanges.detail.relation.noProgram')}
+              description={t('exchanges.detail.relation.programDescription')}
               to={exchange.program_id ? `/programs/${exchange.program_id}` : null}
-              badge={<Badge className="border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">Actif</Badge>}
+              badge={<Badge className="border-transparent bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">{t('exchanges.detail.relation.activeBadge')}</Badge>}
             />
             <RelationRow
-              eyebrow="Affiliate"
-              title={exchange.agent_name ?? 'No affiliate'}
-              description={exchange.business_name ?? 'Business scope'}
+              eyebrow={t('exchanges.detail.relation.affiliate')}
+              title={exchange.agent_name ?? t('exchanges.detail.relation.noAffiliate')}
+              description={exchange.business_name ?? t('exchanges.detail.relation.affiliateDescription')}
               to={!isAgentView && exchange.agent_id ? `/agents/${exchange.agent_id}` : null}
-              badge={<Badge variant="secondary">Affilié</Badge>}
+              badge={<Badge variant="secondary">{t('exchanges.detail.relation.affiliateBadge')}</Badge>}
             />
             <RelationRow
-              eyebrow="Reviewer"
-              title={exchange.approved_by_name ?? 'Pending review'}
-              description={reviewerDescription(exchange.status)}
+              eyebrow={t('exchanges.detail.relation.reviewer')}
+              title={exchange.approved_by_name ?? t('exchanges.detail.relation.pendingReview')}
+              description={reviewerDescription(exchange.status, t)}
               badge={<Badge className={status.className}>{status.label}</Badge>}
             />
             {exchange.request_type === 'reward' ? (
               <RelationRow
-                eyebrow="Reward"
-                title={exchange.requested_reward_title ?? exchange.exchange_pack_item_title ?? 'Reward requested'}
-                description={exchange.program_exchange_pack?.name ?? 'Program catalog'}
-                badge={<Badge variant="secondary">Catalogue</Badge>}
+                eyebrow={t('exchanges.detail.relation.reward')}
+                title={exchange.requested_reward_title ?? exchange.exchange_pack_item_title ?? t('exchanges.detail.relation.reward')}
+                description={exchange.program_exchange_pack?.name ?? t('exchanges.detail.relation.rewardDescription')}
+                badge={<Badge variant="secondary">{t('exchanges.detail.relation.catalogBadge')}</Badge>}
               />
             ) : null}
           </div>
@@ -623,21 +627,21 @@ export function ExchangeDetailPage() {
       </div>
 
       <DetailSectionCard
-        title="Fulfillment timeline"
-        description="Lifecycle milestones recorded for this exchange request."
-        right={<span className="text-xs text-muted-foreground">{timelineRows.length} events</span>}
+        title={t('exchanges.detail.timeline.title')}
+        description={t('exchanges.detail.timeline.description')}
+        right={<span className="text-xs text-muted-foreground">{t('exchanges.detail.timeline.events', { count: timelineRows.length })}</span>}
         className="border-0 bg-card shadow-none"
       >
         {sortedTimelineRows.length === 0 ? (
-          <DetailEmptyState message="No lifecycle event has been recorded yet." />
+          <DetailEmptyState message={t('exchanges.detail.timeline.empty')} />
         ) : (
           <div className="overflow-hidden rounded-lg bg-background/40">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Step</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Detail</TableHead>
+                  <TableHead>{t('exchanges.detail.timeline.step')}</TableHead>
+                  <TableHead>{t('exchanges.detail.timeline.actor')}</TableHead>
+                  <TableHead>{t('exchanges.detail.timeline.detail')}</TableHead>
                 <SortableTableHead
                     sortKey="date"
                     activeKey={timelineSortKey}
@@ -657,7 +661,7 @@ export function ExchangeDetailPage() {
                     <TableCell className="text-sm text-muted-foreground">{row.actor}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{row.detail}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {formatDate(row.date, true)}
+                      {formatDate(row.date, true, t)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -668,22 +672,22 @@ export function ExchangeDetailPage() {
       </DetailSectionCard>
 
       <DetailSectionCard
-        title="Ledger impact"
-        description="Immutable points entries generated by this exchange request."
-        right={<span className="text-xs text-muted-foreground">{ledgerRows.length} entries</span>}
+        title={t('exchanges.detail.ledger.title')}
+        description={t('exchanges.detail.ledger.description')}
+        right={<span className="text-xs text-muted-foreground">{t('exchanges.detail.ledger.entries', { count: ledgerRows.length })}</span>}
         className="border-0 bg-card shadow-none"
       >
         {sortedLedgerRows.length === 0 ? (
-          <DetailEmptyState message="No ledger impact has been recorded for this request yet." />
+          <DetailEmptyState message={t('exchanges.detail.ledger.empty')} />
         ) : (
           <div className="overflow-hidden rounded-lg bg-background/40">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Entry</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Delta</TableHead>
+                  <TableHead>{t('exchanges.detail.ledger.source')}</TableHead>
+                  <TableHead>{t('exchanges.detail.ledger.entry')}</TableHead>
+                  <TableHead>{t('exchanges.detail.ledger.status')}</TableHead>
+                  <TableHead className="text-right">{t('exchanges.detail.ledger.delta')}</TableHead>
                   <SortableTableHead
                     sortKey="effective"
                     activeKey={ledgerSortKey}
@@ -703,7 +707,7 @@ export function ExchangeDetailPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-foreground">{entry.entry_type}</p>
-                        <p className="text-xs text-muted-foreground">{entry.description ?? 'No extra detail'}</p>
+                        <p className="text-xs text-muted-foreground">{entry.description ?? t('exchanges.detail.ledger.noDetail')}</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -719,7 +723,7 @@ export function ExchangeDetailPage() {
                       {entry.points_delta.toLocaleString('fr-FR')} pts
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
-                      {formatDate(entry.effective_at ?? entry.created_at, true)}
+                      {formatDate(entry.effective_at ?? entry.created_at, true, t)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -731,17 +735,17 @@ export function ExchangeDetailPage() {
 
       {exchange.request_type === 'reward' && exchange.program_exchange_pack ? (
         <DetailSectionCard
-          title="Reward catalog snapshot"
-          description="Pack items visible in the linked program at the time of review."
+          title={t('exchanges.detail.catalog.title')}
+          description={t('exchanges.detail.catalog.description')}
           className="border-0 bg-card shadow-none"
         >
           <div className="overflow-hidden rounded-lg bg-background/40">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Reward</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Points</TableHead>
+                  <TableHead>{t('exchanges.detail.catalog.reward')}</TableHead>
+                  <TableHead>{t('exchanges.detail.catalog.type')}</TableHead>
+                  <TableHead className="text-right">{t('exchanges.detail.catalog.points')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -751,7 +755,7 @@ export function ExchangeDetailPage() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">{item.title}</span>
                         {item.id === exchange.exchange_pack_item_id ? (
-                          <Badge variant="secondary">Selected</Badge>
+                          <Badge variant="secondary">{t('exchanges.detail.catalog.selected')}</Badge>
                         ) : null}
                       </div>
                     </TableCell>
@@ -770,13 +774,13 @@ export function ExchangeDetailPage() {
   )
 }
 
-function reviewerDescription(status: ExchangeRequestStatus) {
-  if (status === 'requested') return 'Awaiting business review'
-  if (status === 'approved') return 'Validated, not yet in fulfillment'
-  if (status === 'processing') return 'Currently being fulfilled'
-  if (status === 'completed') return 'Fulfillment completed'
-  if (status === 'rejected') return 'Request declined by the business'
-  return 'Request cancelled before completion'
+function reviewerDescription(status: ExchangeRequestStatus, t: (key: string) => string) {
+  if (status === 'requested') return t('exchanges.detail.reviewerDescription.requested')
+  if (status === 'approved') return t('exchanges.detail.reviewerDescription.approved')
+  if (status === 'processing') return t('exchanges.detail.reviewerDescription.processing')
+  if (status === 'completed') return t('exchanges.detail.reviewerDescription.completed')
+  if (status === 'rejected') return t('exchanges.detail.reviewerDescription.rejected')
+  return t('exchanges.detail.reviewerDescription.cancelled')
 }
 
 function ActionButton({

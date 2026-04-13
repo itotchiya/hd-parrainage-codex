@@ -143,14 +143,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: '/agents/:agentId/:prospectId',
-        element: (
-          <PermissionBoundary anyOf={['prospect.view']}>
-            <ProspectDetailPage />
-          </PermissionBoundary>
-        ),
-      },
-      {
         path: '/programs',
         element: (
           <PermissionBoundary anyOf={['program.view']}>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, FilterX, Mail, MoreHorizontal, Plus, Search, UserCheck, UserX, Users } from 'lucide-react'
+import { Eye, FilterX, Loader2, Mail, MoreHorizontal, Plus, RotateCcw, Search, UserCheck, UserX, Users } from 'lucide-react'
 import { ApiError } from '../../../lib/api'
 import { useAuthSession } from '../../auth/session'
 import { fetchAgents, inviteAgent, reactivateAgent, suspendAgent } from '../api'
@@ -12,6 +12,11 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { KpiCard, KpiCardSkeleton } from '@/features/dashboard/components/KpiCard'
 import { DashboardSectionHeader } from '@/features/dashboard/components/DashboardSectionHeader'
+import {
+  formatLastUpdatedLabel,
+  invalidateOwnerRefreshQueries,
+  useOwnerRefreshPolicy,
+} from '@/features/dashboard/owner-refresh'
 import {
   agentStatusBadgeClass,
   formatDashboardDateFr,
@@ -57,7 +62,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { AgentRecord } from '@/types/agents'
+import type { AgentListEnvelope, AgentRecord } from '@/types/agents'
 
 type AgentSortKey = 'agent' | 'status' | 'joined'
 
@@ -80,6 +85,24 @@ function agentAffiliateSubline(agent: { id: string; agent_code: string | null })
 
 function normalizeAgentStatus(status: string) {
   return status.toLowerCase().replace(/\s+/g, '_')
+}
+
+function getAgentStatusLabel(agent: AgentRecord, t: (key: string) => string) {
+  const normalizedStatus = normalizeAgentStatus(agent.status)
+
+  if (normalizedStatus === 'invited' || normalizedStatus === 'pending' || normalizedStatus === 'pending_activation') {
+    return agent.activated_at ? t('agents.status.pending') : t('agents.status.pendingActivation')
+  }
+
+  if (normalizedStatus === 'suspended' || normalizedStatus === 'inactive') {
+    return t('agents.status.suspended')
+  }
+
+  if (normalizedStatus === 'active') {
+    return t('agents.status.active')
+  }
+
+  return agent.status.replace(/_/g, ' ')
 }
 
 function agentJoinedTime(agent: AgentRecord) {
@@ -155,24 +178,29 @@ export function AgentsPage() {
   const [pageSize, setPageSize] = useState(10)
   const [sortKey, setSortKey] = useState<AgentSortKey | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const { isBurstActive, queryOptions, triggerBurst } = useOwnerRefreshPolicy(true)
 
-  const listQuery = useQuery({
+  const listQuery = useQuery<AgentListEnvelope>({
     queryKey: ['agents', 'list'],
     queryFn: fetchAgents,
+    refetchOnWindowFocus: queryOptions.refetchOnWindowFocus,
+    refetchInterval: queryOptions.refetchInterval,
   })
 
   const inviteMutation = useMutation({
     mutationFn: inviteAgent,
     onSuccess: async () => {
       setInviteOpen(false)
-      await queryClient.invalidateQueries({ queryKey: ['agents'] })
+      triggerBurst()
+      await invalidateOwnerRefreshQueries(queryClient)
     },
   })
 
   const suspendMutation = useMutation({
     mutationFn: ({ agentId, reason }: { agentId: string; reason: string }) => suspendAgent(agentId, { reason }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['agents'] })
+      triggerBurst()
+      await invalidateOwnerRefreshQueries(queryClient)
       setPendingLifecycleAction(null)
     },
   })
@@ -180,7 +208,8 @@ export function AgentsPage() {
   const reactivateMutation = useMutation({
     mutationFn: ({ agentId }: { agentId: string }) => reactivateAgent(agentId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['agents'] })
+      triggerBurst()
+      await invalidateOwnerRefreshQueries(queryClient)
       setPendingLifecycleAction(null)
     },
   })
@@ -244,6 +273,12 @@ export function AgentsPage() {
   const totalFiltered = sortedAgents.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize))
   const pageSafe = Math.min(page, totalPages)
+  const lastUpdatedLabel = formatLastUpdatedLabel(listQuery.dataUpdatedAt, t)
+  const isRefreshing =
+    listQuery.isFetching ||
+    inviteMutation.isPending ||
+    suspendMutation.isPending ||
+    reactivateMutation.isPending
   const pageSlice = useMemo(() => {
     const start = (pageSafe - 1) * pageSize
     return sortedAgents.slice(start, start + pageSize)
@@ -303,7 +338,7 @@ export function AgentsPage() {
       <Dialog open={programsDialogAgent !== null} onOpenChange={(open) => !open && setProgramsDialogAgent(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Programmes assignés</DialogTitle>
+            <DialogTitle>{t('agents.dialogs.assignedPrograms')}</DialogTitle>
             <DialogDescription>
               {programsDialogAgent
                 ? t('agents.dialogs.assignedProgramsDescription')
@@ -333,7 +368,7 @@ export function AgentsPage() {
                       {(assignment.program.assigned_agents_count ?? 0).toLocaleString('fr-FR')} {t('agents.table.programs_plural')}
                     </Badge>
                     <Badge className={programStatusBadgeClass(assignment.program.status)}>
-                      {assignment.program.status}
+                      {t('programs.status.' + assignment.program.status)}
                     </Badge>
                   </div>
                 </button>
@@ -348,7 +383,7 @@ export function AgentsPage() {
       </Dialog>
       <section className="app-section">
       <PageHeader
-        title="Agents"
+        title={t('agents.title')}
         right={
           <PageHeaderToolbar>
             {hasActiveFilters ? (
@@ -453,6 +488,32 @@ export function AgentsPage() {
         <article className="rounded-lg bg-card p-3 sm:p-4">
           <DashboardSectionHeader
             title={t('agents.title')}
+            description={
+              agentKpis.pendingInvite > 0
+                ? t('agents.pendingInvitesHint', { count: agentKpis.pendingInvite })
+                : t('agents.description')
+            }
+            actions={
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {isRefreshing ? t('common.refreshing') : t('common.lastUpdated', { time: lastUpdatedLabel })}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    triggerBurst()
+                    await invalidateOwnerRefreshQueries(queryClient)
+                    await listQuery.refetch()
+                  }}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+                  {isBurstActive ? t('common.refreshing') : t('common.refresh')}
+                </Button>
+              </>
+            }
           />
 
           {totalFiltered === 0 ? (
@@ -494,7 +555,7 @@ export function AgentsPage() {
                     {t('agents.table.joined')}
                   </SortableTableHead>
                   <TableHead className="w-10 pe-2 text-end">
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t('common.actions')}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -532,7 +593,7 @@ export function AgentsPage() {
                         </Link>
                       </TableCell>
                       <TableCell className="hidden max-w-[12rem] truncate sm:table-cell">
-                        {agent.email ?? '—'}
+                        {agent.email ?? t('common.notAvailable')}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {agent.status ? (
@@ -540,10 +601,10 @@ export function AgentsPage() {
                             variant="outline"
                             className={`capitalize ${agentStatusBadgeClass(agent.status)}`}
                           >
-                            {agent.status.replace(/_/g, ' ')}
+                            {getAgentStatusLabel(agent, t)}
                           </Badge>
                         ) : (
-                          '—'
+                          t('common.notAvailable')
                         )}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -627,7 +688,7 @@ export function AgentsPage() {
                               variant="ghost"
                               size="icon-sm"
                               className="text-muted-foreground md:hidden"
-                              aria-label={`Actions pour ${displayName}`}
+                              aria-label={t('common.actions')}
                             >
                               <MoreHorizontal className="size-4" aria-hidden />
                             </Button>

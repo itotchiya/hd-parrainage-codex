@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, UserRound, Workflow } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { DetailEmptyState, DetailSectionCard } from '@/components/app/DetailPageKit'
 import { EntityCardIdentity } from '@/components/app/EntityCardIdentity'
@@ -273,9 +274,9 @@ type SyncSortKey = 'updatedAt'
 type HistorySortKey = 'createdAt'
 
 export function ProspectDetailPage() {
-  const { prospectId, agentId: routeAgentId } = useParams<{
+  const { t } = useTranslation()
+  const { prospectId } = useParams<{
     prospectId: string
-    agentId?: string
   }>()
   const [detailKey, setDetailKey] = useState<string | null>(null)
   const [syncSortKey, setSyncSortKey] = useState<SyncSortKey>('updatedAt')
@@ -297,15 +298,12 @@ export function ProspectDetailPage() {
 
   const prospect = prospectQuery.data?.data ?? null
   const history = historyQuery.data?.data ?? []
-  const resolvedAgentId = prospect?.agent_id ?? routeAgentId ?? null
+  const resolvedAgentId = prospect?.agent_id ?? null
 
   useAppBreadcrumbTrail(
     prospect
       ? [
-          { label: 'Agents', to: '/agents' },
-          ...(resolvedAgentId && prospect.agent_name
-            ? [{ label: prospect.agent_name, to: `/agents/${resolvedAgentId}` }]
-            : []),
+          { label: t('navigation.prospects'), to: '/prospects' },
           { label: prospect.contact_name },
         ]
       : null,
@@ -314,7 +312,7 @@ export function ProspectDetailPage() {
   const stage = prospect ? stagePresentation[prospect.pipeline_stage] : null
   const submission = prospect ? submissionPresentation[prospect.submission_status] : null
   const conversion = prospect ? conversionPresentation[prospect.conversion_status] : null
-  const backHref = resolvedAgentId ? `/agents/${resolvedAgentId}` : '/prospects'
+  const backHref = '/prospects'
 
   const detailItems = useMemo(
     () =>

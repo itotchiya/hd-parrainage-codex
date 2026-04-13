@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { createContext, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { createContext, useContext, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Bell, ChevronDown, Gift, LogOut, Monitor, Moon, PanelLeft, Settings, Sun, User } from 'lucide-react'
 import { useNavigation, useActiveRoute } from '../app/useNavigation'
 import { useTranslation } from 'react-i18next'
@@ -9,7 +9,13 @@ import { getIacrmConfig, hasIacrmConfig, IACRM_CONFIG_EVENT } from '../features/
 import { fetchNotifications } from '../features/notifications/api'
 import { fetchPointsSummary } from '../features/points/api'
 import { isCurrentBusinessAgent, isCurrentBusinessOwner, isSuperAdminUser } from '../lib/auth-scope'
+import { formatAppNumber } from '@/lib/locale'
 import { AppSidebar } from './AppSidebar'
+import {
+  invalidateOwnerRefreshQueries,
+  isOwnerRefreshNotification,
+  useOwnerRefreshPolicy,
+} from '@/features/dashboard/owner-refresh'
 import { LanguageSwitcher } from '@/components/app/LanguageSwitcher'
 import { Button } from '@/components/ui/button'
 import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
@@ -33,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { NotificationListEnvelope } from '@/types/notifications'
 
 const BreadcrumbDetailTitleContext = createContext<Dispatch<SetStateAction<string | null>> | null>(null)
 type AppBreadcrumbItem = {
@@ -73,6 +80,7 @@ export function AppShell() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { hasPermission, logout, logoutPending, user } = useAuthSession()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -108,13 +116,17 @@ export function AppShell() {
     if (typeof window === 'undefined') return true
     return hasIacrmConfig()
   })
+  const isSuperAdmin = isSuperAdminUser(user)
+  const isBusinessOwner = isCurrentBusinessOwner(user)
+  const { queryOptions: ownerNotificationRefreshOptions } = useOwnerRefreshPolicy(isBusinessOwner)
 
-  const notificationsQuery = useQuery({
+  const notificationsQuery = useQuery<NotificationListEnvelope>({
     queryKey: ['notifications', 'header'],
     queryFn: fetchNotifications,
     staleTime: 30_000,
+    refetchOnWindowFocus: ownerNotificationRefreshOptions.refetchOnWindowFocus,
+    refetchInterval: ownerNotificationRefreshOptions.refetchInterval,
   })
-  const isSuperAdmin = isSuperAdminUser(user)
   const pointsSidebarQuery = useQuery({
     queryKey: ['points', 'sidebar-available'],
     queryFn: () => fetchPointsSummary(),
@@ -122,7 +134,6 @@ export function AppShell() {
     enabled: hasPermission('points.view') && !isSuperAdmin,
   })
 
-  const isBusinessOwner = isCurrentBusinessOwner(user)
   const shouldShowIacrmCta = !iacrmConfigured && (isSuperAdmin || isBusinessOwner)
   // These paths are business-scoped management surfaces — not relevant for platform admin
   const superAdminHiddenPaths = ['/agents', '/prospects', '/commissions', '/payouts', '/exchange-packs', '/transactions']
@@ -143,9 +154,10 @@ export function AppShell() {
 
   const unreadCount = notificationsQuery.data?.meta.unread_count ?? 0
   const recentNotifications = (notificationsQuery.data?.data ?? []).slice(0, 4)
+  const lastOwnerRefreshNotificationRef = useRef<string | null>(null)
   const availablePointsRaw = pointsSidebarQuery.data?.data.available_points ?? 0
   const availablePoints = Math.round(availablePointsRaw)
-  const availablePointsBadge = `${availablePoints.toLocaleString('fr-FR')} pts`
+  const availablePointsBadge = `${formatAppNumber(availablePoints)} pts`
   const userInitial = user?.display_name?.trim().charAt(0).toUpperCase() ?? 'U'
   const displayName = user?.display_name?.trim() ?? 'User'
   const isAgent = isCurrentBusinessAgent(user)
@@ -164,12 +176,12 @@ export function AppShell() {
     )
   const defaultBreadcrumbTrail: AppBreadcrumbItem[] = isProgramDocsRoute
     ? [
-        { label: 'Programs', to: '/programs' },
-        { label: 'Documentation' },
+        { label: t('navigation.programs'), to: '/programs' },
+        { label: t('programs.documentation') },
       ]
     : isExchangePackDetailRoute
       ? [
-          { label: 'Exchange packs', to: '/exchange-packs' },
+          { label: t('navigation.exchangePacks'), to: '/exchange-packs' },
           { label: breadcrumbDetailTitle ?? activeRoute.title },
         ]
       : [{ label: activeRoute.title }]
@@ -182,6 +194,30 @@ export function AppShell() {
     effectiveBreadcrumbTrail.length > 2
       ? effectiveBreadcrumbTrail.slice(0, -2)
       : []
+
+  useEffect(() => {
+    if (!isBusinessOwner) {
+      lastOwnerRefreshNotificationRef.current = null
+      return
+    }
+
+    const latestOwnerRefreshNotification = (notificationsQuery.data?.data ?? []).find(isOwnerRefreshNotification)
+    if (!latestOwnerRefreshNotification) {
+      return
+    }
+
+    if (lastOwnerRefreshNotificationRef.current === null) {
+      lastOwnerRefreshNotificationRef.current = latestOwnerRefreshNotification.id
+      return
+    }
+
+    if (lastOwnerRefreshNotificationRef.current === latestOwnerRefreshNotification.id) {
+      return
+    }
+
+    lastOwnerRefreshNotificationRef.current = latestOwnerRefreshNotification.id
+    void invalidateOwnerRefreshQueries(queryClient)
+  }, [isBusinessOwner, notificationsQuery.data?.data, queryClient])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -466,7 +502,7 @@ export function AppShell() {
                   onClick={() => navigate('/payouts')}
                 >
                   <Gift className="mr-2 h-4 w-4" />
-                  {availablePoints.toLocaleString('fr-FR')} pts
+                  {formatAppNumber(availablePoints)} pts
                 </Button>
               </>
             ) : null}

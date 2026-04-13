@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, ExternalLink, Gift, GripVertical, Loader2, MoreVertical, Pencil, Plus, Power, RotateCcw, Send, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { EntityCardIdentity } from '@/components/app/EntityCardIdentity'
 import { PageHeader, PageHeaderToolbar } from '@/components/app/PageHeader'
@@ -52,9 +53,9 @@ import {
   ExchangePackItemDialog,
 } from '../components/ExchangePackDialogs'
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Date inconnue'
-  return new Date(value).toLocaleDateString('fr-FR', {
+function formatDate(value: string | null | undefined, locale: string) {
+  if (!value) return null
+  return new Date(value).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -89,6 +90,7 @@ function makeTempItemId() {
 }
 
 export function ExchangePackDetailPage() {
+  const { t, i18n } = useTranslation()
   const { packId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -322,20 +324,20 @@ export function ExchangePackDetailPage() {
   const canActivate = pack.actions?.can_activate ?? pack.status === 'inactive'
   const shouldShowSaveAction = hasDraftChanges && canUpdate
   const saveActionLabel = hasUnnotifiedChanges && linkedProgramsCount > 0
-    ? 'Sauvegarder et notifier'
-    : 'Sauvegarder'
+    ? t('exchangePacks.detail.saveAndNotify')
+    : t('exchangePacks.detail.save')
   const savingDraft = saveDraftAndNotifyMutation.isPending || reorderItemsMutation.isPending
   const disableBlockedReason =
     !canDisable && linkedProgramsCount > 0
-      ? "Impossible de désactiver ce pack tant qu'il est utilisé par un programme."
+      ? t('exchangePacks.card.tooltip.disableBlockedByPrograms')
       : !canDisable
-        ? "Vous n'avez pas la permission de désactiver ce pack."
+        ? t('exchangePacks.card.tooltip.disableBlockedPermission')
         : null
   const deleteBlockedReason = canDelete
     ? null
     : linkedProgramsCount > 0
-      ? "Impossible de supprimer ce pack tant qu'il est utilisé par un programme."
-      : "Vous n'avez pas la permission de supprimer ce pack."
+      ? t('exchangePacks.card.tooltip.deleteBlockedByPrograms')
+      : t('exchangePacks.card.tooltip.deleteBlockedPermission')
 
   const orderedPackItemIds = [...pack.items]
     .sort((a, b) => a.display_order - b.display_order)
@@ -436,18 +438,20 @@ export function ExchangePackDetailPage() {
     lastDragOverItemIdRef.current = null
   }
 
+  const updatedDateText = formatDate(pack.updated_at, i18n.language) ?? t('exchangePacks.detail.unknownDate')
+
   return (
     <section className="app-section">
       <PageHeader
         title={pack.name}
         beforeTitle={
-            <Button type="button" variant="ghost" size="icon" className="cursor-pointer" onClick={() => navigate('/exchange-packs')} aria-label="Retour">
+            <Button type="button" variant="ghost" size="icon" className="cursor-pointer" onClick={() => navigate('/exchange-packs')} aria-label={t('exchangePacks.detail.back')}>
             <ArrowLeft className="size-4" />
           </Button>
         }
         titleAddon={
           <Badge variant="secondary" className={cn('border-0 px-2.5 py-1 text-xs', exchangePackStatusBadgeClass(pack.status))}>
-            {pack.status === 'inactive' ? 'Désactivé' : 'Actif'}
+            {pack.status === 'inactive' ? t('exchangePacks.status.inactive') : t('exchangePacks.status.active')}
           </Badge>
         }
         right={
@@ -464,7 +468,7 @@ export function ExchangePackDetailPage() {
                 ) : (
                   <Send className="size-4" />
                 )}
-                {savingDraft ? 'Sauvegarde...' : saveActionLabel}
+                {savingDraft ? t('exchangePacks.detail.saving') : saveActionLabel}
               </Button>
             ) : null}
             <Button
@@ -475,11 +479,11 @@ export function ExchangePackDetailPage() {
               onClick={() => setPackDialogOpen(true)}
             >
               <Pencil className="size-4" />
-              Modifier
+              {t('exchangePacks.detail.edit')}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="icon" className="cursor-pointer" aria-label="Plus d'actions">
+                <Button type="button" variant="outline" size="icon" className="cursor-pointer" aria-label={t('exchangePacks.detail.moreActions')}>
                   <MoreVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -491,7 +495,7 @@ export function ExchangePackDetailPage() {
                     onSelect={() => void updateStatusMutation.mutateAsync({ nextStatus: 'active', nextPackId: pack.id })}
                   >
                     {updateStatusMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-                    Réactiver
+                    {t('exchangePacks.card.reactivate')}
                   </DropdownMenuItem>
                 ) : (
                   <TooltipProvider>
@@ -504,7 +508,7 @@ export function ExchangePackDetailPage() {
                             onSelect={() => void updateStatusMutation.mutateAsync({ nextStatus: 'inactive', nextPackId: pack.id })}
                           >
                             {updateStatusMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Power className="size-4" />}
-                            Désactiver
+                            {t('exchangePacks.card.deactivate')}
                           </DropdownMenuItem>
                         </div>
                       </TooltipTrigger>
@@ -525,7 +529,7 @@ export function ExchangePackDetailPage() {
                           onSelect={() => setDeletingPack(pack)}
                         >
                           <Trash2 className="size-4" />
-                          Supprimer le pack
+                          {t('exchangePacks.detail.deletePack')}
                         </DropdownMenuItem>
                       </div>
                     </TooltipTrigger>
@@ -546,12 +550,12 @@ export function ExchangePackDetailPage() {
             <div className="max-w-3xl">
               <div className="flex min-w-0 items-center gap-2.5">
                 <IconTile icon={Gift} className="bg-amber-500 text-white" />
-                <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">Pack rewards</p>
+                <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{t('exchangePacks.detail.packRewards')}</p>
               </div>
               <div className="mt-3">
                 <EntityCardIdentity
                   title={pack.name}
-                  description={pack.description ?? 'Aucune description pour ce pack.'}
+                  description={pack.description ?? t('exchangePacks.card.noDescription')}
                   className="gap-0"
                   titleClassName="text-[1.75rem] leading-none tracking-[-0.04em] md:text-[2rem]"
                   descriptionClassName="mt-1.5 max-w-3xl text-sm leading-6"
@@ -561,22 +565,22 @@ export function ExchangePackDetailPage() {
 
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary" className="border-0 bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
-                {activeItemsCount} cadeau{activeItemsCount === 1 ? '' : 'x'}
+                {t('exchangePacks.detail.giftCount', { count: activeItemsCount })}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
-                {linkedProgramsCount} programme{linkedProgramsCount === 1 ? '' : 's'}
+                {t('exchangePacks.detail.programCount', { count: linkedProgramsCount })}
               </Badge>
               <Badge variant="secondary" className="border-0 bg-muted text-muted-foreground">
-                Mis à jour {formatDate(pack.updated_at)}
+                {t('exchangePacks.detail.updatedLabel', { date: updatedDateText })}
               </Badge>
             </div>
 
             {activeItemsCount === 0 ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
                 <Gift />
-                <AlertTitle>Pack non assignable</AlertTitle>
+                <AlertTitle>{t('exchangePacks.detail.notAssignableTitle')}</AlertTitle>
                 <AlertDescription>
-                  Ajoutez au moins un cadeau actif avant d'utiliser ce pack dans un programme rewards.
+                  {t('exchangePacks.detail.notAssignableDescription')}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -586,9 +590,9 @@ export function ExchangePackDetailPage() {
         <Card className="rounded-lg border-0 bg-card shadow-none">
           <CardContent className="space-y-3 p-5">
             <div>
-              <h2 className="text-base font-semibold text-foreground">Utilisé dans</h2>
+              <h2 className="text-base font-semibold text-foreground">{t('exchangePacks.detail.usedIn')}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Programmes qui utilisent actuellement ce pack.
+                {t('exchangePacks.detail.usedInDescription')}
               </p>
             </div>
 
@@ -606,10 +610,10 @@ export function ExchangePackDetailPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                          {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
+                          {t('exchangePacks.detail.agentCount', { count: program.assigned_agents_count ?? 0 })}
                         </Badge>
                         <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
-                          {program.status}
+                          {t(`programs.status.${program.status}`)}
                         </Badge>
                         <ExternalLink className="size-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
                       </div>
@@ -622,9 +626,9 @@ export function ExchangePackDetailPage() {
                     onClick={() => setUsedProgramsDialogOpen(true)}
                     className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-muted/10 p-3 text-left text-sm transition-colors hover:border-solid hover:bg-muted/30"
                   >
-                    <span className="font-medium text-foreground">Voir tous les programmes</span>
+                    <span className="font-medium text-foreground">{t('exchangePacks.detail.viewAllPrograms')}</span>
                     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      +{hiddenLinkedProgramsCount} autre{hiddenLinkedProgramsCount === 1 ? '' : 's'}
+                      {t('exchangePacks.detail.otherPrograms', { count: hiddenLinkedProgramsCount })}
                       <ExternalLink className="size-3.5" />
                     </span>
                   </button>
@@ -632,7 +636,7 @@ export function ExchangePackDetailPage() {
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
-                Aucun programme n'utilise encore ce pack.
+                {t('exchangePacks.detail.noProgramsUsingPack')}
               </div>
             )}
           </CardContent>
@@ -641,20 +645,20 @@ export function ExchangePackDetailPage() {
 
       <div className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-base font-semibold text-foreground">Cadeaux du pack</h2>
+          <h2 className="text-base font-semibold text-foreground">{t('exchangePacks.detail.packGifts')}</h2>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select
               value={itemSort}
               disabled={isReorderMode}
               onValueChange={(value) => setItemSort(value as typeof itemSort)}
             >
-              <SelectTrigger className="w-full cursor-pointer sm:w-[190px]" aria-label="Trier les cadeaux">
+              <SelectTrigger className="w-full cursor-pointer sm:w-[190px]" aria-label={t('exchangePacks.detail.sortGifts')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="manual">Ordre du pack</SelectItem>
-                <SelectItem value="points-asc">Moins chers</SelectItem>
-                <SelectItem value="points-desc">Plus chers</SelectItem>
+                <SelectItem value="manual">{t('exchangePacks.detail.sortManual')}</SelectItem>
+                <SelectItem value="points-asc">{t('exchangePacks.detail.sortPointsAsc')}</SelectItem>
+                <SelectItem value="points-desc">{t('exchangePacks.detail.sortPointsDesc')}</SelectItem>
               </SelectContent>
             </Select>
             {isReorderMode ? (
@@ -666,7 +670,7 @@ export function ExchangePackDetailPage() {
                   disabled={reorderItemsMutation.isPending}
                   className="cursor-pointer"
                 >
-                  Annuler
+                  {t('exchangePacks.detail.cancel')}
                 </Button>
                 <Button
                   type="button"
@@ -674,7 +678,7 @@ export function ExchangePackDetailPage() {
                   disabled={!hasOrderChanges}
                   className="cursor-pointer"
                 >
-                  Terminer
+                  {t('exchangePacks.detail.finish')}
                 </Button>
               </>
             ) : (
@@ -686,7 +690,7 @@ export function ExchangePackDetailPage() {
                 onClick={startReorderMode}
               >
                 <GripVertical className="size-4" />
-                Organiser
+                {t('exchangePacks.detail.organize')}
               </Button>
             )}
             <Button
@@ -699,7 +703,7 @@ export function ExchangePackDetailPage() {
               }}
             >
               <Plus className="size-4" />
-              Ajouter un cadeau
+              {t('exchangePacks.detail.addGift')}
             </Button>
           </div>
         </div>
@@ -756,7 +760,7 @@ export function ExchangePackDetailPage() {
                         size="icon"
                         className="absolute right-3 top-3 cursor-pointer"
                         disabled={isReorderMode}
-                        aria-label={`Actions pour ${item.title}`}
+                        aria-label={`${t('common.actions')} ${item.title}`}
                       >
                         <MoreVertical className="size-4" />
                       </Button>
@@ -771,7 +775,7 @@ export function ExchangePackDetailPage() {
                         }}
                       >
                         <Pencil className="size-4" />
-                        Modifier
+                        {t('exchangePacks.detail.modify')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
@@ -780,7 +784,7 @@ export function ExchangePackDetailPage() {
                         onSelect={() => setDeletingItem(item)}
                       >
                         <Trash2 className="size-4" />
-                        Supprimer
+                        {t('exchangePacks.detail.remove')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -799,8 +803,8 @@ export function ExchangePackDetailPage() {
                       <h3 className="truncate text-base font-semibold leading-tight text-foreground">{item.title}</h3>
                     </div>
                     <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-                      {item.points_cost.toLocaleString('fr-FR')}
-                      <span className="ml-1 text-sm font-medium text-muted-foreground">pts</span>
+                      {item.points_cost.toLocaleString(i18n.language)}
+                      <span className="ml-1 text-sm font-medium text-muted-foreground">{t('common.pts')}</span>
                     </p>
                   </div>
                 </CardContent>
@@ -809,9 +813,9 @@ export function ExchangePackDetailPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border bg-muted/10 px-5 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">Aucun cadeau configuré</p>
+            <p className="text-sm font-medium text-foreground">{t('exchangePacks.detail.noGiftsConfigured')}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ce pack peut exister vide, mais il ne pourra pas être assigné à un programme rewards.
+              {t('exchangePacks.detail.noGiftsHint')}
             </p>
             <Button
               type="button"
@@ -823,7 +827,7 @@ export function ExchangePackDetailPage() {
               }}
             >
               <Plus className="size-4" />
-              Ajouter le premier cadeau
+              {t('exchangePacks.detail.addFirstGift')}
             </Button>
           </div>
         )}
@@ -832,9 +836,9 @@ export function ExchangePackDetailPage() {
       <Dialog open={usedProgramsDialogOpen} onOpenChange={setUsedProgramsDialogOpen}>
         <DialogContent className="max-h-[88vh] overflow-hidden sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Programmes utilisant ce pack</DialogTitle>
+            <DialogTitle>{t('exchangePacks.detail.programsDialogTitle')}</DialogTitle>
             <DialogDescription>
-              Liste complète des programmes liés à {pack.name}.
+              {t('exchangePacks.detail.programsDialogDescription', { name: pack.name })}
             </DialogDescription>
           </DialogHeader>
 
@@ -852,10 +856,10 @@ export function ExchangePackDetailPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground">
-                      {program.assigned_agents_count ?? 0} agent{program.assigned_agents_count === 1 ? '' : 's'}
+                      {t('exchangePacks.detail.agentCount', { count: program.assigned_agents_count ?? 0 })}
                     </Badge>
                     <Badge variant="outline" className={programStatusBadgeClass(program.status)}>
-                      {program.status}
+                      {t(`programs.status.${program.status}`)}
                     </Badge>
                     <ExternalLink className="size-3.5 text-muted-foreground transition-colors group-hover:text-foreground" />
                   </div>
@@ -877,17 +881,17 @@ export function ExchangePackDetailPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Quitter sans sauvegarder ?</DialogTitle>
+            <DialogTitle>{t('exchangePacks.detail.leaveDialogTitle')}</DialogTitle>
             <DialogDescription>
-              Les changements non sauvegardés seront supprimés si vous quittez.
+              {t('exchangePacks.detail.leaveDialogDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
             <AlertTriangle />
-            <AlertTitle>Brouillon en cours</AlertTitle>
+            <AlertTitle>{t('exchangePacks.detail.draftAlertTitle')}</AlertTitle>
             <AlertDescription>
-              Sauvegardez pour conserver vos changements. L'ordre seul ne notifie pas les agents.
+              {t('exchangePacks.detail.draftAlertDescription')}
             </AlertDescription>
           </Alert>
 
@@ -903,7 +907,7 @@ export function ExchangePackDetailPage() {
                 navigationBlocker.proceed?.()
               }}
             >
-              Ignorer
+              {t('exchangePacks.detail.discard')}
             </Button>
             <Button
               type="button"
@@ -920,7 +924,7 @@ export function ExchangePackDetailPage() {
               ) : (
                 <Send className="size-4" />
               )}
-              {hasUnnotifiedChanges && linkedProgramsCount > 0 ? 'Sauver et notifier' : 'Sauvegarder'}
+              {hasUnnotifiedChanges && linkedProgramsCount > 0 ? t('exchangePacks.detail.saveDraftAndNotify') : t('exchangePacks.detail.saveDraft')}
             </Button>
           </DialogFooter>
         </DialogContent>

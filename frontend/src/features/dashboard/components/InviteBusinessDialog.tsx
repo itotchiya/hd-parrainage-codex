@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Building2, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ApiError } from '../../../lib/api'
 import { useIacrmPlatformBusinesses } from '../../iacrm/hooks'
 import { getIacrmConfig, hasIacrmConfig } from '../../iacrm/api'
@@ -23,15 +24,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface InviteBusinessDialogProps {
   open: boolean
   isPending: boolean
   error: ApiError | null
-  /** IDs of IACRM businesses already on the platform */
   existingIacrmIds: Set<string>
   onClose: () => void
   onSubmit: (payload: {
@@ -43,10 +39,6 @@ interface InviteBusinessDialogProps {
   }) => void
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function InviteBusinessDialog({
   open,
   isPending,
@@ -55,6 +47,7 @@ export function InviteBusinessDialog({
   onClose,
   onSubmit,
 }: InviteBusinessDialogProps) {
+  const { t } = useTranslation()
   const [selectedBusinessId, setSelectedBusinessId] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [ownerName, setOwnerName] = useState('')
@@ -103,48 +96,40 @@ export function InviteBusinessDialog({
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose() }}>
       <DialogContent className="sm:max-w-lg" showCloseButton>
         <DialogHeader>
-          <DialogTitle>Inviter un business</DialogTitle>
-          <DialogDescription>
-            Sélectionnez un business depuis votre CRM IACRM pour l'inviter sur la plateforme.
-            Une invitation email sera envoyée au propriétaire.
-          </DialogDescription>
+          <DialogTitle>{t('businesses.invite.title')}</DialogTitle>
+          <DialogDescription>{t('businesses.invite.description')}</DialogDescription>
         </DialogHeader>
 
         {!iacrmConfigured ? (
-          <IacrmConfigGate action="inviter un business" onClose={handleClose} />
+          <IacrmConfigGate action={t('businesses.invite.title').toLowerCase()} onClose={handleClose} />
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-1">
-              {/* IACRM business picker */}
               <Field>
-                <FieldLabel>Business IACRM</FieldLabel>
+                <FieldLabel>{t('businesses.invite.iacrmBusiness')}</FieldLabel>
                 {platformQuery.isPending ? (
-                  <p className="text-sm text-muted-foreground">Chargement des businesses...</p>
+                  <p className="text-sm text-muted-foreground">{t('businesses.invite.loading')}</p>
                 ) : iacrmBusinesses.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center">
                     <Building2 className="mx-auto size-8 text-muted-foreground/50" />
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Aucun business disponible dans IACRM, ou tous ont déjà été invités.
+                      {t('businesses.invite.emptyTitle')}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Ajoutez d'abord le business dans IACRM pour pouvoir l'inviter.
+                      {t('businesses.invite.emptyDescription')}
                     </p>
                   </div>
                 ) : (
-                  <Select
-                    value={selectedBusinessId}
-                    onValueChange={handleBusinessSelect}
-                    required
-                  >
+                  <Select value={selectedBusinessId} onValueChange={handleBusinessSelect} required>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="— Sélectionner un business IACRM —" />
+                      <SelectValue placeholder={t('businesses.invite.selectPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {iacrmBusinesses.map((business) => (
                         <SelectItem key={business.iacrm_id} value={business.iacrm_id}>
                           {business.display_name}
                           {business.industry ? ` · ${business.industry}` : ''}
-                          {' '}({business.clients_count} clients)
+                          {' '}({business.clients_count} {t('businesses.invite.clients')})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -153,56 +138,56 @@ export function InviteBusinessDialog({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="invite-business-name">Nom du business</FieldLabel>
+                <FieldLabel htmlFor="invite-business-name">{t('businesses.invite.businessName')}</FieldLabel>
                 <Input
                   id="invite-business-name"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="Nom commercial du business"
+                  placeholder={t('businesses.invite.businessNamePlaceholder')}
                   required
                   readOnly
                   className="bg-muted/50"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Le nom est automatiquement renseigné depuis IACRM.
+                  {t('businesses.invite.businessNameHint')}
                 </p>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="invite-owner-name">Nom du propriétaire</FieldLabel>
+                <FieldLabel htmlFor="invite-owner-name">{t('businesses.invite.ownerName')}</FieldLabel>
                 <Input
                   id="invite-owner-name"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="Prénom Nom"
+                  placeholder={t('businesses.invite.ownerNamePlaceholder')}
                   autoComplete="name"
                   required
                 />
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="invite-owner-email">Email d'invitation</FieldLabel>
+                <FieldLabel htmlFor="invite-owner-email">{t('businesses.invite.ownerEmail')}</FieldLabel>
                 <Input
                   id="invite-owner-email"
                   type="email"
                   value={ownerEmail}
                   onChange={(e) => setOwnerEmail(e.target.value)}
-                  placeholder="proprietaire@business.com"
+                  placeholder={t('businesses.invite.ownerEmailPlaceholder')}
                   autoComplete="email"
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Un lien d'activation sera envoyé à cette adresse via Resend.
+                  {t('businesses.invite.ownerEmailHint')}
                 </p>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="invite-notes">Note interne (optionnel)</FieldLabel>
+                <FieldLabel htmlFor="invite-notes">{t('businesses.invite.notes')}</FieldLabel>
                 <Input
                   id="invite-notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Contexte ou remarque interne"
+                  placeholder={t('businesses.invite.notesPlaceholder')}
                 />
               </Field>
 
@@ -221,7 +206,7 @@ export function InviteBusinessDialog({
                 onClick={handleClose}
                 disabled={isPending}
               >
-                Annuler
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -231,10 +216,10 @@ export function InviteBusinessDialog({
                 {isPending ? (
                   <>
                     <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                    Envoi en cours...
+                    {t('businesses.invite.sending')}
                   </>
                 ) : (
-                  "Envoyer l'invitation"
+                  t('businesses.invite.submit')
                 )}
               </Button>
             </DialogFooter>
