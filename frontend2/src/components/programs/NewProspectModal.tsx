@@ -43,8 +43,8 @@ export function NewProspectModal({ children, program, onSuccess, onCancel, embed
       const nextProspect = await createProspect({
         programId: program.id,
         contactName: clientName.trim(),
-        contactEmail: clientEmail.trim() || undefined,
-        contactPhoneRaw: clientPhone.trim() || undefined,
+        contactEmail: clientEmail.trim(),
+        contactPhoneRaw: clientPhone.trim(),
         companyName: clientName.trim(),
       });
 

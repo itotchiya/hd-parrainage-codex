@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import {
   BadgeCheck,
   Cable,
@@ -24,7 +23,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { formatAppDateTime } from '@/lib/locale'
 import { toast } from 'sonner'
 import {
   clearIacrmConfig,
@@ -99,7 +97,6 @@ export function IacrmApiSettingsTab({
   syncAlertsValue: string
   failedJobsValue: string
 }) {
-  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useAuthSession()
   const canManageBusinessIacrm =

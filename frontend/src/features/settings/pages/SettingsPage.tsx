@@ -136,7 +136,7 @@ function splitDisplayName(displayName: string) {
   }
 }
 
-function formatDateTime(value: string | null, fallback: string) {
+function formatDateTime(value: string | null, fallback = 'Not available') {
   if (!value) {
     return fallback
   }
@@ -144,7 +144,7 @@ function formatDateTime(value: string | null, fallback: string) {
   return formatAppDateTime(value)
 }
 
-function formatVerificationExpiry(value: string | null, fallback: string) {
+function formatVerificationExpiry(value: string | null, fallback = 'Not available') {
   if (!value) {
     return fallback
   }

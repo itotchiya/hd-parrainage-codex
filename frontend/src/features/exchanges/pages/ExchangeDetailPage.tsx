@@ -566,7 +566,7 @@ export function ExchangeDetailPage() {
                 {exchange.request_type === 'reward' ? <Gift className="size-5" /> : <Banknote className="size-5" />}
               </div>
             }
-            title={requestTitle(exchange)}
+            title={requestTitle(exchange, t)}
             description={exchange.notes ? exchange.notes : `${requestTypeLabel(exchange.request_type, t)} request`}
             badge={<Badge variant="secondary">{exchange.id.slice(0, 8).toUpperCase()}</Badge>}
           />
