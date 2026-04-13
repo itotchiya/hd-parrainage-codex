@@ -26,26 +26,7 @@ import { NewProspectDialog } from '../../prospects/components/NewProspectDialog'
 import { ProgramFormDialog } from '../components/ProgramFormDialog'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
-import { getAppLocale } from '@/lib/locale'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item'
-import { AgentAvatarFallback, Avatar, AvatarImage } from '@/components/ui/avatar'
 import {
   ProgramAssignmentDialog,
   ProgramCashRulesDialog,
@@ -66,16 +47,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type {
   AssignedAgent,
-  ExchangePackRecord,
   ProgramExchangeMode,
   ProgramMutationPayload,
   ProgramRecord,
   ProgramStatus,
 } from '../../../types/programs'
-import type { AgentRecord } from '../../../types/agents'
 
 const programQueryKey = ['programs', 'list']
 const exchangePackQueryKey = ['exchange-packs', 'list']
@@ -147,28 +125,6 @@ function toProgramUpdatePayload(
   }
 }
 
-function formatAgentAddedAt(agent: AgentRecord, t: (key: string) => string) {
-  const raw = agent.activated_at ?? agent.invited_at ?? agent.created_at
-  if (!raw) return t('common.unknown')
-  return new Date(raw).toLocaleDateString(getAppLocale(), {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-function agentInitials(agent: AgentRecord): string {
-  const n = agent.display_name?.trim()
-  if (n) {
-    const parts = n.split(/\s+/).filter(Boolean)
-    if (parts.length >= 2) {
-      return `${parts[0]![0] ?? ''}${parts[parts.length - 1]![0] ?? ''}`.toUpperCase()
-    }
-    return n.slice(0, 2).toUpperCase()
-  }
-  return (agent.email ?? '?').slice(0, 2).toUpperCase()
-}
-
 function ProgramsPageSkeleton() {
   return (
     <section className="app-section">
@@ -207,12 +163,8 @@ export function ProgramsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<ProgramRecord | null>(null)
   const [assignDialogProgram, setAssignDialogProgram] = useState<ProgramRecord | null>(null)
-  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
-  const [hasEditedAssignmentSelection, setHasEditedAssignmentSelection] = useState(false)
   const [cashDialogProgram, setCashDialogProgram] = useState<ProgramRecord | null>(null)
   const [rewardsDialogProgram, setRewardsDialogProgram] = useState<ProgramRecord | null>(null)
-  const [selectedPackId, setSelectedPackId] = useState<string>('')
-  const [deleteConfirmName, setDeleteConfirmName] = useState('')
   const [pendingOwnerAction, setPendingOwnerAction] = useState<{
     type: ProgramLifecycleAction
     program: ProgramRecord
@@ -481,23 +433,6 @@ export function ProgramsPage() {
     suspendMutation.isPending ||
     archiveMutation.isPending ||
     deleteArchivedMutation.isPending
-  const assignmentAgentIds = useMemo(
-    () =>
-      (assignmentQuery.data?.data ?? [])
-        .map((assignment) => assignment.agent?.id)
-        .filter((value): value is string => Boolean(value)),
-    [assignmentQuery.data?.data],
-  )
-  const lockedAssignedAgentIds = useMemo(
-    () =>
-      new Set(
-        (assignmentQuery.data?.data ?? [])
-          .filter((assignment) => assignment.has_prospects_in_program)
-          .map((assignment) => assignment.agent?.id)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    [assignmentQuery.data?.data],
-  )
 
   if (programsQuery.isPending) {
     return <ProgramsPageSkeleton />
