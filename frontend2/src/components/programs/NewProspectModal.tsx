@@ -13,30 +13,52 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { Program } from '@/types';
+import type { Program, Prospect } from '@/types';
 import { toast } from 'sonner';
+import { createProspect } from '@/lib/live-data';
 
 interface NewProspectModalProps {
   children?: ReactNode;
   program: Program;
-  onSuccess?: () => void;
+  onSuccess?: (prospect: Prospect) => void;
   onCancel?: () => void;
   embedded?: boolean;
 }
 
 export function NewProspectModal({ children, program, onSuccess, onCancel, embedded = false }: NewProspectModalProps) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // Simulating API call
-    toast.success('Prospect ajouté avec succès', {
-      description: `Le prospect a été affecté au programme: ${program.name}`,
-    });
-    
-    setOpen(false);
-    if (onSuccess) onSuccess();
+    const formData = new FormData(e.currentTarget);
+    const clientName = formData.get('clientName') as string;
+    const clientEmail = formData.get('clientEmail') as string;
+    const clientPhone = formData.get('clientPhone') as string;
+
+    setPending(true);
+
+    try {
+      const nextProspect = await createProspect({
+        programId: program.id,
+        contactName: clientName.trim(),
+        contactEmail: clientEmail.trim() || undefined,
+        contactPhoneRaw: clientPhone.trim() || undefined,
+        companyName: clientName.trim(),
+      });
+
+      toast.success('Prospect ajouté avec succès', {
+        description: `Le prospect a été affecté au programme: ${program.name}`,
+      });
+      
+      setOpen(false);
+      if (onSuccess) onSuccess(nextProspect);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de créer le prospect.');
+    } finally {
+      setPending(false);
+    }
   };
 
   const formContent = (
@@ -80,8 +102,8 @@ export function NewProspectModal({ children, program, onSuccess, onCancel, embed
         >
           Annuler
         </Button>
-        <Button type="submit" className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 text-white">
-          Valider le prospect
+        <Button type="submit" disabled={pending} className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 text-white">
+          {pending ? 'Envoi...' : 'Valider le prospect'}
         </Button>
       </DialogFooter>
     </form>

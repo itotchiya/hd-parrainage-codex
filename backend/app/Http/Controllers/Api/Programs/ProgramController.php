@@ -712,12 +712,14 @@ class ProgramController extends Controller
 
         $query = Program::query();
 
+        // Agent view: show programs where agent is assigned (exclude drafts)
         if ($roleSlugs->contains('agent') && ! $roleSlugs->contains('business-owner')) {
             $agent = $user->agentProfile;
 
             abort_if($agent === null, 403, 'No agent profile is available for this action.');
 
             return $query
+                ->where('business_id', $agent->business_id)
                 ->where('status', '!=', 'draft')
                 ->whereHas('agentAssignments', function (Builder $builder) use ($agent): void {
                     $builder
@@ -726,6 +728,7 @@ class ProgramController extends Controller
                 });
         }
 
+        // Business owner view: show all programs for their business
         if ($businessId !== null && $roleSlugs->contains('business-owner')) {
             return $query->where('business_id', $businessId);
         }

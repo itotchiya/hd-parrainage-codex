@@ -29,11 +29,11 @@ class PullIacrmInvoices extends Command
 
     /** Map IACRM invoice status -> Transaction status */
     private const STATUS_MAP = [
-        'pending' => 'pending',
-        'unpaid' => 'pending',
-        'overdue' => 'pending',
-        'paid' => 'paid',
-        'cancelled' => 'rejected',
+        'pending'   => 'pending',
+        'unpaid'    => 'pending',
+        'overdue'   => 'pending',
+        'paid'      => 'paid',
+        'cancelled' => 'cancelled',
     ];
 
     public function handle(IacrmConfigResolver $configResolver): int

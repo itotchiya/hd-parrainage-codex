@@ -12,6 +12,7 @@ import { NewProspectModal } from './NewProspectModal';
 import { toast } from 'sonner';
 import type { Program } from '@/types';
 import type { ReactNode } from 'react';
+import { useAuthSession } from '@/lib/auth-session';
 
 interface ProspectActionModalProps {
   program: Program;
@@ -24,15 +25,32 @@ export function ProspectActionModal({ program, children }: ProspectActionModalPr
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('choice');
   const [copied, setCopied] = useState(false);
+  const { user } = useAuthSession();
 
-  // Dummy affiliate link logic
-  const affiliateLink = `https://myhd.ai/ref/agent-1/${program.id}`;
+  const agentCode = user?.agent_profile?.agent_code;
+  const portalUrl = agentCode
+    ? `${window.location.origin}/portal/${encodeURIComponent(agentCode)}/${encodeURIComponent(program.id)}`
+    : '';
+  
+  const qrCodeUrl = portalUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(portalUrl)}`
+    : '';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(affiliateLink);
+    if (!portalUrl) return;
+    navigator.clipboard.writeText(portalUrl);
     setCopied(true);
     toast.success('Lien copié dans le presse-papier');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrCodeUrl || !portalUrl) return;
+    const a = document.createElement('a');
+    a.href = qrCodeUrl;
+    a.download = `qr-${program.id}.png`;
+    a.target = '_blank';
+    a.click();
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -124,11 +142,12 @@ export function ProspectActionModal({ program, children }: ProspectActionModalPr
               Utilisez ce lien pour parrainer vos prospects. Toute inscription via cette URL sera automatiquement créditée à votre compte agent.
             </p>
             <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 group hover:border-[hsl(var(--myhd-primary))]/30 transition-colors">
-              <code className="text-xs flex-1 truncate font-mono text-gray-600 font-medium">{affiliateLink}</code>
+              <code className="text-xs flex-1 truncate font-mono text-gray-600 font-medium">{portalUrl || 'Sélectionnez un agent...'}</code>
               <Button 
                 size="icon" 
                 variant="ghost" 
                 onClick={handleCopy}
+                disabled={!portalUrl}
                 className="hover:bg-white rounded-full h-8 w-8"
               >
                 {copied ? (
@@ -139,7 +158,7 @@ export function ProspectActionModal({ program, children }: ProspectActionModalPr
               </Button>
             </div>
             <div className="flex justify-center">
-              <Button className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 px-8 rounded-full" onClick={handleCopy}>
+              <Button className="bg-[hsl(var(--myhd-primary))] hover:bg-[hsl(var(--myhd-primary))]/90 px-8 rounded-full" onClick={handleCopy} disabled={!portalUrl}>
                 Copier le lien d'affiliation
               </Button>
             </div>
@@ -148,9 +167,20 @@ export function ProspectActionModal({ program, children }: ProspectActionModalPr
 
         {step === 'qr' && (
           <div className="flex flex-col items-center gap-6 py-6 animate-in fade-in slide-in-from-right-4 duration-300 text-center">
-             <div className="p-6 bg-white border-4 border-gray-50 rounded-[2.5rem] shadow-2xl shadow-gray-100 relative group overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--myhd-primary))]/5 to-[hsl(var(--myhd-cyan))]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <QrCode size={160} className="text-[hsl(var(--myhd-dark))] relative z-10" strokeWidth={1.5} />
+             <div className="p-4 bg-white border-4 border-gray-50 rounded-2xl shadow-2xl shadow-gray-100 relative group overflow-hidden">
+                {portalUrl ? (
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="QR code du lien d'affiliation" 
+                    width={180} 
+                    height={180} 
+                    className="block"
+                  />
+                ) : (
+                  <div className="w-[180px] h-[180px] flex items-center justify-center text-gray-400 text-xs">
+                    Aucun agent sélectionné
+                  </div>
+                )}
              </div>
              <div className="space-y-2 px-6">
                 <p className="font-bold text-lg text-[hsl(var(--myhd-dark))]">{program.name}</p>
@@ -158,7 +188,7 @@ export function ProspectActionModal({ program, children }: ProspectActionModalPr
                   Faites scanner ce code à votre prospect pour qu'il puisse accéder au formulaire sur son téléphone.
                 </p>
              </div>
-             <Button variant="outline" className="gap-2 rounded-xl">
+             <Button variant="outline" className="gap-2 rounded-xl" onClick={handleDownloadQr} disabled={!qrCodeUrl}>
                 <Download size={16} />
                 Télécharger le QR Code
              </Button>

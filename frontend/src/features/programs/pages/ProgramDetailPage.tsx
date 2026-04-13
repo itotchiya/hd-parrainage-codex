@@ -96,31 +96,31 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { avatarSeedForUser } from '@/lib/avatar-fallback'
+import { getAppLocale } from '@/lib/locale'
 import { cn } from '@/lib/utils'
 import type { AgentRecord } from '@/types/agents'
 import type { AssignedAgent, ProgramMutationPayload, ProgramRecord, ProgramStatus } from '@/types/programs'
 import type { ProspectPipelineStage, ProspectRecord, ProspectSubmissionStatus } from '@/types/prospects'
 
-const programStatusLabel: Record<ProgramStatus, string> = {
-  active: 'Actif',
-  draft: 'Brouillon',
-  paused: 'En pause',
-  suspended: 'Suspendu',
-  archived: 'Archivé',
+function programStatusLabel(
+  status: ProgramStatus,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  return t(`programs.status.${status}`)
 }
 
-const pipelineStageLabels: Record<ProspectPipelineStage, string> = {
-  suspect: 'Suspect',
-  prospect_froid: 'Prospect froid',
-  prospect_tiede: 'Prospect tiède',
-  prospect_chaud: 'Prospect chaud',
+function pipelineStageLabel(
+  stage: ProspectPipelineStage,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  return t(`prospects.stages.${stage}`)
 }
 
-const submissionLabels: Record<ProspectSubmissionStatus, string> = {
-  pending_sync: 'Sync en attente',
-  synced: 'Synchronisé',
-  sync_failed: 'Échec de sync',
-  deleted: 'Supprimé',
+function submissionLabel(
+  status: ProspectSubmissionStatus,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  return t(`prospects.syncStatus.${status}`)
 }
 
 function prospectStageBadgeClass(stage: ProspectPipelineStage) {
@@ -130,16 +130,19 @@ function prospectStageBadgeClass(stage: ProspectPipelineStage) {
   return 'border-transparent bg-muted text-muted-foreground'
 }
 
-function prospectPipelinePresentation(prospect: ProspectRecord) {
+function prospectPipelinePresentation(
+  prospect: ProspectRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
   if (prospect.conversion_status === 'converted') {
     return {
-      label: 'Converti',
+      label: t('prospects.stages.converted'),
       className: 'border-border bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
     }
   }
 
   return {
-    label: pipelineStageLabels[prospect.pipeline_stage],
+    label: pipelineStageLabel(prospect.pipeline_stage, t),
     className: prospectStageBadgeClass(prospect.pipeline_stage),
   }
 }
@@ -151,18 +154,22 @@ function submissionBadgeClass(status: ProspectSubmissionStatus) {
   return 'border-transparent bg-muted text-muted-foreground'
 }
 
-function exchangeModeLabel(program: ProgramRecord) {
-  if (program.exchange_mode === 'both') return 'Récompenses + Cash'
-  if (program.exchange_mode === 'reward') return 'Récompenses uniquement'
-  return 'Cash uniquement'
+function exchangeModeLabel(
+  program: ProgramRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  return t(`programs.exchangeModes.${program.exchange_mode}`)
 }
 
-function exchangeModeConfig(program: ProgramRecord) {
+function exchangeModeConfig(
+  program: ProgramRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
   if (program.exchange_mode === 'both') {
     return {
       icon: Briefcase,
-      label: 'Récompenses + Cash',
-      description: 'Les agents peuvent échanger via les packs récompenses et la conversion cash.',
+      label: t('programs.exchangeModes.both'),
+      description: t('programs.card.modes.bothDescription'),
       tileClass: 'bg-blue-500 text-white',
       badgeClass: 'border-blue-500/25 bg-blue-500/10 text-blue-800 dark:text-blue-300',
       panelClass: 'border-blue-500/20 bg-blue-500/5',
@@ -172,8 +179,8 @@ function exchangeModeConfig(program: ProgramRecord) {
   if (program.exchange_mode === 'reward') {
     return {
       icon: Gift,
-      label: 'Récompenses uniquement',
-      description: 'Les agents échangent leurs points via le pack récompenses lié.',
+      label: t('programs.exchangeModes.reward'),
+      description: t('programs.card.modes.rewardDescription'),
       tileClass: 'bg-amber-500 text-white',
       badgeClass: 'border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-300',
       panelClass: 'border-amber-500/20 bg-amber-500/5',
@@ -182,28 +189,43 @@ function exchangeModeConfig(program: ProgramRecord) {
 
   return {
     icon: HandCoins,
-    label: 'Cash uniquement',
-    description: 'Les agents échangent leurs points via la conversion cash configurée.',
+    label: t('programs.exchangeModes.cash'),
+    description: t('programs.card.modes.cashDescription'),
     tileClass: 'bg-emerald-500 text-white',
     badgeClass: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
     panelClass: 'border-emerald-500/20 bg-emerald-500/5',
   }
 }
 
-function commissionLabel(program: ProgramRecord) {
-  return program.commission_type === 'per-transaction' ? 'Par transaction' : 'Paliers CA'
+function commissionLabel(
+  program: ProgramRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) {
+  return t(`programs.card.attribution.${program.commission_type}`)
 }
 
-function pointsRuleLabel(program: ProgramRecord) {
+function pointsRuleLabel(
+  program: ProgramRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string,
+) {
   return program.points_per_transaction === null
-    ? 'Configuré par paliers CA'
-    : `${program.points_per_transaction.toLocaleString('fr-FR')} pts / transaction`
+    ? t('programs.detail.kpi.pointsRuleTiers')
+    : t('programs.card.pointsRuleValue', {
+        value: program.points_per_transaction.toLocaleString(locale),
+      })
 }
 
-function cashRuleLabel(program: ProgramRecord) {
+function cashRuleLabel(
+  program: ProgramRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string,
+) {
   return program.points_per_euro === null
-    ? 'Pas de conversion cash'
-    : `${program.points_per_euro.toLocaleString('fr-FR')} pts = 1 €`
+    ? t('programs.detail.cashNotConfigured')
+    : t('programs.card.cashRuleValue', {
+        value: program.points_per_euro.toLocaleString(locale),
+      })
 }
 
 function toProgramPayload(
@@ -238,10 +260,14 @@ function agentRecordInitials(agent: AgentRecord): string {
   return agentInitials(agent.display_name, agent.email)
 }
 
-function formatAgentAddedAt(agent: AgentRecord) {
+function formatAgentAddedAt(
+  agent: AgentRecord,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string,
+) {
   const raw = agent.activated_at ?? agent.invited_at ?? agent.created_at
-  if (!raw) return 'Date inconnue'
-  return new Date(raw).toLocaleDateString('fr-FR', {
+  if (!raw) return t('common.notAvailable')
+  return new Date(raw).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -290,6 +316,7 @@ function ProgramDetailSkeleton() {
 
 export function ProgramDetailPage() {
   const { t } = useTranslation()
+  const locale = getAppLocale()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { programId } = useParams<{ programId: string }>()
@@ -509,7 +536,7 @@ export function ProgramDetailPage() {
   )
   const activeProspects = programProspects.filter((prospect) => prospect.deleted_at === null)
   const convertedProspects = activeProspects.filter((prospect) => prospect.conversion_status === 'converted')
-  const exchangeConfig = exchangeModeConfig(program)
+  const exchangeConfig = exchangeModeConfig(program, t)
   const rewardPacks = (packsQuery.data?.data ?? []).filter((pack) => pack.status === 'active')
   const canEditProgram = Boolean(program.actions.can_edit_general ?? program.actions.can_update) && hasPermission('program.update')
   const canSubmitProspect = cardMode === 'agent' && hasPermission('prospect.submit') && program.status === 'active'
@@ -559,78 +586,78 @@ export function ProgramDetailPage() {
   const editDisabledReason = canEditProgram
     ? null
     : program.status === 'archived'
-      ? "Les programmes archivés ne peuvent pas être modifiés."
+      ? t('programs.card.tooltip.editArchived')
       : assignedTotal > 0
-        ? "Des agents sont déjà assignés. Retirez les assignations actives avant de modifier les règles générales."
-        : "Permission program.update manquante ou des prospects existent déjà pour ce programme."
+        ? t('programs.card.tooltip.editAssigned')
+        : t('programs.card.tooltip.editFallback')
   const editCashDisabledReason = canEditCashShortcut
     ? null
     : !hasCash
-      ? "Le mode cash n'est pas activé pour ce programme."
+      ? t('programs.card.tooltip.cashNoMode')
       : program.status === 'archived'
-        ? "Les programmes archivés ne peuvent pas modifier les règles cash."
+        ? t('programs.card.tooltip.cashArchived')
         : assignedTotal > 0
-          ? "Des agents sont déjà assignés. Retirez les assignations actives avant de modifier les règles cash."
-          : "Permission program.update manquante."
+          ? t('programs.card.tooltip.cashAssigned')
+          : t('programs.card.tooltip.cashFallback')
   const editRewardsDisabledReason = canEditRewardsShortcut
     ? null
     : !hasRewards
-      ? "Le mode récompenses n'est pas activé pour ce programme."
+      ? t('programs.card.tooltip.rewardsNoMode')
       : program.status === 'archived'
-        ? "Les programmes archivés ne peuvent pas modifier les packs récompenses."
-        : "Permission program.update manquante."
+        ? t('programs.card.tooltip.rewardsArchived')
+        : t('programs.card.tooltip.rewardsFallback')
   const activateDisabledReason = canActivateProgram
     ? null
     : program.status !== 'draft'
-      ? "Seuls les programmes en brouillon peuvent être activés."
-      : "Finalisez la configuration du programme et assurez-vous d'avoir la permission program.update."
+      ? t('programs.card.tooltip.activateNotDraft')
+      : t('programs.card.tooltip.activateFallback')
   const liftSuspensionDisabledReason = canLiftSuspensionAction
     ? null
     : program.status !== 'suspended'
-      ? "La levée de suspension n'est disponible que pour les programmes suspendus."
-      : "Permission program.pause manquante."
+      ? t('programs.card.tooltip.liftNotSuspended')
+      : t('programs.card.tooltip.liftFallback')
   const pauseDisabledReason = pauseDisabled
     ? isOwnerActionPending
-      ? "Une action est déjà en cours sur ce programme."
+      ? t('programs.card.tooltip.pausePending')
       : isPaused && isRevenueTier
-        ? "Les programmes à paliers CA ne peuvent pas être réactivés tant que la logique de paliers n'est pas finalisée."
+        ? t('programs.card.tooltip.pauseRevenueTier')
         : isPaused
-          ? "Permission program.pause manquante pour la réactivation."
-          : "La mise en pause nécessite un programme actif et la permission program.pause."
+                        ? t('programs.card.tooltip.pauseReactivate')
+          : t('programs.card.tooltip.pauseFallback')
     : null
   const suspendDisabledReason = canSuspendAction
     ? null
     : program.status !== 'active' && program.status !== 'paused'
-      ? "La suspension n'est disponible que pour les programmes actifs ou en pause."
+      ? t('programs.card.tooltip.suspendInvalidStatus')
       : program.has_open_prospects
-        ? "Clôturez les prospects ouverts avant de suspendre ce programme."
-        : "Permission program.pause manquante."
+        ? t('programs.card.tooltip.suspendOpenProspects')
+        : t('programs.card.tooltip.suspendFallback')
   const archiveDisabledReason = canArchiveAction
     ? null
     : program.status !== 'suspended'
-      ? "L'archivage n'est disponible qu'après la suspension d'un programme."
+      ? t('programs.card.tooltip.archiveInvalidStatus')
       : !program.suspension_deadline_at
-        ? "La date limite de suspension est manquante. Re-suspendez le programme pour reconstruire la période d'attente."
-        : "La période d'attente de suspension n'est pas terminée ou la permission program.pause est manquante."
+        ? t('programs.card.tooltip.archiveNoDeadline')
+        : t('programs.card.tooltip.archiveFallback')
   const assignDisabledReason = canAssignAction
     ? null
     : isSuspended || program.status === 'archived'
-      ? "L'assignation est bloquée lorsque le programme est suspendu ou archivé."
-      : "Permission program.assign-agent manquante."
+      ? t('programs.card.tooltip.assignBlocked')
+      : t('programs.card.tooltip.assignFallback')
   const deleteDisabledReason = canDeleteAction
     ? null
     : program.status === 'archived'
-      ? "Permission program.update manquante pour la suppression d'un programme archivé."
+      ? t('programs.card.tooltip.deleteArchived')
       : assignedTotal > 0
-        ? "Des assignations actives existent. Archivez d'abord le programme ou retirez les assignations concernées."
-        : "La suppression n'est disponible que pour les programmes archivés sans assignations ni prospects."
+        ? t('programs.card.tooltip.deleteAssigned')
+        : t('programs.card.tooltip.deleteFallback')
   const addProspectDisabledReason = canCreateProspect
     ? null
     : !hasPermission('prospect.submit')
-      ? "Permission prospect.submit manquante."
+      ? t('programs.card.tooltip.prospectPermission')
       : program.status !== 'active'
-        ? "Le programme doit être actif pour que les agents puissent ajouter des prospects."
-        : "Cette action est temporairement indisponible."
+        ? t('programs.card.tooltip.prospectInactive')
+        : t('programs.card.tooltip.prospectFallback')
 
   function withDisabledTooltip(item: ReactNode, reason: string | null) {
     if (!reason) return item
@@ -654,7 +681,7 @@ export function ProgramDetailPage() {
         title={program.name}
         beforeTitle={
           <Button type="button" variant="ghost" size="icon-sm" className="-ml-1" asChild>
-            <Link to="/programs" aria-label="Retour aux programmes">
+            <Link to="/programs" aria-label={t('programs.detail.backToPrograms')}>
               <ArrowLeft className="size-4" aria-hidden />
             </Link>
           </Button>
@@ -664,7 +691,7 @@ export function ProgramDetailPage() {
             variant="outline"
             className={cn('shrink-0 uppercase tracking-wide', programStatusBadgeClass(program.status))}
           >
-            {programStatusLabel[program.status]}
+            {programStatusLabel(program.status, t)}
           </Badge>
         }
         right={
@@ -681,7 +708,7 @@ export function ProgramDetailPage() {
                       }}
                     >
                       <Zap className="size-4" aria-hidden />
-                      Ajouter un prospect
+                      {t('programs.detail.addProspect')}
                     </Button>,
                     addProspectDisabledReason,
                   )
@@ -700,7 +727,7 @@ export function ProgramDetailPage() {
                           }}
                         >
                           <Pencil className="size-4" aria-hidden />
-                          Modifier
+                          {t('programs.detail.edit')}
                         </Button>,
                         editDisabledReason,
                       )}
@@ -717,7 +744,7 @@ export function ProgramDetailPage() {
                               }}
                             >
                               <Package className="size-4" aria-hidden />
-                              Gérer les récompenses
+                              {t('programs.detail.manageRewards')}
                             </Button>,
                             editRewardsDisabledReason,
                           )
@@ -738,7 +765,7 @@ export function ProgramDetailPage() {
                               }}
                             >
                               {isPaused ? <Play className="size-4" aria-hidden /> : <Pause className="size-4" aria-hidden />}
-                              {isPaused ? 'Réactiver' : 'Mettre en pause'}
+                              {isPaused ? t('programs.detail.reactivate') : t('programs.detail.pause')}
                             </Button>,
                             pauseDisabledReason,
                           )
@@ -756,7 +783,7 @@ export function ProgramDetailPage() {
                           }}
                         >
                           <UserPlus className="size-4" aria-hidden />
-                          Assigner des agents
+                          {t('programs.detail.assignAgents')}
                         </Button>,
                         assignDisabledReason,
                       )}
@@ -766,7 +793,7 @@ export function ProgramDetailPage() {
             {cardMode === 'owner' ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="icon-sm" aria-label="Plus d'actions">
+                  <Button type="button" variant="outline" size="icon-sm" aria-label={t('programs.detail.moreActions')}>
                     <MoreVertical className="size-4" aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
@@ -782,7 +809,7 @@ export function ProgramDetailPage() {
                             }}
                           >
                             <HandCoins className="size-4" />
-                            Modifier le cash
+                            {t('programs.detail.editCash')}
                           </DropdownMenuItem>,
                           editCashDisabledReason,
                         )
@@ -796,7 +823,7 @@ export function ProgramDetailPage() {
                             }}
                           >
                             <Zap className="size-4" />
-                            Activer le programme
+                            {t('programs.detail.activate')}
                           </DropdownMenuItem>,
                           activateDisabledReason,
                         )
@@ -810,7 +837,7 @@ export function ProgramDetailPage() {
                           }}
                         >
                           <Undo2 className="size-4" />
-                          Lever la suspension
+                          {t('programs.detail.liftSuspension')}
                         </DropdownMenuItem>,
                         liftSuspensionDisabledReason,
                       )
@@ -824,7 +851,7 @@ export function ProgramDetailPage() {
                           }}
                         >
                           <OctagonAlert className="size-4" />
-                          Suspendre
+                          {t('programs.detail.suspend')}
                         </DropdownMenuItem>,
                         suspendDisabledReason,
                       )
@@ -838,7 +865,7 @@ export function ProgramDetailPage() {
                         }}
                       >
                         <Archive className="size-4" />
-                        Archiver
+                        {t('programs.detail.archive')}
                       </DropdownMenuItem>,
                       archiveDisabledReason,
                     )}
@@ -852,7 +879,7 @@ export function ProgramDetailPage() {
                         }}
                       >
                         <Trash2 className="size-4" />
-                        Supprimer
+                        {t('programs.detail.delete')}
                       </DropdownMenuItem>,
                       deleteDisabledReason,
                     )}
@@ -867,34 +894,34 @@ export function ProgramDetailPage() {
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Agents assignés"
+          title={t('programs.detail.assignedAgentsTitle')}
           value={(program.assigned_agents_count ?? assignedAgents.length).toLocaleString('fr-FR')}
           description="Agents actuellement liés à ce programme"
-          badge={kpiSnapshotBadge('Couverture')}
+          badge={kpiSnapshotBadge(t('programs.detail.coverage'))}
           icon={Users}
           tone="primary"
         />
         <KpiCard
-          title="Prospects"
-          value={activeProspects.length.toLocaleString('fr-FR')}
-          description="Prospects actifs soumis via ce programme"
-          badge={kpiSnapshotBadge('Pipeline')}
+          title={t('programs.detail.kpi.prospects')}
+          value={activeProspects.length.toLocaleString(locale)}
+          description={t('programs.detail.kpi.prospectsDescription')}
+          badge={kpiSnapshotBadge(t('programs.detail.pipeline'))}
           icon={ScanSearch}
           tone="info"
         />
         <KpiCard
-          title="Convertis"
-          value={convertedProspects.length.toLocaleString('fr-FR')}
-          description="Prospects marqués comme convertis"
+          title={t('programs.detail.kpi.converted')}
+          value={convertedProspects.length.toLocaleString(locale)}
+          description={t('programs.detail.kpi.convertedDescription')}
           badge={kpiSnapshotBadge('Résultat')}
           icon={BriefcaseBusiness}
           tone="success"
         />
         <KpiCard
-          title="Règle de points"
-          value={program.points_per_transaction?.toLocaleString('fr-FR') ?? 'Paliers'}
-          description={program.points_per_transaction === null ? 'Configuration par paliers CA' : 'Points par transaction'}
-          badge={kpiSnapshotBadge(program.exchange_mode === 'both' ? 'Cash + récompenses' : exchangeModeLabel(program))}
+          title={t('programs.detail.kpi.pointsRule')}
+          value={program.points_per_transaction?.toLocaleString(locale) ?? t('programs.detail.kpi.pointsRuleTiers')}
+          description={program.points_per_transaction === null ? t('programs.detail.kpi.pointsRuleDescriptionTiers') : t('programs.detail.kpi.pointsRuleDescriptionValue')}
+          badge={kpiSnapshotBadge(program.exchange_mode === 'both' ? t('programs.exchangeModes.both') : exchangeModeLabel(program, t))}
           icon={HandCoins}
           tone="warning"
         />
@@ -903,7 +930,7 @@ export function ProgramDetailPage() {
       <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <article className="min-w-0 rounded-lg border-0 bg-card p-4 shadow-sm sm:p-5">
           <DashboardSectionHeader
-            title="Aperçu du programme"
+            title={t('programs.detail.overviewTitle')}
           />
           <div className="space-y-4">
             <div className="min-w-0">
@@ -911,31 +938,31 @@ export function ProgramDetailPage() {
                 {program.name}
               </h3>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                {program.description ?? 'Aucune description disponible pour ce programme.'}
+                {program.description ?? t('programs.detail.overviewDescriptionFallback')}
               </p>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <PreviewMetric label="Commission" value={commissionLabel(program)} helper="Modèle de gain" />
-              <PreviewMetric label="Points" value={pointsRuleLabel(program)} helper="Règle de gain agent" />
+              <PreviewMetric label={t('programs.detail.commission')} value={commissionLabel(program, t)} helper={t('programs.detail.commissionHelper')} />
+              <PreviewMetric label={t('programs.detail.points')} value={pointsRuleLabel(program, t, locale)} helper={t('programs.detail.pointsHelper')} />
             </div>
 
             <div className="rounded-lg border border-border bg-muted/15 px-4 py-3">
-              <p className="app-eyebrow">Éligibilité</p>
+              <p className="app-eyebrow">{t('programs.detail.eligibility')}</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {program.eligibility_criteria ?? "Aucun critère d'éligibilité n'a encore été défini."}
+                {program.eligibility_criteria ?? t('programs.detail.eligibilityFallback')}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <MetaBadge label="Activé" value={formatDashboardDateFr(program.activated_at)} />
-              <MetaBadge label="Mis à jour" value={formatDashboardDateFr(program.updated_at)} />
+              <MetaBadge label={t('programs.detail.activated')} value={formatDashboardDateFr(program.activated_at)} />
+              <MetaBadge label={t('programs.detail.updated')} value={formatDashboardDateFr(program.updated_at)} />
             </div>
           </div>
         </article>
 
         <article className="min-w-0 rounded-lg border-0 bg-card p-4 shadow-sm sm:p-5">
-          <DashboardSectionHeader title="Configuration des échanges" />
+          <DashboardSectionHeader title={t('programs.detail.exchangeConfig')} />
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className={cn('w-fit', exchangeConfig.badgeClass)}>
@@ -961,7 +988,7 @@ export function ProgramDetailPage() {
                             Cash
                           </p>
                           <p className="mt-1 truncate text-sm font-semibold text-foreground">
-                            {cashRuleLabel(program)}
+                            {cashRuleLabel(program, t, locale)}
                           </p>
                         </div>
                         <HandCoins className="size-4 shrink-0 text-emerald-600" aria-hidden />
@@ -985,10 +1012,10 @@ export function ProgramDetailPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-900 dark:text-amber-300">
-                            Récompenses
+                            {t('programs.detail.rewards')}
                           </p>
                           <p className="mt-1 truncate text-sm font-semibold text-foreground">
-                            {program.exchange_pack?.name ?? 'Aucun pack lié'}
+                            {program.exchange_pack?.name ?? t('programs.detail.noPackLinked')}
                           </p>
                           <div className="mt-3 space-y-1">
                             {program.exchange_pack?.items.length ? (
@@ -999,13 +1026,13 @@ export function ProgramDetailPage() {
                                 >
                                   <span className="min-w-0 truncate font-medium text-foreground">{item.title}</span>
                                   <span className="shrink-0 font-mono text-muted-foreground">
-                                    {item.points_cost.toLocaleString('fr-FR')} pts
+                                    {item.points_cost.toLocaleString(locale)} pts
                                   </span>
                                 </div>
                               ))
                             ) : (
                               <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
-                                Aucun article de récompense n'est lié à ce programme.
+                                {t('programs.detail.noRewardItems')}
                               </p>
                             )}
                           </div>
@@ -1023,11 +1050,11 @@ export function ProgramDetailPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title="Agents assignés"
+          title={t('programs.detail.assignedAgentsTitle')}
         />
         <div className="mb-3">
           <label className="sr-only" htmlFor="program-agents-search">
-            Rechercher des agents assignés
+            {t('programs.detail.searchAssignedAgents')}
           </label>
           <div className="relative max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1038,7 +1065,7 @@ export function ProgramDetailPage() {
                 setAgentTableSearch(event.target.value)
                 setAgentTablePage(1)
               }}
-              placeholder="Rechercher par nom, email, code, statut..."
+              placeholder={t('programs.detail.searchAssignedAgentsPlaceholder')}
               className="pl-9"
             />
           </div>
@@ -1048,18 +1075,18 @@ export function ProgramDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10 text-center">#</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
-                <TableHead className="hidden md:table-cell">Code</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="hidden lg:table-cell">Assigné</TableHead>
+                <TableHead>{t('programs.detail.agentColumn')}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t('programs.detail.emailColumn')}</TableHead>
+                <TableHead className="hidden md:table-cell">{t('programs.detail.codeColumn')}</TableHead>
+                <TableHead>{t('programs.detail.statusColumn')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('programs.detail.assignedAt')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pagedAssignedAgents.length > 0 ? (
                 pagedAssignedAgents.map((assignment, index) => {
                   const agent = assignment.agent!
-                  const displayName = agent.display_name?.trim() || agent.email || 'Agent inconnu'
+                  const displayName = agent.display_name?.trim() || agent.email || t('programs.detail.unknownAgent')
                   return (
                     <TableRow key={assignment.assignment_id}>
                       <TableCell className="text-center text-muted-foreground">
@@ -1081,16 +1108,16 @@ export function ProgramDetailPage() {
                               {displayName}
                             </p>
                             <p className="truncate text-[11px] text-muted-foreground sm:hidden">
-                              {agent.email ?? 'Email non disponible'}
+                              {agent.email ?? t('programs.detail.emailUnavailable')}
                             </p>
                           </div>
                         </Link>
                       </TableCell>
                       <TableCell className="hidden max-w-[14rem] truncate sm:table-cell">
-                        {agent.email ?? 'No email'}
+                        {agent.email ?? t('programs.detail.noEmail')}
                       </TableCell>
                       <TableCell className="hidden font-mono text-xs text-muted-foreground md:table-cell">
-                        {agent.agent_code ?? 'Sans code'}
+                        {agent.agent_code ?? t('programs.detail.noCode')}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="w-fit capitalize">
@@ -1109,8 +1136,8 @@ export function ProgramDetailPage() {
                     <EmptyState
                       message={
                         filteredAssignedAgents.length === 0 && assignedAgents.length > 0
-                          ? 'Aucun agent assigné ne correspond au filtre actuel.'
-                          : "Aucun agent n'est encore assigné à ce programme."
+                          ? t('programs.detail.assignedAgentsEmptyFiltered')
+                          : t('programs.detail.assignedAgentsEmpty')
                       }
                     />
                   </TableCell>
@@ -1131,12 +1158,12 @@ export function ProgramDetailPage() {
 
       <article className="rounded-lg bg-card p-3 sm:p-4">
         <DashboardSectionHeader
-          title="Prospects du programme"
+          title={t('programs.detail.programProspectsTitle')}
         />
         {canViewProspects ? (
           <div className="mb-3">
             <label className="sr-only" htmlFor="program-prospects-search">
-              Rechercher des prospects
+              {t('programs.detail.searchProspects')}
             </label>
             <div className="relative max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1147,14 +1174,14 @@ export function ProgramDetailPage() {
                   setProspectTableSearch(event.target.value)
                   setProspectTablePage(1)
                 }}
-                placeholder="Rechercher par contact, entreprise, agent, statut..."
+                placeholder={t('programs.detail.searchProspectsPlaceholder')}
                 className="pl-9"
               />
             </div>
           </div>
         ) : null}
         {!canViewProspects ? (
-          <EmptyState message="Les détails des prospects ne sont pas disponibles pour ce rôle." />
+          <EmptyState message={t('programs.detail.prospectsRoleUnavailable')} />
         ) : prospectsQuery.isPending ? (
           <Skeleton className="h-72 rounded-lg" />
         ) : prospectsQuery.isError ? (
@@ -1167,18 +1194,18 @@ export function ProgramDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10 text-center">#</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead className="hidden sm:table-cell">Email</TableHead>
-                  <TableHead className="hidden md:table-cell">Agent</TableHead>
-                  <TableHead>Pipeline</TableHead>
-                  <TableHead>Sync</TableHead>
-                  <TableHead className="hidden lg:table-cell">Soumis</TableHead>
+                  <TableHead>{t('programs.detail.contactColumn')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('programs.detail.emailColumn')}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t('programs.detail.agentColumn')}</TableHead>
+                  <TableHead>{t('programs.detail.pipelineColumn')}</TableHead>
+                  <TableHead>{t('programs.detail.syncColumn')}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('programs.detail.submittedColumn')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pagedProgramProspects.length > 0 ? (
                   pagedProgramProspects.map((prospect, index) => {
-                    const pipeline = prospectPipelinePresentation(prospect)
+                    const pipeline = prospectPipelinePresentation(prospect, t)
                     return (
                       <TableRow key={prospect.id} className={prospect.deleted_at ? 'opacity-70' : undefined}>
                         <TableCell className="text-center text-muted-foreground">
@@ -1195,20 +1222,20 @@ export function ProgramDetailPage() {
                               {prospect.contact_name}
                             </p>
                             <p className="truncate text-[11px] text-muted-foreground">
-                              {prospect.company_name ?? 'No company'}
+                              {prospect.company_name ?? t('programs.detail.companyFallback')}
                             </p>
                           </Link>
                         </TableCell>
                         <TableCell className="hidden max-w-[14rem] truncate sm:table-cell">
-                          {prospect.contact_email ?? 'Email non disponible'}
+                          {prospect.contact_email ?? t('programs.detail.emailUnavailable')}
                         </TableCell>
                         <TableCell className="hidden max-w-[12rem] truncate text-muted-foreground md:table-cell">
                           {prospect.agent_id ? (
                             <Link to={`/agents/${prospect.agent_id}`} className="text-primary underline-offset-2 hover:underline">
-                              {prospect.agent_name ?? 'Agent inconnu'}
+                              {prospect.agent_name ?? t('programs.detail.agentUnknownFallback')}
                             </Link>
                           ) : (
-                            prospect.agent_name ?? 'Unknown agent'
+                            prospect.agent_name ?? t('programs.detail.agentUnknownFallback')
                           )}
                         </TableCell>
                         <TableCell>
@@ -1218,7 +1245,7 @@ export function ProgramDetailPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={cn('w-fit text-xs', submissionBadgeClass(prospect.submission_status))}>
-                            {submissionLabels[prospect.submission_status]}
+                            {submissionLabel(prospect.submission_status, t)}
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
@@ -1233,8 +1260,8 @@ export function ProgramDetailPage() {
                       <EmptyState
                         message={
                           filteredProgramProspects.length === 0 && programProspects.length > 0
-                            ? 'Aucun prospect ne correspond au filtre actuel.'
-                            : "Aucun prospect n'a encore été soumis via ce programme."
+                            ? t('programs.detail.prospectsEmptyFiltered')
+                            : t('programs.detail.prospectsEmpty')
                         }
                       />
                     </TableCell>
@@ -1256,8 +1283,8 @@ export function ProgramDetailPage() {
 
       <ProgramFormDialog
         open={editOpen}
-        title="Modifier le programme"
-        submitLabel="Enregistrer"
+        title={t('programs.detail.editTitle')}
+        submitLabel={t('common.save')}
         packs={packsQuery.data?.data ?? []}
         initialProgram={program}
         isSubmitting={updateMutation.isPending}
@@ -1458,7 +1485,7 @@ export function ProgramDetailPage() {
                       <ItemContent>
                         <ItemTitle>{agent.display_name ?? agent.email ?? 'Agent'}</ItemTitle>
                         <ItemDescription>
-                          {agent.email ?? 'Email unavailable'} · Added {formatAgentAddedAt(agent)}
+                          {agent.email ?? t('programs.detail.emailUnavailable')} · {t('common.addedAt', { date: formatAgentAddedAt(agent, t, locale) })}
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions>
