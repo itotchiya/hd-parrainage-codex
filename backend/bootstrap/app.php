@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\TriggerIacrmHttpSync;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->appendToGroup('api', TriggerIacrmHttpSync::class);
         $middleware->redirectGuestsTo(static function ($request): ?string {
             return $request->is('api/*') ? null : '/login';
         });
