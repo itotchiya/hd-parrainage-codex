@@ -71,12 +71,20 @@ class IacrmSyncService
                             ->first();
                             
                         if ($prospect) {
+                            $responseData = is_array($body['data'] ?? null) ? $body['data'] : $body;
+                            $incomingStage = trim((string) ($responseData['stage'] ?? ''));
+                            $incomingProgressionStatus = trim((string) ($responseData['progression_status'] ?? ''));
+                            $resolvedStatusCode = $incomingProgressionStatus !== '' ? $incomingProgressionStatus : ($incomingStage !== '' ? $incomingStage : null);
+                            $resolvedStatusLabel = $incomingStage !== '' ? $incomingStage : $resolvedStatusCode;
+
                             $updateData = [
                                 'iacrm_prospect_id' => $iacrmId,
                                 'submission_status' => 'synced',
-                                'iacrm_status_code' => $body['data']['status'] ?? $body['status'] ?? null,
-                                'iacrm_status_label' => $body['data']['stage'] ?? $body['stage'] ?? null,
+                                'iacrm_status_code' => $resolvedStatusCode,
+                                'iacrm_status_label' => $resolvedStatusLabel,
+                                'progression_status' => $resolvedStatusCode ?? $prospect->progression_status,
                                 'last_synced_at'    => now(),
+                                'raw_iacrm_payload' => $responseData,
                             ];
                             
                             // Only set first_synced_at if not already set

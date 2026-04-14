@@ -7,6 +7,7 @@ use App\Models\Prospect;
 use App\Services\IacrmConfigResolver;
 use App\Services\IacrmRequestLogger;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -20,6 +21,7 @@ use Throwable;
 class PullIacrmProspectStages extends Command
 {
     protected $signature = 'iacrm:pull-stages {--dry-run : Log changes without persisting them}';
+
     protected $description = 'Poll IACRM for prospect stage changes and sync them into HD Parrainage';
 
     /** IACRM stages that map to an active pipeline_stage column value */
@@ -33,6 +35,7 @@ class PullIacrmProspectStages extends Command
         if ($configuredBusinesses->isEmpty()) {
             if (! $configResolver->hasDefaultConfig()) {
                 $this->warn('No business-scoped IACRM credentials are configured. Skipping.');
+
                 return self::SUCCESS;
             }
 
@@ -59,7 +62,7 @@ class PullIacrmProspectStages extends Command
         }
 
         $mode = $dryRun ? ' [DRY RUN]' : '';
-        $this->info("Done{$mode} — {$updated} updated, {$skipped} already in sync, {$failed} failed.");
+        $this->info("Done{$mode} - {$updated} updated, {$skipped} already in sync, {$failed} failed.");
         Log::info("[IacrmPull] Done{$mode}", compact('updated', 'skipped', 'failed'));
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
@@ -72,6 +75,7 @@ class PullIacrmProspectStages extends Command
     private function pullBusinessProspectStages(Business $business, array $config, bool $dryRun, IacrmRequestLogger $requestLogger): array
     {
         $startedAt = microtime(true);
+
         try {
             $response = Http::withHeaders([
                 'X-IACRM-API-Key' => $config['api_key'],
@@ -98,6 +102,7 @@ class PullIacrmProspectStages extends Command
 
             if ($response->failed()) {
                 $this->error("{$business->display_name}: /pipeline/prospects returned {$response->status()}: {$response->body()}");
+
                 return ['updated' => 0, 'skipped' => 0, 'failed' => 1];
             }
         } catch (Throwable $e) {
@@ -120,28 +125,30 @@ class PullIacrmProspectStages extends Command
                 'meta' => ['dry_run' => $dryRun],
             ]);
             $this->error("{$business->display_name}: failed to reach IACRM: {$e->getMessage()}");
+
             return ['updated' => 0, 'skipped' => 0, 'failed' => 1];
         }
 
-        /** @var array<array{iacrm_id: string, stage: string}> $iacrmProspects */
+        /** @var array<int, array<string, mixed>> $iacrmProspects */
         $iacrmProspects = $response->json('data', []);
 
         if (empty($iacrmProspects)) {
             $this->line("{$business->display_name}: no prospects returned by IACRM.");
+
             return ['updated' => 0, 'skipped' => 0, 'failed' => 0];
         }
 
-        $iacrmStageMap = [];
-        foreach ($iacrmProspects as $prospect) {
-            $id = $prospect['iacrm_id'] ?? null;
+        $iacrmProspectMap = [];
+        foreach ($iacrmProspects as $prospectPayload) {
+            $id = $prospectPayload['iacrm_id'] ?? null;
             if ($id !== null) {
-                $iacrmStageMap[$id] = $prospect['stage'] ?? null;
+                $iacrmProspectMap[$id] = $prospectPayload;
             }
         }
 
         $localProspects = Prospect::query()
             ->where('business_id', $business->id)
-            ->whereIn('iacrm_prospect_id', array_keys($iacrmStageMap))
+            ->whereIn('iacrm_prospect_id', array_keys($iacrmProspectMap))
             ->whereNull('deleted_at')
             ->get();
 
@@ -151,14 +158,14 @@ class PullIacrmProspectStages extends Command
         $this->line("Reconciling {$business->display_name} prospect stages...");
 
         foreach ($localProspects as $prospect) {
-            $iacrmStage = $iacrmStageMap[$prospect->iacrm_prospect_id] ?? null;
+            $iacrmPayload = $iacrmProspectMap[$prospect->iacrm_prospect_id] ?? null;
 
-            if ($iacrmStage === null) {
+            if ($iacrmPayload === null) {
                 $skipped++;
                 continue;
             }
 
-            $changed = $this->applyStageChange($prospect, $iacrmStage, $dryRun);
+            $changed = $this->applyStageChange($prospect, $iacrmPayload, $dryRun);
             $changed ? $updated++ : $skipped++;
         }
 
@@ -178,31 +185,34 @@ class PullIacrmProspectStages extends Command
 
             if ($response->failed()) {
                 $this->error("IACRM /pipeline/prospects returned {$response->status()}: {$response->body()}");
+
                 return self::FAILURE;
             }
         } catch (Throwable $e) {
             $this->error("Failed to reach IACRM: {$e->getMessage()}");
+
             return self::FAILURE;
         }
 
-        /** @var array<array{iacrm_id: string, stage: string}> $iacrmProspects */
+        /** @var array<int, array<string, mixed>> $iacrmProspects */
         $iacrmProspects = $response->json('data', []);
 
         if (empty($iacrmProspects)) {
             $this->line('No prospects returned by IACRM.');
+
             return self::SUCCESS;
         }
 
-        $iacrmStageMap = [];
-        foreach ($iacrmProspects as $prospect) {
-            $id = $prospect['iacrm_id'] ?? null;
+        $iacrmProspectMap = [];
+        foreach ($iacrmProspects as $prospectPayload) {
+            $id = $prospectPayload['iacrm_id'] ?? null;
             if ($id !== null) {
-                $iacrmStageMap[$id] = $prospect['stage'] ?? null;
+                $iacrmProspectMap[$id] = $prospectPayload;
             }
         }
 
         $localProspects = Prospect::query()
-            ->whereIn('iacrm_prospect_id', array_keys($iacrmStageMap))
+            ->whereIn('iacrm_prospect_id', array_keys($iacrmProspectMap))
             ->whereNull('deleted_at')
             ->get();
 
@@ -210,47 +220,67 @@ class PullIacrmProspectStages extends Command
         $skipped = 0;
 
         foreach ($localProspects as $prospect) {
-            $iacrmStage = $iacrmStageMap[$prospect->iacrm_prospect_id] ?? null;
+            $iacrmPayload = $iacrmProspectMap[$prospect->iacrm_prospect_id] ?? null;
 
-            if ($iacrmStage === null) {
+            if ($iacrmPayload === null) {
                 $skipped++;
                 continue;
             }
 
-            $changed = $this->applyStageChange($prospect, $iacrmStage, $dryRun);
+            $changed = $this->applyStageChange($prospect, $iacrmPayload, $dryRun);
             $changed ? $updated++ : $skipped++;
         }
 
         $mode = $dryRun ? ' [DRY RUN]' : '';
-        $this->info("Done{$mode} — {$updated} updated, {$skipped} already in sync.");
+        $this->info("Done{$mode} - {$updated} updated, {$skipped} already in sync.");
         Log::info("[IacrmPull] Done{$mode}", ['updated' => $updated, 'skipped' => $skipped, 'mode' => 'legacy']);
 
         return self::SUCCESS;
     }
 
-    private function applyStageChange(Prospect $prospect, string $iacrmStage, bool $dryRun): bool
+    /**
+     * @param array<string, mixed> $iacrmPayload
+     */
+    private function applyStageChange(Prospect $prospect, array $iacrmPayload, bool $dryRun): bool
     {
+        $iacrmStage = trim((string) ($iacrmPayload['stage'] ?? ''));
+        if ($iacrmStage === '') {
+            return false;
+        }
+
+        $incomingProgressionStatus = $this->resolveIncomingProgressionStatus($iacrmPayload, $iacrmStage);
+        $incomingStatusCode = $incomingProgressionStatus;
+        $incomingStatusLabel = $iacrmStage;
         $currentStage = $prospect->pipeline_stage;
         $currentConversionStatus = $prospect->conversion_status;
         $syncedAt = now();
+        $payloadAlreadySynced = $prospect->iacrm_status_code === $incomingStatusCode
+            && $prospect->iacrm_status_label === $incomingStatusLabel
+            && $prospect->progression_status === $incomingProgressionStatus;
 
         if (in_array($iacrmStage, self::ACTIVE_STAGES, true)) {
-            if ($currentStage === $iacrmStage && $currentConversionStatus === 'open') {
+            if ($currentStage === $iacrmStage && $currentConversionStatus === 'open' && $payloadAlreadySynced) {
                 if (! $dryRun) {
-                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                    $this->refreshSyncTimestamp($prospect, $syncedAt, $iacrmPayload);
                 }
+
                 return false;
             }
 
-            $this->line("  → [{$prospect->contact_name}] {$currentStage}/{$currentConversionStatus} → {$iacrmStage}/open");
+            $this->line("  -> [{$prospect->contact_name}] {$currentStage}/{$currentConversionStatus} -> {$iacrmStage}/open");
 
             if (! $dryRun) {
                 $prospect->update([
                     'pipeline_stage' => $iacrmStage,
-                    'progression_status' => $iacrmStage,
+                    'progression_status' => $incomingProgressionStatus,
                     'conversion_status' => 'open',
+                    'iacrm_status_code' => $incomingStatusCode,
+                    'iacrm_status_label' => $incomingStatusLabel,
                     'pipeline_stage_changed_at' => $syncedAt,
+                    'converted_at' => null,
+                    'lost_at' => null,
                     'last_synced_at' => $syncedAt,
+                    'raw_iacrm_payload' => $iacrmPayload,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -258,9 +288,9 @@ class PullIacrmProspectStages extends Command
                     'old_submission_status' => $prospect->submission_status,
                     'new_submission_status' => $prospect->submission_status,
                     'old_progression_status' => $currentStage,
-                    'new_progression_status' => $iacrmStage,
-                    'reason' => "Stage mis à jour depuis IACRM : {$currentStage} → {$iacrmStage}",
-                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_stage' => $iacrmStage],
+                    'new_progression_status' => $incomingProgressionStatus,
+                    'reason' => "Stage mis Ã  jour depuis IACRM : {$currentStage} â†’ {$iacrmStage}",
+                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_payload' => $iacrmPayload],
                     'changed_by_user_id' => null,
                 ]);
             }
@@ -269,21 +299,26 @@ class PullIacrmProspectStages extends Command
         }
 
         if ($iacrmStage === 'converted') {
-            if ($currentConversionStatus === 'converted') {
+            if ($currentConversionStatus === 'converted' && $payloadAlreadySynced) {
                 if (! $dryRun) {
-                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                    $this->refreshSyncTimestamp($prospect, $syncedAt, $iacrmPayload);
                 }
+
                 return false;
             }
 
-            $this->line("  → [{$prospect->contact_name}] converti (IACRM)");
+            $this->line("  -> [{$prospect->contact_name}] converti (IACRM)");
 
             if (! $dryRun) {
                 $prospect->update([
                     'conversion_status' => 'converted',
                     'converted_at' => $syncedAt,
-                    'progression_status' => 'converted',
+                    'lost_at' => null,
+                    'progression_status' => $incomingProgressionStatus,
+                    'iacrm_status_code' => $incomingStatusCode,
+                    'iacrm_status_label' => $incomingStatusLabel,
                     'last_synced_at' => $syncedAt,
+                    'raw_iacrm_payload' => $iacrmPayload,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -291,9 +326,9 @@ class PullIacrmProspectStages extends Command
                     'old_submission_status' => $prospect->submission_status,
                     'new_submission_status' => $prospect->submission_status,
                     'old_progression_status' => $currentStage,
-                    'new_progression_status' => 'converted',
-                    'reason' => 'Prospect marqué comme converti par IACRM.',
-                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_stage' => 'converted'],
+                    'new_progression_status' => $incomingProgressionStatus,
+                    'reason' => 'Prospect marquÃ© comme converti par IACRM.',
+                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_payload' => $iacrmPayload],
                     'changed_by_user_id' => null,
                 ]);
             }
@@ -302,21 +337,26 @@ class PullIacrmProspectStages extends Command
         }
 
         if ($iacrmStage === 'lost') {
-            if ($currentConversionStatus === 'lost') {
+            if ($currentConversionStatus === 'lost' && $payloadAlreadySynced) {
                 if (! $dryRun) {
-                    $this->refreshSyncTimestamp($prospect, $syncedAt);
+                    $this->refreshSyncTimestamp($prospect, $syncedAt, $iacrmPayload);
                 }
+
                 return false;
             }
 
-            $this->line("  → [{$prospect->contact_name}] perdu (IACRM)");
+            $this->line("  -> [{$prospect->contact_name}] perdu (IACRM)");
 
             if (! $dryRun) {
                 $prospect->update([
                     'conversion_status' => 'lost',
                     'lost_at' => $syncedAt,
-                    'progression_status' => 'lost',
+                    'converted_at' => null,
+                    'progression_status' => $incomingProgressionStatus,
+                    'iacrm_status_code' => $incomingStatusCode,
+                    'iacrm_status_label' => $incomingStatusLabel,
                     'last_synced_at' => $syncedAt,
+                    'raw_iacrm_payload' => $iacrmPayload,
                 ]);
 
                 $prospect->statusHistory()->create([
@@ -324,9 +364,9 @@ class PullIacrmProspectStages extends Command
                     'old_submission_status' => $prospect->submission_status,
                     'new_submission_status' => $prospect->submission_status,
                     'old_progression_status' => $currentStage,
-                    'new_progression_status' => 'lost',
-                    'reason' => 'Prospect marqué comme perdu par IACRM.',
-                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_stage' => 'lost'],
+                    'new_progression_status' => $incomingProgressionStatus,
+                    'reason' => 'Prospect marquÃ© comme perdu par IACRM.',
+                    'payload_snapshot' => ['event' => 'iacrm_stage_pull', 'iacrm_payload' => $iacrmPayload],
                     'changed_by_user_id' => null,
                 ]);
             }
@@ -337,10 +377,14 @@ class PullIacrmProspectStages extends Command
         return false;
     }
 
-    private function refreshSyncTimestamp(Prospect $prospect, \Illuminate\Support\Carbon $syncedAt): void
+    /**
+     * @param array<string, mixed> $iacrmPayload
+     */
+    private function refreshSyncTimestamp(Prospect $prospect, Carbon $syncedAt, array $iacrmPayload): void
     {
         $updates = [
             'last_synced_at' => $syncedAt,
+            'raw_iacrm_payload' => $iacrmPayload,
         ];
 
         if ($prospect->first_synced_at === null) {
@@ -348,5 +392,15 @@ class PullIacrmProspectStages extends Command
         }
 
         $prospect->update($updates);
+    }
+
+    /**
+     * @param array<string, mixed> $iacrmPayload
+     */
+    private function resolveIncomingProgressionStatus(array $iacrmPayload, string $iacrmStage): string
+    {
+        $progressionStatus = trim((string) ($iacrmPayload['progression_status'] ?? ''));
+
+        return $progressionStatus !== '' ? $progressionStatus : $iacrmStage;
     }
 }
