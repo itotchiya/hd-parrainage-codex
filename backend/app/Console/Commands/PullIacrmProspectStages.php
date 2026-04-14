@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Business;
 use App\Models\Prospect;
 use App\Services\IacrmConfigResolver;
+use App\Services\IacrmRequestLogger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,7 @@ class PullIacrmProspectStages extends Command
     /** IACRM stages that map to an active pipeline_stage column value */
     private const ACTIVE_STAGES = ['suspect', 'prospect_froid', 'prospect_tiede', 'prospect_chaud'];
 
-    public function handle(IacrmConfigResolver $configResolver): int
+    public function handle(IacrmConfigResolver $configResolver, IacrmRequestLogger $requestLogger): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $configuredBusinesses = $configResolver->businessesWithStoredCredentials();
@@ -51,7 +52,7 @@ class PullIacrmProspectStages extends Command
                 continue;
             }
 
-            $result = $this->pullBusinessProspectStages($business, $config, $dryRun);
+            $result = $this->pullBusinessProspectStages($business, $config, $dryRun, $requestLogger);
             $updated += $result['updated'];
             $skipped += $result['skipped'];
             $failed += $result['failed'];
@@ -68,19 +69,56 @@ class PullIacrmProspectStages extends Command
      * @param array{base_url: ?string, api_key: ?string, source: string} $config
      * @return array{updated: int, skipped: int, failed: int}
      */
-    private function pullBusinessProspectStages(Business $business, array $config, bool $dryRun): array
+    private function pullBusinessProspectStages(Business $business, array $config, bool $dryRun, IacrmRequestLogger $requestLogger): array
     {
+        $startedAt = microtime(true);
         try {
             $response = Http::withHeaders([
                 'X-IACRM-API-Key' => $config['api_key'],
                 'Accept' => 'application/json',
             ])->timeout(15)->get("{$config['base_url']}/pipeline/prospects");
 
+            $requestLogger->log([
+                'business_id' => $business->id,
+                'initiated_by_user_id' => null,
+                'sync_job_id' => null,
+                'actor_type' => 'server',
+                'source' => 'iacrm.pull-stages',
+                'direction' => 'pull',
+                'method' => 'GET',
+                'endpoint' => '/pipeline/prospects',
+                'status' => $response->failed() ? 'failed' : 'success',
+                'status_code' => $response->status(),
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'request_payload' => [],
+                'response_payload' => $response->json() ?? ['body' => $response->body()],
+                'requested_at' => now(),
+                'meta' => ['dry_run' => $dryRun],
+            ]);
+
             if ($response->failed()) {
                 $this->error("{$business->display_name}: /pipeline/prospects returned {$response->status()}: {$response->body()}");
                 return ['updated' => 0, 'skipped' => 0, 'failed' => 1];
             }
         } catch (Throwable $e) {
+            $requestLogger->log([
+                'business_id' => $business->id,
+                'initiated_by_user_id' => null,
+                'sync_job_id' => null,
+                'actor_type' => 'server',
+                'source' => 'iacrm.pull-stages',
+                'direction' => 'pull',
+                'method' => 'GET',
+                'endpoint' => '/pipeline/prospects',
+                'status' => 'failed',
+                'status_code' => null,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'request_payload' => [],
+                'response_payload' => [],
+                'error_message' => $e->getMessage(),
+                'requested_at' => now(),
+                'meta' => ['dry_run' => $dryRun],
+            ]);
             $this->error("{$business->display_name}: failed to reach IACRM: {$e->getMessage()}");
             return ['updated' => 0, 'skipped' => 0, 'failed' => 1];
         }

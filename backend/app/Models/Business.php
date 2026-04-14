@@ -110,4 +110,9 @@ class Business extends Model
     {
         return $this->hasMany(PointsLedger::class);
     }
+
+    public function iacrmRequestLogs(): HasMany
+    {
+        return $this->hasMany(IacrmRequestLog::class);
+    }
 }

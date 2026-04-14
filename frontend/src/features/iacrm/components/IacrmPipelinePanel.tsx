@@ -1,6 +1,8 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useIacrmPipelineMerged, useIacrmStagesMerged } from '../hooks'
 import { promoteAndSetStage } from '../prospectStore'
+import { moveIacrmProspectStage } from '../api'
 import type { IacrmPipelineProspect, IacrmPipelineStage } from '../../../types/iacrm'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -37,8 +39,34 @@ function isLocal(prospect: IacrmPipelineProspect): boolean {
 
 export function IacrmPipelinePanel() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const stagesQuery = useIacrmStagesMerged()
   const prospectsQuery = useIacrmPipelineMerged()
+  const stageUpdateMutation = useMutation({
+    mutationFn: async ({
+      prospect,
+      stage,
+    }: {
+      prospect: IacrmPipelineProspect
+      stage: IacrmPipelineStage
+    }) => {
+      if (isLocal(prospect)) {
+        promoteAndSetStage(prospect, stage)
+        return null
+      }
+
+      return moveIacrmProspectStage(prospect.iacrm_id, stage, 'Updated from HD Parrainage IACRM pipeline')
+    },
+    onSuccess: async (_, variables) => {
+      if (!isLocal(variables.prospect)) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['iacrm', 'pipeline', 'prospects'] }),
+          queryClient.invalidateQueries({ queryKey: ['iacrm', 'pipeline', 'stages'] }),
+          queryClient.invalidateQueries({ queryKey: ['iacrm', 'request-logs'] }),
+        ])
+      }
+    },
+  })
 
   const stages = stagesQuery.data?.data ?? []
   const prospects = prospectsQuery.data?.data ?? []
@@ -120,7 +148,13 @@ export function IacrmPipelinePanel() {
                       <TableCell>
                         <select
                           value={prospect.stage}
-                          onChange={(e) => promoteAndSetStage(prospect, e.target.value as IacrmPipelineStage)}
+                          disabled={stageUpdateMutation.isPending}
+                          onChange={(e) =>
+                            stageUpdateMutation.mutate({
+                              prospect,
+                              stage: e.target.value as IacrmPipelineStage,
+                            })
+                          }
                           className="rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground outline-none transition focus:ring-1 focus:ring-ring/30"
                         >
                           {allStages.map((stage) => (

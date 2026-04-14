@@ -142,3 +142,38 @@ export interface IacrmListEnvelope<T> {
 export interface IacrmDetailEnvelope<T> {
   data: T
 }
+
+// ---- IACRM operations log -------------------------------------------------
+
+export interface IacrmRequestLogEntry {
+  id: string
+  business_id: string | null
+  initiated_by_user_id: string | null
+  sync_job_id: string | null
+  actor_type: 'server' | 'webapp'
+  source: string
+  direction: 'pull' | 'push' | 'test'
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  endpoint: string
+  status: 'success' | 'failed'
+  status_code: number | null
+  duration_ms: number | null
+  error_message: string | null
+  request_payload: Record<string, unknown> | unknown[]
+  response_payload: Record<string, unknown> | unknown[]
+  meta: Record<string, unknown>
+  requested_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  initiated_by_user?: {
+    id: string | null
+    display_name: string | null
+    email: string | null
+  } | null
+  business?: {
+    id: string
+    slug: string
+    display_name: string
+    status: string
+  } | null
+}

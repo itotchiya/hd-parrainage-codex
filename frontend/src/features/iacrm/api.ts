@@ -2,6 +2,7 @@ import type {
   IacrmApiConfig,
   IacrmListEnvelope,
   IacrmDetailEnvelope,
+  IacrmRequestLogEntry,
   IacrmService,
   IacrmClient,
   IacrmPipelineProspect,
@@ -12,6 +13,7 @@ import type {
   IacrmPlatformBusiness,
 } from '../../types/iacrm'
 import { logIacrmActivity } from './activityLog'
+import { apiRequest } from '@/lib/api'
 
 // ---------------------------------------------------------------------------
 // Config persistence (localStorage — scoped per business / platform)
@@ -84,6 +86,55 @@ class IacrmApiError extends Error {
   }
 }
 
+function parseJsonBody(body?: BodyInit | null): Record<string, unknown> | unknown[] {
+  if (typeof body !== 'string' || body.trim() === '') {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(body)
+    return typeof parsed === 'object' && parsed !== null ? parsed : { value: parsed }
+  } catch {
+    return { raw: body }
+  }
+}
+
+function normalizePayload(payload: unknown): Record<string, unknown> | unknown[] {
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object') return payload as Record<string, unknown>
+  if (payload === null || payload === undefined) return {}
+  return { value: payload }
+}
+
+async function recordFrontendIacrmRequestLog(entry: {
+  source: string
+  direction: 'pull' | 'push' | 'test'
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  endpoint: string
+  status: 'success' | 'failed'
+  status_code?: number
+  duration_ms?: number
+  error_message?: string
+  request_payload?: Record<string, unknown> | unknown[]
+  response_payload?: Record<string, unknown> | unknown[]
+}) {
+  try {
+    await apiRequest<{ data: IacrmRequestLogEntry }>('/v1/iacrm/request-logs/frontend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...entry,
+        source: entry.source,
+        request_payload: entry.request_payload ?? {},
+        response_payload: entry.response_payload ?? {},
+        requested_at: new Date().toISOString(),
+      }),
+    })
+  } catch {
+    // Never block the IACRM UI because of observability logging failures.
+  }
+}
+
 async function iacrmRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const config = getIacrmConfig()
   if (!hasIacrmConfig(config)) throw new IacrmApiError(0, 'IACRM API not configured')
@@ -97,6 +148,7 @@ async function iacrmRequest<T>(path: string, init: RequestInit = {}): Promise<T>
   const method = (init.method ?? 'GET').toUpperCase() as 'GET' | 'POST' | 'PATCH' | 'DELETE'
   const type = path.includes('/auth/') ? 'test' : method === 'GET' ? 'pull' : 'push'
   const t0 = Date.now()
+  const requestPayload = parseJsonBody(init.body)
 
   try {
     const response = await fetch(url, { ...init, headers })
@@ -105,14 +157,49 @@ async function iacrmRequest<T>(path: string, init: RequestInit = {}): Promise<T>
     if (!response.ok) {
       const text = await response.text().catch(() => 'Unknown error')
       logIacrmActivity({ type: 'error', method, endpoint: path, status: 'failed', status_code: response.status, duration_ms })
+      await recordFrontendIacrmRequestLog({
+        source: type === 'test' ? 'frontend.test' : 'frontend.direct',
+        direction: type,
+        method,
+        endpoint: path,
+        status: 'failed',
+        status_code: response.status,
+        duration_ms,
+        error_message: text,
+        request_payload: requestPayload,
+        response_payload: { body: text },
+      })
       throw new IacrmApiError(response.status, text)
     }
 
+    const payload = (await response.json()) as T
     logIacrmActivity({ type, method, endpoint: path, status: 'success', status_code: response.status, duration_ms })
-    return (await response.json()) as T
+    await recordFrontendIacrmRequestLog({
+      source: type === 'test' ? 'frontend.test' : 'frontend.direct',
+      direction: type,
+      method,
+      endpoint: path,
+      status: 'success',
+      status_code: response.status,
+      duration_ms,
+      request_payload: requestPayload,
+      response_payload: normalizePayload(payload),
+    })
+    return payload
   } catch (err) {
     if (err instanceof IacrmApiError) throw err
     logIacrmActivity({ type: 'error', method, endpoint: path, status: 'failed', duration_ms: Date.now() - t0 })
+    await recordFrontendIacrmRequestLog({
+      source: type === 'test' ? 'frontend.test' : 'frontend.direct',
+      direction: type,
+      method,
+      endpoint: path,
+      status: 'failed',
+      duration_ms: Date.now() - t0,
+      error_message: err instanceof Error ? err.message : 'Request failed',
+      request_payload: requestPayload,
+      response_payload: {},
+    })
     throw err
   }
 }
@@ -249,5 +336,31 @@ export async function fetchIacrmPlatformBusinessPipelineProspects(businessId: st
 export async function fetchIacrmPlatformBusinessPipelineStages(businessId: string) {
   return iacrmRequest<{ data: IacrmPipelineStageSummary[] }>(
     `/platform/businesses/${encodeURIComponent(businessId)}/pipeline/stages`,
+  )
+}
+
+export interface IacrmRequestLogFilters {
+  limit?: number
+  status?: string
+  actor_type?: string
+  direction?: string
+  source?: string
+  method?: string
+  search?: string
+}
+
+export async function fetchIacrmRequestLogs(filters: IacrmRequestLogFilters = {}) {
+  const params = new URLSearchParams()
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      params.set(key, String(value))
+    }
+  })
+
+  const query = params.toString()
+
+  return apiRequest<IacrmListEnvelope<IacrmRequestLogEntry> & { meta?: { total: number; limit: number } }>(
+    `/v1/iacrm/request-logs${query ? `?${query}` : ''}`,
   )
 }

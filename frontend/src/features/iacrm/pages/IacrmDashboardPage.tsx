@@ -6,12 +6,13 @@ import { IacrmServicesPanel } from '../components/IacrmServicesPanel'
 import { IacrmClientsPanel } from '../components/IacrmClientsPanel'
 import { IacrmPipelinePanel } from '../components/IacrmPipelinePanel'
 import { IacrmInvoicesPanel } from '../components/IacrmInvoicesPanel'
+import { IacrmOperationsPanel } from '../components/IacrmOperationsPanel'
 import { IacrmDocsTab } from '../components/IacrmDocsTab'
 import { PlatformIacrmPage } from '../components/PlatformIacrmPage'
 import { PageHeader } from '@/components/app/PageHeader'
 import { Button } from '@/components/ui/button'
 
-type IacrmTabId = 'services' | 'clients' | 'pipeline' | 'invoices' | 'docs'
+type IacrmTabId = 'services' | 'clients' | 'pipeline' | 'invoices' | 'operations' | 'docs'
 type SuperAdminTabId = 'businesses' | 'docs'
 
 const superAdminTabs: Array<{ id: SuperAdminTabId; label: string }> = [
@@ -24,6 +25,7 @@ const tabs: Array<{ id: IacrmTabId; label: string }> = [
   { id: 'clients', label: 'Clients' },
   { id: 'services', label: 'Services' },
   { id: 'invoices', label: 'Facturation' },
+  { id: 'operations', label: 'Opérations' },
   { id: 'docs', label: 'Documentation' },
 ]
 
@@ -38,6 +40,7 @@ export function IacrmDashboardPage() {
     requestedTab === 'clients' ||
     requestedTab === 'services' ||
     requestedTab === 'invoices' ||
+    requestedTab === 'operations' ||
     requestedTab === 'docs'
       ? requestedTab
       : 'pipeline',
@@ -57,8 +60,9 @@ export function IacrmDashboardPage() {
 
     setActiveTab(
       requestedTab === 'clients' ||
-        requestedTab === 'services' ||
+      requestedTab === 'services' ||
         requestedTab === 'invoices' ||
+        requestedTab === 'operations' ||
         requestedTab === 'docs'
         ? requestedTab
         : 'pipeline',
@@ -120,7 +124,7 @@ export function IacrmDashboardPage() {
     )
   }
 
-  const dataTabsNeedConfig: IacrmTabId[] = ['pipeline', 'clients', 'services', 'invoices']
+  const dataTabsNeedConfig: IacrmTabId[] = ['pipeline', 'clients', 'services', 'invoices', 'operations']
   const needsConfig = dataTabsNeedConfig.includes(activeTab) && !hasIacrmConfig(config)
 
   return (
@@ -163,6 +167,7 @@ export function IacrmDashboardPage() {
       {!needsConfig && activeTab === 'clients' ? <IacrmClientsPanel /> : null}
       {!needsConfig && activeTab === 'services' ? <IacrmServicesPanel /> : null}
       {!needsConfig && activeTab === 'invoices' ? <IacrmInvoicesPanel /> : null}
+      {!needsConfig && activeTab === 'operations' ? <IacrmOperationsPanel /> : null}
       {activeTab === 'docs' ? <IacrmDocsTab /> : null}
     </section>
   )

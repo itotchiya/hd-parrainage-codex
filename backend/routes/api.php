@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Agents\AgentController;
 use App\Http\Controllers\Api\Businesses\BusinessController;
 use App\Http\Controllers\Api\Dashboard\BusinessDashboardController;
 use App\Http\Controllers\Api\Exchanges\ExchangeRequestController;
+use App\Http\Controllers\Api\Iacrm\IacrmRequestLogController;
 use App\Http\Controllers\Api\Notifications\NotificationController;
 use App\Http\Controllers\Api\Points\PointsController;
 use App\Http\Controllers\Api\Programs\ExchangePackController;
@@ -97,6 +98,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function (): void {
     Route::get('/sync/jobs', [SyncJobController::class, 'index']);
     Route::get('/sync/jobs/{jobId}', [SyncJobController::class, 'show']);
     Route::post('/sync/jobs/{jobId}/retry', [SyncJobController::class, 'retry']);
+    Route::get('/iacrm/request-logs', [IacrmRequestLogController::class, 'index']);
+    Route::post('/iacrm/request-logs/frontend', [IacrmRequestLogController::class, 'storeFrontend']);
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::patch('/settings/own', [SettingsController::class, 'updateOwn']);
     Route::post('/settings/own/avatar', [SettingsController::class, 'uploadOwnAvatar']);

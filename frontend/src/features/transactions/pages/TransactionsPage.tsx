@@ -67,6 +67,8 @@ type TransactionSortKey =
   | 'points'
   | 'occurred'
 
+const TRANSACTIONS_REFRESH_INTERVAL_MS = 15_000
+
 const statusSortOrder: Record<TransactionStatus, number> = {
   detected: 1,
   pending: 1,
@@ -299,13 +301,14 @@ export function TransactionsPage() {
     queryKey: ['transactions', 'list', tableQueryParams],
     queryFn: () => fetchTransactions(tableQueryParams),
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000,
+    refetchInterval: TRANSACTIONS_REFRESH_INTERVAL_MS,
   })
 
   const summaryQuery = useQuery({
     queryKey: ['transactions', 'summary', kpiQueryParams],
     queryFn: () => fetchTransactionSummary(kpiQueryParams),
     placeholderData: keepPreviousData,
+    refetchInterval: TRANSACTIONS_REFRESH_INTERVAL_MS,
   })
 
   const programsQuery = useQuery({

@@ -11,7 +11,10 @@ use Throwable;
 
 class IacrmSyncService
 {
-    public function __construct(private readonly IacrmConfigResolver $configResolver)
+    public function __construct(
+        private readonly IacrmConfigResolver $configResolver,
+        private readonly IacrmRequestLogger $requestLogger,
+    )
     {
     }
 
@@ -225,6 +228,7 @@ class IacrmSyncService
         $config = $this->configResolver->forBusiness($job?->business_id);
         $baseUrl = $config['base_url'];
         $apiKey = $config['api_key'];
+        $startedAt = microtime(true);
 
         if ($baseUrl === null || $apiKey === null) {
             throw new \RuntimeException('IACRM credentials are missing for this sync request.');
@@ -250,6 +254,8 @@ class IacrmSyncService
             };
 
             if ($response->failed()) {
+                $this->logSyncRequest($job, $method, $path, $data, $response, $startedAt);
+
                 Log::error("[IacrmSync] HTTP {$method} failed", [
                     'url'    => $url,
                     'status' => $response->status(),
@@ -261,10 +267,56 @@ class IacrmSyncService
                 );
             }
 
+            $this->logSyncRequest($job, $method, $path, $data, $response, $startedAt);
+
             return $response;
         } catch (Throwable $e) {
+            $this->logSyncException($job, $method, $path, $data, $e, $startedAt);
             throw $e;
         }
+    }
+
+    private function logSyncRequest(?SyncJob $job, string $method, string $path, array $data, Response $response, float $startedAt): void
+    {
+        if ($job === null) {
+            return;
+        }
+
+        $payload = $response->json();
+
+        $this->requestLogger->logSyncJob($job, [
+            'direction' => 'push',
+            'method' => $method,
+            'endpoint' => $path,
+            'status' => $response->successful() ? 'success' : 'failed',
+            'status_code' => $response->status(),
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'request_payload' => $data,
+            'response_payload' => is_array($payload) ? $payload : [
+                'body' => $response->body(),
+            ],
+            'requested_at' => now(),
+        ]);
+    }
+
+    private function logSyncException(?SyncJob $job, string $method, string $path, array $data, Throwable $exception, float $startedAt): void
+    {
+        if ($job === null) {
+            return;
+        }
+
+        $this->requestLogger->logSyncJob($job, [
+            'direction' => 'push',
+            'method' => $method,
+            'endpoint' => $path,
+            'status' => 'failed',
+            'status_code' => null,
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'request_payload' => $data,
+            'response_payload' => [],
+            'error_message' => $exception->getMessage(),
+            'requested_at' => now(),
+        ]);
     }
 
     private function fail(SyncJob $job, string $code, string $message, bool $dead = false): void

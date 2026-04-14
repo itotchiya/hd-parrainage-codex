@@ -6,6 +6,8 @@ import {
   fetchIacrmInvoiceSummary,
   fetchIacrmPipelineProspects,
   fetchIacrmPipelineStages,
+  fetchIacrmRequestLogs,
+  type IacrmRequestLogFilters,
   fetchIacrmPlatformBusinessClients,
   fetchIacrmPlatformBusinessPipelineProspects,
   fetchIacrmPlatformBusinessPipelineStages,
@@ -177,6 +179,19 @@ export function useIacrmInvoiceSummary() {
     queryKey: ['iacrm', 'invoices', 'summary'],
     queryFn: fetchIacrmInvoiceSummary,
     enabled: isConfigured(),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Operations logs
+// ---------------------------------------------------------------------------
+
+export function useIacrmRequestLogs(filters: IacrmRequestLogFilters) {
+  return useQuery({
+    queryKey: ['iacrm', 'request-logs', filters],
+    queryFn: () => fetchIacrmRequestLogs(filters),
+    enabled: isConfigured(),
+    refetchInterval: 15000,
   })
 }
 
